@@ -20,13 +20,14 @@ std::map<std::string, std::string> wifiData{
 
 char const *sensorID = "Wemos2";
 char  *timeserver = "pool.ntp.org";
-char const *timeseriesAddress = "xxx.ddnss.ch";
+char const *timeseriesAddress = "MyIPAddress";
+char const *port = "3004";
 
 unsigned long scanrate = 30000;
 unsigned long buffersize = 50;
 */
 
-CTimeseries timeseries = CTimeseries(timeseriesAddress);
+CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
 
 bool hasSensors = false;
 

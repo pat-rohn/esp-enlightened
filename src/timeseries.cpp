@@ -18,11 +18,12 @@ void CTimeseriesData::addValue(const double &value)
     }
 }
 
-CTimeseries::CTimeseries(const char *timeseriesAddress)
+CTimeseries::CTimeseries(const char *timeseriesAddress, const char * port)
 {
     m_ServerAddress = "http://";
     m_ServerAddress += timeseriesAddress;
-    m_ServerAddress += ":3004";
+    m_ServerAddress += ":";
+    m_ServerAddress += port;
 }
 
 void CTimeseries::addValue(const String &name, const double &value)

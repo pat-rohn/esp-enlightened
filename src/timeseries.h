@@ -31,7 +31,7 @@ class CTimeseries
 {
 
 public:
-    CTimeseries(const char *timeseriesAddress);
+    CTimeseries(const char *timeseriesAddress, const char * port);
 
 public:
     void addValue(const String &name, const double &value);
