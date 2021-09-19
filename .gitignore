@@ -8,5 +8,5 @@ configuration.h
 
 lib/*
 
-!include/README
-!lib/README
+!include/README*
+!lib/README*
