@@ -17,3 +17,6 @@ char const *timeseriesAddress = "<MybackendIpAddress.ch>";
 unsigned long scanrate = 30000;
 unsigned long buffersize = 50;
 ```
+
+## Example Wemos with DHT22
+![alt text](https://raw.githubusercontent.com/pat-rohn/wemos-d1-lite/main/wemosd1dht22.png)
