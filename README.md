@@ -4,7 +4,7 @@ Sensor data can be sent using http-request. A simple backend written in Go exist
 [go-iotserver](https://github.com/pat-rohn/go-iotedge)
 
 ## Get started:
-- Run commands described in README.md to get dependencies.
+- Run commands described in lib/README.md to get dependencies.
 - Create a file named "configuration.h" with following content
 
 ```
