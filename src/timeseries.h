@@ -22,7 +22,7 @@ public:
         m_Name = name;
     };
 
-    void addValue(const double &value);
+    void addValue(const double &value, String timestamp);
     std::vector<DataPoint> m_DataSeries;
     String m_Name;
 };
@@ -43,4 +43,6 @@ private:
 private:
     String m_ServerAddress;
     std::map<String, CTimeseriesData> m_Data;
+
+    CTimeHelper m_TimeHelper;
 };

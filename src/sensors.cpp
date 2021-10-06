@@ -11,19 +11,18 @@
 #include <Adafruit_BMP280.h>
 
 //#include <WEMOS_SHT3X.h>
-// uint8_t DHTPin = D2;
-uint8_t DHTPIN = 4;
+uint8_t DHTPIN = D3;
 #define DHTTYPE DHT22 //DHT11, DHT21, DHT22
 DHT dht(DHTPIN, DHTTYPE);
 
-std::map<String, SensorType> m_SensorTypes;
+std::vector<SensorType> m_SensorTypes;
 
 Adafruit_BME280 bme; // I2C
 
 Adafruit_CCS811 ccs;
 TwoWire MyWire = Wire;
 
-Adafruit_BMP280 bmp = Adafruit_BMP280(&MyWire); // external i2c
+Adafruit_BMP280 bmp = Adafruit_BMP280(&MyWire);
 Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
 Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 //SHT3X sht30(0x44);
@@ -32,40 +31,32 @@ Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 
 bool sensorsInit()
 {
-    Serial.println("Find and init sensors.");
-    //MyWire.begin();
+    Serial.println("Sensors init.");
+    m_SensorTypes.clear();
     pinMode(DHTPIN, INPUT);
 
     dht.begin();
     auto dhtData = getDHT22(true);
-    if (dhtData[1].isValid)
+    bool hasDHT = dhtData[1].isValid;
+    if (hasDHT)
     {
-        return true;
+        Serial.println("Has DHT sensor.");
+        m_SensorTypes.emplace_back(SensorType::dht22);
     }
-    MyWire.begin();
-
-    for (int i = 0; i < 120; i++)
+    findAndInitSensors();
+    if (m_SensorTypes.empty() || !hasDHT)
     {
-        MyWire.beginTransmission(i);
-        if (MyWire.endTransmission() == 0)
-        {
-            Serial.printf("%02X   |FIND", i);
-            Serial.println(".");
-        }
-    }
-    if (findAndInitSensors().empty())
-    {
-
-        MyWire.begin(32, 33);
+        //MyWire.begin(32, 33);
         Serial.println("Change Wire since nothing found.");
 
-        return (!findAndInitSensors().empty());
+        return false;
     }
-    return false;
+    return true;
 }
 
-std::map<String, SensorType> findAndInitSensors()
+std::vector<SensorType> findAndInitSensors()
 {
+    Serial.println("Find and init i2c sensors");
     byte count = 0;
     MyWire.begin();
     for (byte i = 8; i < 120; i++)
@@ -77,9 +68,9 @@ std::map<String, SensorType> findAndInitSensors()
             Serial.print(i, DEC);
             Serial.print(" (0x");
             Serial.print(i, HEX);
-            Serial.println(")");
+            Serial.print(")");
             count++;
-            delay(1);
+            delay(0.1);
             initSensor(i);
         }
     }
@@ -92,11 +83,25 @@ std::map<String, SensorData> getValues()
 {
     std::map<String, SensorData> res;
 
-    for (const auto &val : getDHT22())
+    if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::dht22) != m_SensorTypes.end())
     {
-        if (val.isValid)
+        for (const auto &val : getDHT22())
         {
-            res[val.name] = val;
+            if (val.isValid)
+            {
+                res[val.name] = val;
+            }
+        }
+    }
+
+    if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::cjmcu) != m_SensorTypes.end())
+    {
+        for (const auto &val : getCjmcu())
+        {
+            if (val.isValid)
+            {
+                res[val.name] = val;
+            }
         }
     }
 
@@ -126,17 +131,29 @@ std::array<SensorData, 3> getBME280()
     return res;
 }
 
-std::array<SensorData, 3> getjmcu()
+std::array<SensorData, 3> getCjmcu()
 {
     std::array<SensorData, 3> sensorData;
     sensorData.fill(SensorData());
 
     if (ccs.available())
     {
-        float temp = ccs.calculateTemperature();
-        if (!ccs.readData())
+        while (!ccs.available())
         {
-
+            delay(0.1);
+        }
+        auto res = ccs.readData();
+        for (int i = 0; i < 5; i++)
+        {
+            if (res == 0)
+            {
+                break;
+            }
+            res = ccs.readData();
+            delay(0.3);
+        }
+        if (!res)
+        {
             sensorData[0].isValid = true;
             sensorData[0].value = ccs.geteCO2();
             sensorData[0].unit = "ppm";
@@ -148,16 +165,13 @@ std::array<SensorData, 3> getjmcu()
             sensorData[1].name = "TVOC";
 
             Serial.print("CO2: ");
-            Serial.print(ccs.geteCO2());
-            Serial.print("\nppm, TVOC: ");
-            Serial.print(ccs.getTVOC());
-            Serial.print("\nppb Temp:");
-            Serial.println(temp);
+            Serial.println(sensorData[0].value);
+            Serial.print("TVOC: ");
+            Serial.println(sensorData[1].value);
         }
         else
         {
-            Serial.println("jmcu ERROR!");
-
+            Serial.println("cjmcu ERROR");
             return sensorData;
         }
     }
@@ -269,10 +283,11 @@ std::array<SensorData, 3> getEnv()
     return sensorData;
 }
 
-void initSensor(uint address)
+void initSensor(uint8_t address)
 {
-    Serial.print("Init Sensor: 0x");
+    Serial.print("Init Sensor: ");
     Serial.println(address);
+    delay(1.0);
     if (address == 0x76)
     {
         unsigned status;
@@ -294,11 +309,11 @@ void initSensor(uint address)
                             Adafruit_BMP280::FILTER_X16,      /* Filtering. */
                             Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
             bmp_temp->printSensorDetails();
-            m_SensorTypes["bmp280"] = SensorType::bmp280;
+            m_SensorTypes.emplace_back(SensorType::bmp280);
         }
         else
         {
-            m_SensorTypes["bme280"] = SensorType::bme280;
+            m_SensorTypes.emplace_back(SensorType::bme280);
         }
     }
     else if (address == 0x5A)
@@ -310,18 +325,23 @@ void initSensor(uint address)
             return;
         }
 
-        m_SensorTypes["cjmcu"] = SensorType::cjmcu;
+        Serial.println("cjmcu: wait till available");
         //calibrate temperature sensor
         while (!ccs.available())
         {
+            delay(0.1);
         }
+        Serial.println("cjmcu: Calc temperature");
         float cTemp = ccs.calculateTemperature();
         ccs.setTempOffset(cTemp - 25.0);
+        getCjmcu();
+        Serial.println("cjmcu: Add to sensors");
+        m_SensorTypes.emplace_back(SensorType::cjmcu);
     }
     else if (address == 0x44)
     {
         Serial.println("Sensor SHT30.");
-        m_SensorTypes["sht30"] = SensorType::sht30;
+        m_SensorTypes.emplace_back(SensorType::sht30);
     }
     else if (address == 0x58)
     {

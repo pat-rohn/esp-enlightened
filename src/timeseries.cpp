@@ -7,23 +7,23 @@
 #include <ArduinoJson.h>
 #include "timeseries.h"
 
-CTimeHelper timeHelper = CTimeHelper();
 
-void CTimeseriesData::addValue(const double &value)
+
+void CTimeseriesData::addValue(const double &value, String timestamp)
 {
-    String timestamp = timeHelper.getTimestampESP8266();
     if (!timestamp.isEmpty())
     {
-        m_DataSeries.emplace_back(DataPoint(timeHelper.getTimestampESP8266(), value));
+        m_DataSeries.emplace_back(DataPoint(timestamp, value));
     }
 }
 
-CTimeseries::CTimeseries(const char *timeseriesAddress, const char * port)
+CTimeseries::CTimeseries(const char *timeseriesAddress, const char *port)
 {
     m_ServerAddress = "http://";
     m_ServerAddress += timeseriesAddress;
     m_ServerAddress += ":";
     m_ServerAddress += port;
+    m_TimeHelper = CTimeHelper();
 }
 
 void CTimeseries::addValue(const String &name, const double &value)
@@ -32,7 +32,7 @@ void CTimeseries::addValue(const String &name, const double &value)
     {
         m_Data.insert(std::pair<String, CTimeseriesData>(name, CTimeseriesData(name)));
     }
-    m_Data.at(name).addValue(value);
+    m_Data.at(name).addValue(value, m_TimeHelper.getTimestamp());
 }
 
 bool CTimeseries::sendData()

@@ -19,7 +19,6 @@ std::map<std::string, std::string> wifiData{
 };
 
 char const *sensorID = "Wemos2";
-char  *timeserver = "pool.ntp.org";
 char const *timeseriesAddress = "MyIPAddress";
 char const *port = "3004";
 

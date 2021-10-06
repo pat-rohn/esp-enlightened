@@ -2,7 +2,7 @@
 
 WiFiUDP ntpUDP;
 
-CTimeHelper::CTimeHelper() : timeClient(NTPClient(ntpUDP))
+CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP)), m_IsTimeInitialized(false)
 {
     //initTime();
     //timeClient.begin();
@@ -12,26 +12,33 @@ CTimeHelper::CTimeHelper() : timeClient(NTPClient(ntpUDP))
 
 bool CTimeHelper::initTime()
 {
+    m_TimeClient.setUpdateInterval(120 * 1000);
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
     unsigned long endTime = millis() + 10000;
-    Serial.print("Synchronization");
-    timeClient.begin();
+    Serial.println("Synchronization...");
+    m_TimeClient.begin();
     while (millis() < endTime)
     {
         Serial.print(" .. ");
-        if (timeClient.forceUpdate())
+        if (m_TimeClient.forceUpdate())
         {
             Serial.print("Success");
-            break;
+            return true;
         }
         delay(600);
     }
 
     Serial.println("");
-    return timeClient.update();
+    return m_TimeClient.update();
 }
 
 String CTimeHelper::getTimestamp()
 {
+    if (!m_IsTimeInitialized)
+    {
+        m_IsTimeInitialized = initTime();
+        return getTimestamp();
+    }
     time_t now;
     char strftime_buf[64];
     struct tm timeinfo;
@@ -53,30 +60,6 @@ String CTimeHelper::getTimestamp()
     return timestamp;
 }
 
-String CTimeHelper::getTimestampESP8266()
-{
-    timeClient.update();
-    if (timeClient.isTimeSet())
-    {
-        unsigned long epochTime = timeClient.getEpochTime();
-        struct tm *ptm = gmtime((time_t *)&epochTime);
-        String timestamp = "";
-        timestamp += ptm->tm_year + 1900;
-        timestamp += "-";
-        timestamp += fillUpZeros(ptm->tm_mon + 1);
-        timestamp += "-";
-        timestamp += fillUpZeros(ptm->tm_mday);
-        timestamp += "T";
-        timestamp += fillUpZeros(ptm->tm_hour);
-        timestamp += ":";
-        timestamp += fillUpZeros(ptm->tm_min);
-        timestamp += ":";
-        timestamp += fillUpZeros(ptm->tm_sec);
-        timestamp += ".0";
-        return timestamp;
-    }
-    return "";
-}
 
 String CTimeHelper::fillUpZeros(int number)
 {

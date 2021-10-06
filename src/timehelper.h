@@ -10,10 +10,10 @@ public:
     CTimeHelper();
     bool initTime();
     String getTimestamp();
-    String getTimestampESP8266();
 
     String fillUpZeros(int number);
 
 private:
-    NTPClient timeClient;
+    NTPClient m_TimeClient;
+    bool m_IsTimeInitialized;
 };

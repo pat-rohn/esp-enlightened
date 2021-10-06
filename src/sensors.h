@@ -26,10 +26,10 @@ enum class SensorType
 };
 
 bool sensorsInit();
-std::map<String, SensorType> findAndInitSensors();
+std::vector<SensorType> findAndInitSensors();
 std::map<String, SensorData> getValues();
 std::array<SensorData, 3> getBME280();
 std::array<SensorData, 3>  getCjmcu();
 std::array<SensorData, 3>  getDHT22(bool force = false);
 std::array<SensorData, 3>  getEnv();
-void initSensor(uint address);
+void initSensor(uint8_t address);
