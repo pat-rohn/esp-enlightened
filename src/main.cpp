@@ -170,7 +170,7 @@ void loop()
       counter = 0;
     }
   }
-  if (isAccessPoint)
+  if (isAccessPoint || !hasSensors)
   {
     listen();
     return;

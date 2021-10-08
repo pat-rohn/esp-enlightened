@@ -1,24 +1,19 @@
-
 #include "leds_service.h"
-#include <algorithm>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
 #include <string.h>
 #include <sstream>
-#include <JSON.h>
+#include <ArduinoJson.h>
 #include "ledstrip.h"
 
 WiFiServer server(80);
 String header;
 
-LedStrip ledStrip = LedStrip(D1);
+LedStrip ledStrip = LedStrip(D4);
 
-// Current time
 unsigned long currentTime = millis();
-// Previous time
 unsigned long previousTime = 0;
-// Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 2000;
 
 void beginPixels()
@@ -36,11 +31,7 @@ void listen()
 {
   ledStrip.runModeAction();
 
-  WiFiClient client = server.available(); // Listen for incoming clients
-
-  if (client)                               // print a message out in the serial port
-    WiFiClient client = server.available(); // Listen for incoming clients
-
+  WiFiClient client = server.available(); 
   if (client)
   { // If a new client connects,
     currentTime = millis();
@@ -73,35 +64,28 @@ void listen()
               }
               Serial.println(body);
               const char *json_string = body.c_str();
-              JSONValue *value = JSON::Parse(json_string);
-              if (value == nullptr)
+              DynamicJsonDocument doc(2000);
+              DeserializationError err = deserializeJson(doc, json_string);
+              if (err.code() != DeserializationError::Code::Ok)
               {
                 Serial.println("Failed to parse.");
               }
-              JSONObject root;
-              if (value->IsObject() == false)
-              {
-                Serial.println("The root element is not an object, did you change the example?");
-              }
               else
               {
-                root = value->AsObject();
-                if (root.find(L"play") != root.end() && root[L"play"]->IsNumber())
+                int mode = doc["play"];
+                if (mode == 1)
                 {
-                  Serial.println("Valid json");
-                  int mode = root[L"play"]->AsNumber();
-                  if (mode == 1)
-                  {
-                    Serial.println("mode 1");
-                    ledStrip.setMode(1);
-                  }
-                  else if (mode == 2)
-                  {
-                    Serial.println("mode 2");
-                    ledStrip.setMode(2);
-                  }
+                  Serial.println("mode 1");
+                  ledStrip.setMode(1);
+                }
+                else if (mode == 2)
+                {
+                  Serial.println("mode 2");
+                  ledStrip.setMode(2);
                 }
               }
+              doc.clear();
+              client.println(getHTTPOK().c_str());
             }
             else if (header.indexOf("POST /api/changecolor") >= 0)
             {
@@ -113,54 +97,47 @@ void listen()
                 body += c;
               }
               Serial.println(body);
+
               const char *json_string = body.c_str();
-              JSONValue *value = JSON::Parse(json_string);
-              if (value == nullptr)
+              DynamicJsonDocument doc(2000);
+              DeserializationError err = deserializeJson(doc, json_string);
+              if (err.code() != DeserializationError::Code::Ok)
               {
                 Serial.println("Failed to parse.");
               }
-              JSONObject root;
-              if (value->IsObject() == false)
-              {
-                Serial.println("The root element is not an object, did you change the example?\r\n");
-              }
               else
               {
-                root = value->AsObject();
-                if (root.find(L"color") != root.end() && root[L"color"]->IsString())
+                Serial.println("Valid json");
+                const char* colorC = doc["color"];
+                std::string color = std::string(colorC).c_str();
+                if (color.find("White") != std::string::npos)
                 {
-                  Serial.println("Valid json");
-                  std::wstring color = root[L"color"]->AsString();
-                  if (color.find(L"White") != std::wstring::npos)
-                  {
-                    ledStrip.m_LedColor = LedStrip::LEDColor::white;
-                  }
-                  else if (color.find(L"Red") != std::wstring::npos)
-                  {
-                    ledStrip.m_LedColor = LedStrip::LEDColor::red;
-                  }
-                  else if (color.find(L"Green") != std::wstring::npos)
-                  {
-                    ledStrip.m_LedColor = LedStrip::LEDColor::green;
-                  }
-                  else if (color.find(L"Blue") != std::wstring::npos)
-                  {
-                    ledStrip.m_LedColor = LedStrip::LEDColor::blue;
-                  }
-                  else
-                  {
-                    Serial.println("Color not found.");
-                    ledStrip.m_LedColor = LedStrip::LEDColor::white;
-                  }
-                  ledStrip.changeColor(false);
+                  ledStrip.m_LedColor = LedStrip::LEDColor::white;
                 }
-                client.println(getHTTPOK().c_str());
-                body = "";
-                break;
+                else if (color.find("Red") != std::string::npos)
+                {
+                  ledStrip.m_LedColor = LedStrip::LEDColor::red;
+                }
+                else if (color.find("Green") != std::string::npos)
+                {
+                  ledStrip.m_LedColor = LedStrip::LEDColor::green;
+                }
+                else if (color.find("Blue") != std::string::npos)
+                {
+                  ledStrip.m_LedColor = LedStrip::LEDColor::blue;
+                }
+                else
+                {
+                  Serial.println("Color not found.");
+                  ledStrip.m_LedColor = LedStrip::LEDColor::white;
+                }
+                ledStrip.changeColor(false);
               }
-              body = "";
 
+              doc.clear();
               client.println(getHTTPOK().c_str());
+              body = "";
+              break;
             }
             else if (header.indexOf("POST /api/factors") >= 0)
             {
@@ -172,38 +149,22 @@ void listen()
                 body += c;
               }
               Serial.println(body);
+
               const char *json_string = body.c_str();
-              JSONValue *value = JSON::Parse(json_string);
-              if (value == nullptr)
+              DynamicJsonDocument doc(2000);
+              DeserializationError err = deserializeJson(doc, json_string);
+              if (err.code() != DeserializationError::Code::Ok)
               {
                 Serial.println("Failed to parse.");
               }
-              JSONObject root;
-              if (value->IsObject() == false)
-              {
-                Serial.println("The root element is not an object, did you change the example?\r\n");
-              }
               else
               {
-                root = value->AsObject();
                 double factorRed = 0.0;
                 double factorGreen = 0.0;
                 double factorBlue = 0.0;
-                if (root.find(L"Red") != root.end() && root[L"Red"]->IsNumber())
-                {
-                  Serial.println("Valid json");
-                  factorRed = root[L"Red"]->AsNumber();
-                }
-                if (root.find(L"Green") != root.end() && root[L"Green"]->IsNumber())
-                {
-                  Serial.println("Valid json");
-                  factorGreen = root[L"Green"]->AsNumber();
-                }
-                if (root.find(L"Blue") != root.end() && root[L"Blue"]->IsNumber())
-                {
-                  Serial.println("Valid json");
-                  factorBlue = root[L"Blue"]->AsNumber();
-                }
+                factorRed = doc["Red"];
+                factorGreen = doc["Green"];
+                factorBlue = doc["Blue"];
                 ledStrip.setColor(factorRed, factorGreen, factorBlue);
                 client.println(getHTTPOK().c_str());
                 body = "";
@@ -211,6 +172,7 @@ void listen()
               }
               body = "";
 
+              doc.clear();
               client.println(getHTTPOK().c_str());
             }
             else if (header.indexOf("POST /api/factor") >= 0)
@@ -224,27 +186,20 @@ void listen()
               }
               Serial.println(body);
               const char *json_string = body.c_str();
-              JSONValue *value = JSON::Parse(json_string);
-              if (value == nullptr)
+              DynamicJsonDocument doc(2000);
+              DeserializationError err = deserializeJson(doc, json_string);
+              if (err.code() != DeserializationError::Code::Ok)
               {
                 Serial.println("Failed to parse.");
               }
-              JSONObject root;
-              if (value->IsObject() == false)
-              {
-                Serial.println("The root element is not an object, did you change the example?\r\n");
-              }
               else
               {
-                root = value->AsObject();
-                if (root.find(L"factor") != root.end() && root[L"factor"]->IsNumber())
-                {
-                  ledStrip.m_Factor = root[L"factor"]->AsNumber();
-                  ledStrip.updateLEDs(true);
-                }
+                ledStrip.m_Factor = doc["factor"];
+                ledStrip.updateLEDs(true);
               }
               client.println(getHTTPOK().c_str());
               body = "";
+              doc.clear();
               break;
             }
             else if (header.indexOf("GET /api/get") >= 0)
@@ -334,33 +289,28 @@ String getHomepage()
 
   // Web Page Heading
   str << "<body><h1>Caromio</h1>" << std::endl;
-  if (header.indexOf("GET /off") >= 0)
+  if (header.indexOf("GET /colorchange") >= 0)
+  {
+    ledStrip.changeColor();
+  }
+  else if (header.indexOf("GET /low") >= 0)
+  {
+    Serial.println("low");
+    ledStrip.m_Factor -= 0.05;
+    ledStrip.updateLEDs();
+  }
+
+  else if (header.indexOf("GET /bright") >= 0)
+  {
+    Serial.println("bright");
+    ledStrip.m_Factor += 0.05;
+    ledStrip.updateLEDs();
+  }
+  else if (header.indexOf("GET /off") >= 0)
   {
     Serial.println("off");
     ledStrip.m_LedColor = LedStrip::LEDColor::off;
     ledStrip.updateLEDs();
-  }
-  else
-  {
-    ledStrip.m_LedColor = LedStrip::LEDColor::white;
-
-    if (header.indexOf("GET /colorchange") >= 0)
-    {
-      ledStrip.changeColor();
-    }
-    else if (header.indexOf("GET /low") >= 0)
-    {
-      Serial.println("low");
-      ledStrip.m_Factor -= 0.05;
-      ledStrip.updateLEDs();
-    }
-
-    else if (header.indexOf("GET /bright") >= 0)
-    {
-      Serial.println("bright");
-      ledStrip.m_Factor += 0.05;
-      ledStrip.updateLEDs();
-    }
   }
 
   str << "<p><a href=\"/low\"><button class=\"button\">Low</button></a></p>" << std::endl;
