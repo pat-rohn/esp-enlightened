@@ -19,7 +19,7 @@ const long timeoutTime = 2000;
 void beginPixels()
 {
   ledStrip.beginPixels();
-  ledStrip.updateLEDs();
+  ledStrip.apply();
 }
 
 void beginServer()
@@ -172,15 +172,7 @@ void listen()
               Serial.println(str.str().c_str());
               break;
             }
-            else if (header.indexOf("GET /api/off") >= 0)
-            {
-              ledStrip.m_LEDMode = LedStrip::LEDModes::off;
-              client.println(getHTTPOK().c_str());
-              ledStrip.m_CurrentColorStr = "Off";
-              ledStrip.updateLEDs(true);
-
-              break;
-            }
+          
             else
             {
               String homepage = getHomepage();
@@ -254,26 +246,28 @@ String getHomepage()
   str << "<body><h1>Caromio</h1>" << std::endl;
   if (header.indexOf("GET /colorchange") >= 0)
   {
-    ledStrip.changeColor();
+    ledStrip.m_LEDMode = LedStrip::LEDModes::autochange;
   }
   else if (header.indexOf("GET /low") >= 0)
   {
     Serial.println("low");
     ledStrip.m_Factor -= 0.05;
-    ledStrip.updateLEDs();
+    ledStrip.m_LEDMode = LedStrip::LEDModes::on;
+    ledStrip.apply();
   }
 
   else if (header.indexOf("GET /bright") >= 0)
   {
     Serial.println("bright");
     ledStrip.m_Factor += 0.05;
-    ledStrip.updateLEDs();
+    ledStrip.m_LEDMode = LedStrip::LEDModes::on;
+    ledStrip.apply();
   }
   else if (header.indexOf("GET /off") >= 0)
   {
     Serial.println("off");
     ledStrip.m_LEDMode = LedStrip::LEDModes::off;
-    ledStrip.updateLEDs();
+    ledStrip.apply();
   }
 
   str << "<p><a href=\"/low\"><button class=\"button\">Low</button></a></p>" << std::endl;

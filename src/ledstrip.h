@@ -55,7 +55,6 @@ public:
     LedStrip(uint8_t pin);
     void beginPixels();
     void apply();
-    void updateLEDs(bool doImmediate = false);
     void changeColor(bool autoChange = true);
     void fancy();
     void showError();
@@ -65,6 +64,7 @@ public:
     std::array<uint8_t, 3> getColor();
 
 private:
+    void updateLEDs(bool doImmediate = false);
     void colorfulMode();
     void campfireMode();
     void showPixels(std::array<uint8_t, NUMPIXELS> pRed, std::array<uint8_t, NUMPIXELS> pGreen, std::array<uint8_t, NUMPIXELS> pBlue);
