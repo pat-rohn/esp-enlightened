@@ -8,12 +8,12 @@ Sensor data can be sent using http-request. A simple backend written in Go exist
 - Create a file named "configuration.h" with following content
 
 ```
+#include <string>
 std::map<std::string, std::string> wifiData{
     {"MyWiFi", "X"},
 };
 char const *sensorID = "Wemos2";
-char  *timeserver = "pool.ntp.org";
-char const *timeseriesAddress = "<MybackendIpAddress.ch>";
+char const *timeseriesAddress = "<MybackendIpAddress>";
 unsigned long scanrate = 30000;
 unsigned long buffersize = 50;
 ```
