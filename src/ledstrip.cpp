@@ -23,18 +23,32 @@ void LedStrip::beginPixels()
     m_Pixels.begin();
 }
 
+void LedStrip::apply()
+{
+    if (m_LEDMode == LEDModes::autochange)
+    {
+        changeColor(true);
+    }
+    else
+    {
+        m_LedColor = LEDColor::white;
+
+        if (m_LEDMode != LEDModes::on)
+        {
+            Serial.println("Turn Leds Off.");
+            m_Pixels.clear();
+            m_Pixels.show();
+            return;
+        }
+    }
+
+    updateLEDs(true);
+}
+
 void LedStrip::updateLEDs(bool doImmediate)
 {
     Serial.print(" .");
     m_Pixels.clear();
-
-    if (m_LedColor == LEDColor::off)
-    {
-        Serial.println("Turn Leds Off.");
-        m_Pixels.clear();
-        m_Pixels.show();
-        return;
-    }
 
     bool isOdd = false;
     for (int i = 0; i < NUMPIXELS; i++)
@@ -114,9 +128,6 @@ void LedStrip::changeColor(bool autoChange)
         m_CurrentColor[1] = 100;
         m_CurrentColor[2] = 100;
         break;
-    case LEDColor::off:
-        m_CurrentColorStr = "Off";
-        break;
     default:
         break;
     }
@@ -160,33 +171,20 @@ void LedStrip::showError()
     updateLEDs();
 }
 
-void LedStrip::setMode(int program)
-{
-    if (program == 1)
-    {
-        m_PlaygroundMode = PlayGroundMode::colorful;
-    }
-    else if (program == 2)
-    {
-        m_PlaygroundMode = PlayGroundMode::campfire;
-    }
-}
-
 void LedStrip::runModeAction()
 {
-    switch (m_PlaygroundMode)
+    switch (m_LEDMode)
     {
-    case PlayGroundMode::colorful:
+    case LEDModes::colorful:
         colorfulMode();
         break;
-    case PlayGroundMode::campfire:
+    case LEDModes::campfire:
         campfireMode();
         break;
     default:
         break;
     }
 }
-
 void LedStrip::colorfulMode()
 {
     const double maxBrightness = 4.0;

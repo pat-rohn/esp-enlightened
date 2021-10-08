@@ -9,8 +9,8 @@ void listen();
 
 String getHomepage();
 
-
 String getHTTPOK();
+String getHTTPNotOK();
 
 void fancy();
 

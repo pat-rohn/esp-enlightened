@@ -13,14 +13,15 @@ public:
         red = 1,
         green = 2,
         blue = 3,
-        off = 4,
     };
 
-    enum class PlayGroundMode
+    enum class LEDModes
     {
-        none = 0,
-        campfire = 1,
-        colorful = 2,
+        on = 0,
+        off = 1,
+        campfire = 2,
+        colorful = 3,
+        autochange = 4,
     };
 
 private:
@@ -53,11 +54,11 @@ private:
 public:
     LedStrip(uint8_t pin);
     void beginPixels();
+    void apply();
     void updateLEDs(bool doImmediate = false);
     void changeColor(bool autoChange = true);
     void fancy();
     void showError();
-    void setMode(int program);
     void runModeAction();
 
     void setColor(double red, double green, double blue);
@@ -71,7 +72,7 @@ private:
 public:
     Adafruit_NeoPixel m_Pixels;
     LEDColor m_LedColor = LEDColor::white;
-    PlayGroundMode m_PlaygroundMode = PlayGroundMode::none;
+    LEDModes m_LEDMode = LEDModes::on;
     double m_Factor;
     String m_CurrentColorStr;
 
