@@ -108,6 +108,7 @@ void setup()
     beginServer();
     digitalWrite(LED_BUILTIN, 0x1);
     fancy();
+    return;
   }
   else
   {
@@ -116,25 +117,24 @@ void setup()
     {
       showError();
       Serial.println("STA Failed to configure");
+      setup();
     }
-    else
+    Serial.print("Has access point:");
+    Serial.println(WiFi.localIP());
+    isAccessPoint = true;
+    if (!WiFi.mode(WIFI_AP))
     {
-      Serial.print("Has access point:");
-      Serial.println(WiFi.localIP());
-      isAccessPoint = true;
-      if (!WiFi.mode(WIFI_AP))
-      {
-        Serial.print("mode failed.");
-      }
-      if (!WiFi.softAP(ssidAP, passwordAP))
-      {
-        Serial.print("softAP failed.");
-      }
-
-      beginServer();
+      Serial.print("mode failed.");
     }
-    return;
+    if (!WiFi.softAP(ssidAP, passwordAP))
+    {
+      Serial.print("softAP failed.");
+    }
   }
+  beginPixels();
+  beginServer();
+  digitalWrite(LED_BUILTIN, 0x1);
+  fancy();
 }
 
 unsigned long lastUpdate = millis();
