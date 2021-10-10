@@ -247,6 +247,7 @@ String getHomepage()
   if (header.indexOf("GET /colorchange") >= 0)
   {
     ledStrip.m_LEDMode = LedStrip::LEDModes::autochange;
+    ledStrip.apply();
   }
   else if (header.indexOf("GET /low") >= 0)
   {
