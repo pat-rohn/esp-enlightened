@@ -71,7 +71,7 @@ std::vector<SensorType> findAndInitSensors()
             Serial.print(")");
             count++;
             delay(0.1);
-            initSensor(i);
+            initI2CSensor(i);
         }
     }
 
@@ -283,7 +283,7 @@ std::array<SensorData, 3> getEnv()
     return sensorData;
 }
 
-void initSensor(uint8_t address)
+void initI2CSensor(uint8_t address)
 {
     Serial.print("Init Sensor: ");
     Serial.println(address);
