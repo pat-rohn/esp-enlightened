@@ -11,9 +11,6 @@
 #include <Adafruit_BMP280.h>
 
 //#include <WEMOS_SHT3X.h>
-uint8_t DHTPIN = D3;
-#define DHTTYPE DHT22 //DHT11, DHT21, DHT22
-DHT dht(DHTPIN, DHTTYPE);
 
 std::vector<SensorType> m_SensorTypes;
 
@@ -26,25 +23,23 @@ Adafruit_BMP280 bmp = Adafruit_BMP280(&MyWire);
 Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
 Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 //SHT3X sht30(0x44);
+DHTSensor *dhtSensor;
 
 //Adafruit_SGP30 sgp;
 
-bool sensorsInit()
+bool sensorsInit(uint8_t dhtPin)
 {
     Serial.println("Sensors init.");
     m_SensorTypes.clear();
-    pinMode(DHTPIN, INPUT);
+    dhtSensor = new DHTSensor(dhtPin);
 
-    dht.begin();
-    auto dhtData = getDHT22(true);
-    bool hasDHT = dhtData[1].isValid;
+    bool hasDHT = dhtSensor->init();
     if (hasDHT)
     {
-        Serial.println("Has DHT sensor.");
         m_SensorTypes.emplace_back(SensorType::dht22);
     }
     findAndInitSensors();
-    if (m_SensorTypes.empty() || !hasDHT)
+    if (m_SensorTypes.empty() && !hasDHT)
     {
         //MyWire.begin(32, 33);
         Serial.println("Change Wire since nothing found.");
@@ -54,7 +49,7 @@ bool sensorsInit()
     return true;
 }
 
-std::vector<SensorType> findAndInitSensors()
+void findAndInitSensors()
 {
     Serial.println("Find and init i2c sensors");
     byte count = 0;
@@ -76,7 +71,6 @@ std::vector<SensorType> findAndInitSensors()
     }
 
     Serial.println();
-    return m_SensorTypes;
 }
 
 std::map<String, SensorData> getValues()
@@ -104,13 +98,71 @@ std::map<String, SensorData> getValues()
             }
         }
     }
+    if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::bme280) != m_SensorTypes.end())
+    {
+        for (const auto &val : getBME280())
+        {
+            if (val.isValid)
+            {
+                res[val.name] = val;
+            }
+        }
+    }
+    if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::bmp280) != m_SensorTypes.end())
+    {
+        for (const auto &val : getEnv())
+        {
+            if (val.isValid)
+            {
+                res[val.name] = val;
+            }
+        }
+    }
 
     return res;
 }
 
+std::array<SensorData, 3> getDHT22()
+{
+    std::array<SensorData, 3> sensorData;
+    sensorData.fill(SensorData());
+    std::pair<float, float> values = dhtSensor->read();
+
+    if (!isnan(values.first))
+    {
+        sensorData[0].isValid = true;
+        sensorData[0].value = values.first;
+        sensorData[0].unit = "*C";
+        sensorData[0].name = "Temperature";
+        Serial.print(sensorData[0].name);
+        Serial.print(": ");
+        Serial.print(sensorData[0].value);
+        Serial.println(sensorData[0].unit);
+    }
+    else
+    {
+        Serial.print("DHT no valid result:");
+        Serial.println(values.first);
+    }
+    if (!isnan(values.second))
+    {
+        sensorData[1].isValid = true;
+        sensorData[1].value = values.second;
+        sensorData[1].unit = "%";
+        sensorData[1].name = "Humidity";
+
+        Serial.print(sensorData[1].name);
+        Serial.print(": ");
+        Serial.print(sensorData[1].value);
+        Serial.println(sensorData[1].unit);
+    }
+
+    return sensorData;
+}
+
 std::array<SensorData, 3> getBME280()
 {
-    std::array<SensorData, 3> res;
+    std::array<SensorData, 3> sensorData;
     float temperature = bme.readTemperature();
     float pressure = bme.readPressure();
     float humidity = bme.readHumidity();
@@ -118,17 +170,30 @@ std::array<SensorData, 3> getBME280()
     if (isnan(temperature) || isnan(pressure) || isnan(humidity))
     {
         Serial.println("BME280 konnte nicht ausgelesen werden");
-        //delay(10000);
-        return res;
+        return sensorData;
     }
 
     if (pressure < 100)
     {
         Serial.println("No BME Connection");
-        delay(10000);
-        return res;
+        return sensorData;
     }
-    return res;
+    sensorData[0].isValid = true;
+    sensorData[0].value = temperature;
+    sensorData[0].unit = "*C";
+    sensorData[0].name = "Temperature";
+
+    sensorData[1].isValid = true;
+    sensorData[1].value = pressure;
+    sensorData[1].unit = "mbar";
+    sensorData[1].name = "Pressure";
+
+    sensorData[2].isValid = true;
+    sensorData[2].value = humidity;
+    sensorData[2].unit = "%";
+    sensorData[2].name = "Humidity";
+
+    return sensorData;
 }
 
 std::array<SensorData, 3> getCjmcu()
@@ -175,45 +240,6 @@ std::array<SensorData, 3> getCjmcu()
             return sensorData;
         }
     }
-    return sensorData;
-}
-
-std::array<SensorData, 3> getDHT22(bool force /*= false*/)
-{
-    std::array<SensorData, 3> sensorData;
-    sensorData.fill(SensorData());
-
-    float h = dht.readHumidity(force);
-    float t = dht.readTemperature(false, force);
-    if (!isnan(t))
-    {
-        sensorData[0].isValid = true;
-        sensorData[0].value = t;
-        sensorData[0].unit = "*C";
-        sensorData[0].name = "Temperature";
-        Serial.print(sensorData[0].name);
-        Serial.print(": ");
-        Serial.print(sensorData[0].value);
-        Serial.println(sensorData[0].unit);
-    }
-    else
-    {
-        Serial.print("DHT no valid result:");
-        Serial.println(t);
-    }
-    if (!isnan(h))
-    {
-        sensorData[1].isValid = true;
-        sensorData[1].value = h;
-        sensorData[1].unit = "%";
-        sensorData[1].name = "Humidity";
-
-        Serial.print(sensorData[1].name);
-        Serial.print(": ");
-        Serial.print(sensorData[1].value);
-        Serial.println(sensorData[1].unit);
-    }
-
     return sensorData;
 }
 

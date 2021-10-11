@@ -104,7 +104,7 @@ void setup()
 
   if (connectToWiFi())
   {
-    if (sensorsInit())
+    if (sensorsInit(DHT_PIN))
     {
       hasSensors = true;
       return;
