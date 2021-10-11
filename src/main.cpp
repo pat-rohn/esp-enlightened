@@ -88,11 +88,17 @@ bool connectToWiFi()
   return false;
 }
 
+void startLedControl()
+{
+  LEDService::beginPixels();
+  LEDService::beginServer();
+  LEDService::fancy();
+}
+
 void setup()
 {
   Serial.begin(115200);
-  delay(500);
-  Serial.println("begin");
+  Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
 
@@ -103,11 +109,8 @@ void setup()
       hasSensors = true;
       return;
     }
-
-    beginPixels();
-    beginServer();
-    digitalWrite(LED_BUILTIN, 0x1);
-    fancy();
+    hasSensors = false;
+    startLedControl();
     return;
   }
   else
@@ -115,7 +118,7 @@ void setup()
     WiFi.disconnect();
     if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
     {
-      showError();
+      LEDService::showError();
       Serial.println("STA Failed to configure");
       setup();
     }
@@ -131,22 +134,17 @@ void setup()
       Serial.print("softAP failed.");
     }
   }
-  beginPixels();
-  beginServer();
-  digitalWrite(LED_BUILTIN, 0x1);
-  fancy();
+  startLedControl();
 }
 
 unsigned long lastUpdate = millis();
 unsigned long counter = 0;
 
-void loop()
+void measureAndSendSensorData()
 {
-  unsigned long currentTime = millis();
-  if (hasSensors && currentTime > lastUpdate + scanrate)
+  if (millis() > lastUpdate + scanrate)
   {
     lastUpdate = millis();
-
     auto values = getValues();
     std::vector<String> valueNames;
     std::vector<float> tsValues;
@@ -166,36 +164,28 @@ void loop()
     counter++;
     if (counter > buffersize)
     {
+      if (WiFi.status() != WL_CONNECTED)
+      {
+        if (!connectToWiFi())
+        {
+          Serial.println("No WiFi Connection");
+          return;
+        }
+      }
+      digitalWrite(LED_BUILTIN, 0x0); // to check
       timeseries.sendData();
       counter = 0;
+      digitalWrite(LED_BUILTIN, 0x1);
     }
   }
+}
+
+void loop()
+{
   if (isAccessPoint || !hasSensors)
-  {
-    listen();
+  { // is LED control
+    LEDService::listen();
     return;
   }
-
-  if (millis() - target_time <= SENSOR_SCANRATE)
-  {
-    return;
-  }
-
-  target_time += SENSOR_SCANRATE;
-  digitalWrite(LED_BUILTIN, 0x1);
-  if (isAccessPoint)
-  {
-    return;
-  }
-  delay(150);
-  if (WiFi.status() != WL_CONNECTED)
-  {
-    if (!connectToWiFi())
-    {
-      Serial.println("No WiFi Connection");
-      return;
-    }
-  }
-
-  digitalWrite(LED_BUILTIN, 0x0);
+  measureAndSendSensorData();
 }
