@@ -47,60 +47,8 @@ void CLEDService::listen()
         {
           if (currentLine.length() == 0)
           {
-            if (header.indexOf("POST /api/changecolor") >= 0)
-            {
-              Serial.println("POST changecolor");
-              m_LedStrip.m_LEDMode = LedStrip::LEDModes::on;
-              while (client.available())
-              {
-                char c = client.read();
-                body += c;
-              }
-              Serial.println(body);
-              DynamicJsonDocument doc(1024);
-              DeserializationError err = deserializeJson(doc, body);
-              if (err.code() != DeserializationError::Code::Ok)
-              {
-                Serial.print("Failed to parse: ");
-                Serial.println(err.code());
-                doc.clear();
-              }
-              else
-              {
-                Serial.println("Valid json");
-                String color = doc["Color"];
-                Serial.println(color);
-
-                if (color.equalsIgnoreCase("White"))
-                {
-                  m_LedStrip.m_LedColor = LedStrip::LEDColor::white;
-                }
-                else if (color.equalsIgnoreCase("Red"))
-                {
-                  m_LedStrip.m_LedColor = LedStrip::LEDColor::red;
-                }
-                else if (color.equalsIgnoreCase("Green"))
-                {
-                  m_LedStrip.m_LedColor = LedStrip::LEDColor::green;
-                }
-                else if (color.equalsIgnoreCase("Blue"))
-                {
-                  m_LedStrip.m_LedColor = LedStrip::LEDColor::blue;
-                }
-                else
-                {
-                  Serial.println("Color not found.");
-                  m_LedStrip.m_LedColor = LedStrip::LEDColor::white;
-                }
-                m_LedStrip.changeColor(false);
-              }
-
-              doc.clear();
-              client.println(getHTTPOK().c_str());
-              body = "";
-              break;
-            }
-            else if (header.indexOf("POST /api/apply") >= 0)
+            
+            if (header.indexOf("POST /api/apply") >= 0)
             {
               Serial.println("POST Apply");
               unsigned long endTime = millis() + 100;
@@ -121,7 +69,18 @@ void CLEDService::listen()
                 Serial.print("Input was: ");
                 Serial.println(body);
                 doc.clear();
-                client.println(getHTTPNotOK().c_str());
+                client.println(getHTTPOK().c_str());
+                std::stringstream str;
+                std::array<uint8_t, 3> color = m_LedStrip.getColor();
+                str << R"({"Red":)" << int(color[0])
+                    << R"( ,"Green": )" << int(color[1])
+                    << R"( ,"Blue": )" << int(color[2])
+                    << R"( ,"Brightness": )" << int(m_LedStrip.m_Factor * 100.0)
+                    << R"( ,"Mode": )" << int(m_LedStrip.m_LEDMode)
+                    << R"( ,"Message": "Failed to parse: )" << err.code() << R"( ")"
+                    << R"( })" << std::endl;
+                client.println(str.str().c_str());
+                body = "";
               }
               else
               {
@@ -134,6 +93,7 @@ void CLEDService::listen()
                 double factorRed = doc["Red"];
                 double factorGreen = doc["Green"];
                 double factorBlue = doc["Blue"];
+                String message = doc["Message"];
                 m_LedStrip.setColor(factorRed, factorGreen, factorBlue);
                 m_LedStrip.apply();
                 client.println(getHTTPOK().c_str());
@@ -144,17 +104,18 @@ void CLEDService::listen()
                     << R"( ,"Blue": )" << int(color[2])
                     << R"( ,"Brightness": )" << int(m_LedStrip.m_Factor * 100.0)
                     << R"( ,"Mode": )" << int(m_LedStrip.m_LEDMode)
+                    << R"( ,"Message": "Success - )" << message.c_str() << R"( ")"
                     << R"( })" << std::endl;
                 client.println(str.str().c_str());
                 Serial.println(str.str().c_str());
                 body = "";
                 doc.clear();
-                client.println(getHTTPOK().c_str());
               }
-              body = "";
+                break;
             }
             else if (header.indexOf("GET /api/get") >= 0)
             {
+              Serial.println("GET api");
               client.println(getHTTPOK().c_str());
               std::stringstream str;
               std::array<uint8_t, 3> color = m_LedStrip.getColor();
@@ -163,6 +124,7 @@ void CLEDService::listen()
                   << R"( ,"Blue": )" << int(color[2])
                   << R"( ,"Brightness": )" << int(m_LedStrip.m_Factor * 100)
                   << R"( ,"Mode": )" << int(m_LedStrip.m_LEDMode)
+                    << R"( ,"Message": "Success")"
                   << R"( })" << std::endl;
               client.println(str.str().c_str());
               Serial.println(str.str().c_str());
