@@ -48,26 +48,17 @@ void LedStrip::apply()
 
 void LedStrip::updateLEDs(bool doImmediate)
 {
-    Serial.print(" .");
+    
     m_Pixels.clear();
 
-    bool isOdd = false;
     for (int i = 0; i < NUMPIXELS; i++)
     {
-        if (isOdd)
-        {
-            m_Pixels.setPixelColor(i, m_Pixels.Color(m_CurrentColor[0] * m_Factor, m_CurrentColor[1] * m_Factor, m_CurrentColor[2] * m_Factor));
-            isOdd = false;
-        }
-        else
-        {
-            m_Pixels.setPixelColor(i, m_Pixels.Color(100 * m_Factor, 100 * m_Factor, 100 * m_Factor));
-            isOdd = true;
-        }
+        m_Pixels.setPixelColor(i, m_Pixels.Color(m_CurrentColor[0] * m_Factor, m_CurrentColor[1] * m_Factor, m_CurrentColor[2] * m_Factor));
         if (!doImmediate)
         {
             m_Pixels.show();
             delay(25);
+            Serial.print(" .");
         }
     }
     if (doImmediate)
