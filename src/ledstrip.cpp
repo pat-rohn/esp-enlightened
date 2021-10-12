@@ -11,8 +11,8 @@ LedStrip::LedStrip(uint8_t pin) : m_Pixels(NUMPIXELS, pin, NEO_GRB + NEO_KHZ800)
     m_NextLEDActionTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 100, 100};
     m_Factor = 0.7;
-    m_CurrentColorStr = "White";
     m_LEDMode = LEDModes::on;
+    m_LedColor = LEDColor::white;
 }
 
 void LedStrip::beginPixels()
@@ -48,7 +48,7 @@ void LedStrip::apply()
 
 void LedStrip::updateLEDs(bool doImmediate)
 {
-    
+
     m_Pixels.clear();
 
     for (int i = 0; i < NUMPIXELS; i++)
@@ -77,45 +77,33 @@ void LedStrip::changeColor(bool autoChange)
         updateLEDs(true);
         delay(delayTime);
     }
-    Serial.println("color");
+    Serial.print("color:");
+    Serial.println((int)m_LedColor);
+    int nextColor = (int)m_LedColor + 1;
+    if (nextColor > 3)
+    {
+        nextColor = 0;
+    }
+    m_LedColor = LEDColor(nextColor);
     switch (m_LedColor)
     {
     case LEDColor::red:
-        if (autoChange)
-        {
-            m_LedColor = LEDColor::green;
-        }
-        m_CurrentColorStr = "Red";
         m_CurrentColor[0] = 100;
         m_CurrentColor[1] = 0;
         m_CurrentColor[2] = 0;
         break;
     case LEDColor::green:
-        if (autoChange)
-        {
-            m_LedColor = LEDColor::blue;
-        }
-        m_CurrentColorStr = "Green";
         m_CurrentColor[0] = 0;
         m_CurrentColor[1] = 100;
         m_CurrentColor[2] = 0;
         break;
     case LEDColor::blue:
-        if (autoChange)
-        {
-            m_LedColor = LEDColor::white;
-        }
-        m_CurrentColorStr = "Blue";
+
         m_CurrentColor[0] = 0;
         m_CurrentColor[1] = 0;
         m_CurrentColor[2] = 100;
         break;
     case LEDColor::white:
-        if (autoChange)
-        {
-            m_LedColor = LEDColor::red;
-        }
-        m_CurrentColorStr = "White";
         m_CurrentColor[0] = 100;
         m_CurrentColor[1] = 100;
         m_CurrentColor[2] = 100;
@@ -179,7 +167,7 @@ void LedStrip::runModeAction()
 }
 void LedStrip::colorfulMode()
 {
-    const double maxBrightness = 4.0*m_Factor;
+    const double maxBrightness = 4.0 * m_Factor;
     std::array<uint8_t, NUMPIXELS> pRed{};
     std::array<uint8_t, NUMPIXELS> pGreen{};
     std::array<uint8_t, NUMPIXELS> pBlue{};

@@ -74,7 +74,6 @@ public:
     LEDColor m_LedColor = LEDColor::white;
     LEDModes m_LEDMode = LEDModes::on;
     double m_Factor;
-    String m_CurrentColorStr;
 
 private:
     unsigned long m_NextLEDActionTime;
