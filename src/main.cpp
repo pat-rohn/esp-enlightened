@@ -13,43 +13,16 @@
 #endif /* ESP32 */
 
 
-#include "configuration.h"
+#include "configuration.h" // TODO: Create this file, see README
 
 #include "timeseries.h"
 
 #include "sensors.h"
 #include "leds_service.h"
 
-/*
-#include <string>
-
-std::map<std::string, std::string> wifiData{
-    {"MyWiFi", "X"},
-};
-
-char const *sensorID = "Wemos2";
-char const *timeseriesAddress = "MyIPAddress";
-char const *port = "3004";
-
-unsigned long scanrate = 30000;
-unsigned long buffersize = 30;
-
-// 1 Wire DHT Pin
-//D0   = 16;
-//D1   = 5;
-//D2   = 4;
-//D3   = 0;
-//D4   = 2;
-//D5   = 14;
-//D6   = 12;
-//D7   = 13;
-//D8   = 15;
-uint8_t DHT_PIN = 0;
-*/
 
 CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
 CLEDService ledService = CLEDService(LED_PIN);
-
 
 bool hasSensors = false;
 
