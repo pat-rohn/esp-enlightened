@@ -10,7 +10,7 @@ LedStrip::LedStrip(uint8_t pin) : m_Pixels(NUMPIXELS, pin, NEO_GRB + NEO_KHZ800)
 {
     m_NextLEDActionTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 100, 100};
-    m_Factor = 0.3;
+    m_Factor = 0.7;
     m_CurrentColorStr = "White";
     m_LEDMode = LEDModes::on;
 }
@@ -179,7 +179,7 @@ void LedStrip::runModeAction()
 }
 void LedStrip::colorfulMode()
 {
-    const double maxBrightness = 4.0;
+    const double maxBrightness = 4.0*m_Factor;
     std::array<uint8_t, NUMPIXELS> pRed{};
     std::array<uint8_t, NUMPIXELS> pGreen{};
     std::array<uint8_t, NUMPIXELS> pBlue{};
