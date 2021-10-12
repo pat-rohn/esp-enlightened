@@ -2,8 +2,16 @@
 #include <array>
 #include <map>
 
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
-#include <Arduino.h>
+#include <ESP8266HTTPClient.h>
+#endif /* ESP8266 */
+
+#ifdef ESP32
+#include "WiFi.h"
+#include <HTTPClient.h>
+#endif /* ESP32 */
+
 
 #include "configuration.h"
 
@@ -40,6 +48,8 @@ uint8_t DHT_PIN = 0;
 */
 
 CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
+CLEDService ledService = CLEDService(LED_PIN);
+
 
 bool hasSensors = false;
 
@@ -103,9 +113,9 @@ bool connectToWiFi()
 
 void startLedControl()
 {
-  LEDService::beginPixels();
-  LEDService::beginServer();
-  LEDService::fancy();
+  ledService.beginPixels();
+  ledService.beginServer();
+  ledService.fancy();
 }
 
 void setup()
@@ -131,7 +141,7 @@ void setup()
     WiFi.disconnect();
     if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
     {
-      LEDService::showError();
+      ledService.showError();
       Serial.println("STA Failed to configure");
       setup();
     }
@@ -197,7 +207,7 @@ void loop()
 {
   if (isAccessPoint || !hasSensors)
   { // is LED control
-    LEDService::listen();
+    ledService.listen();
     return;
   }
   measureAndSendSensorData();

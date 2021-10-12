@@ -1,9 +1,13 @@
-
-//#include "WiFi.h"
-//#include <HTTPClient.h>
-
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#endif /* ESP8266 */
+
+#ifdef ESP32
+#include "WiFi.h"
+#include <HTTPClient.h>
+#endif /* ESP32 */
+
 #include <ArduinoJson.h>
 #include "timeseries.h"
 
