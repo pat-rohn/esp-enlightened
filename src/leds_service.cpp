@@ -9,7 +9,7 @@ CLEDService::CLEDService(uint8_t ledPin) : m_Server(80),
 {
   m_CurrentTime = millis();
   m_PreviousTime = 0;
-  m_TimeoutTime = 2000;
+  m_TimeoutTime = 500;
 }
 
 void CLEDService::beginPixels()
