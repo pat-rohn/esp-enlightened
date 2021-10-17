@@ -43,17 +43,15 @@ bool sensorsInit(uint8_t dhtPin)
     {
         //MyWire.begin(32, 33);
         Serial.println("Change Wire since nothing found.");
-
-        return false;
     }
-    return true;
+    return hasDHT;
 }
 
 void findAndInitSensors()
 {
     Serial.println("Find and init i2c sensors");
     byte count = 0;
-    MyWire.begin();
+    MyWire.begin(SDA,SCL);
     for (byte i = 8; i < 120; i++)
     {
         MyWire.beginTransmission(i);
