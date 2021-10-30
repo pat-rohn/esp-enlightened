@@ -54,11 +54,7 @@ public:
 
         Serial.print("Temperature:");
         Serial.println(t);
-        bool hasDHT = isnan(h) && isnan(t);
-        if (!hasDHT)
-        {
-            Serial.println("No DHT Sensor found");
-        }
+        bool hasDHT = !isnan(h) && !isnan(t);
         return hasDHT;
     }
 
