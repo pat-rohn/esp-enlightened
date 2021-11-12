@@ -13,16 +13,18 @@ Sensor data can be sent using http-request. A simple backend written in Go exist
 std::map<std::string, std::string> wifiData{
     {"MyWiFi", "X"},
 };
-//#define ES8266
-#define ES32
+#define MY_ESP8266
+//#define MY_ESP32
 
-char const *sensorID = "FeatherTest";
-char const *port = "3004";
+const String &sensorID = "Basel2";
+const String &port = "3004";
+const String &timeseriesAddress = "chropfmatt.ddnss.ch";
+
 
 unsigned long scanrate = 30000;
 unsigned long buffersize = 50;
 
-// For ES8266
+// For MY_ESP8266
 // 1 Wire DHT Pin WEMOS D1 mini
 //D0   = 16;
 //D1   = 5;
@@ -37,7 +39,7 @@ unsigned long buffersize = 50;
 //uint8_t DHT_PIN = D3;
 
 
-// For ESP32
+// For MY_ESP32
 //adafruit-huzzah32-esp32 https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts
 uint8_t LED_PIN = A0;
 uint8_t DHT_PIN = A1;

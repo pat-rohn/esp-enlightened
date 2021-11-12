@@ -11,8 +11,6 @@
 #include <ArduinoJson.h>
 #include "timeseries.h"
 
-
-
 void CTimeseriesData::addValue(const double &value, String timestamp)
 {
     if (!timestamp.isEmpty())
@@ -21,7 +19,7 @@ void CTimeseriesData::addValue(const double &value, String timestamp)
     }
 }
 
-CTimeseries::CTimeseries(const char *timeseriesAddress, const char *port)
+CTimeseries::CTimeseries(const String &timeseriesAddress, const String &port)
 {
     m_ServerAddress = "http://";
     m_ServerAddress += timeseriesAddress;
