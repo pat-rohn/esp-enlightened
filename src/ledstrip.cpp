@@ -21,9 +21,6 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
 void LedStrip::beginPixels()
 {
     Serial.println("beginPixels.");
-#if defined(__AVR_ATtiny85__) && (F_CPU == 16000000)
-    clock_prescale_set(clock_div_1);
-#endif
     m_Pixels.begin();
 }
 
