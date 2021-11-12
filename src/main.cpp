@@ -12,14 +12,12 @@
 #include <HTTPClient.h>
 #endif /* ESP32 */
 
-
 #include "configuration.h" // TODO: Create this file, see README
 
 #include "timeseries.h"
 
 #include "sensors.h"
 #include "leds_service.h"
-
 
 CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
 CLEDService ledService = CLEDService(LED_PIN);
@@ -168,10 +166,8 @@ void measureAndSendSensorData()
           return;
         }
       }
-      digitalWrite(LED_BUILTIN, 0x0); // to check
       timeseries.sendData();
       counter = 0;
-      digitalWrite(LED_BUILTIN, 0x1);
     }
   }
 }
