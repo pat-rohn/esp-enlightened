@@ -47,15 +47,25 @@ public:
     bool init()
     {
         m_Dht->begin();
-        float h = m_Dht->readHumidity(true);
-        float t = m_Dht->readTemperature(false, true);
-        Serial.print("Humidity:");
-        Serial.println(h);
+        for (int i = 0; i < 5; i++)
+        {
+            float h = m_Dht->readHumidity(true);
+            float t = m_Dht->readTemperature(false, true);
+            Serial.print("Humidity:");
+            Serial.println(h);
 
-        Serial.print("Temperature:");
-        Serial.println(t);
-        bool hasDHT = !isnan(h) && !isnan(t);
-        return hasDHT;
+            Serial.print("Temperature:");
+            Serial.println(t);
+            if (!isnan(h) || !isnan(t))
+            {
+                Serial.println("Has DHT Sensor");
+                return true;
+            }
+            delay(250);
+        }
+
+        Serial.println("No DHT Sensor");
+        return false;
     }
 
     std::pair<float, float> read()
