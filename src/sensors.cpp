@@ -43,8 +43,9 @@ bool sensorsInit(uint8_t dhtPin)
     {
         //MyWire.begin(32, 33);
         Serial.println("Change Wire since nothing found.");
+        return false;
     }
-    return hasDHT;
+    return true;
 }
 
 void findAndInitSensors()
