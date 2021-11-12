@@ -20,7 +20,7 @@
 #include "leds_service.h"
 
 CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
-CLEDService ledService = CLEDService(LED_PIN);
+CLEDService ledService = CLEDService(LED_PIN, nrOfLEDs);
 
 bool hasSensors = false;
 

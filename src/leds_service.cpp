@@ -4,8 +4,8 @@
 #include <sstream>
 #include <ArduinoJson.h>
 
-CLEDService::CLEDService(uint8_t ledPin) : m_Server(80),
-                                           m_LedStrip(ledPin)
+CLEDService::CLEDService(uint8_t ledPin, int nrOfPins) : m_Server(80),
+                                           m_LedStrip(ledPin, nrOfPins)
 {
   m_CurrentTime = millis();
   m_PreviousTime = 0;

@@ -15,7 +15,7 @@
 class CLEDService
 {
 public:
-    CLEDService(uint8_t ledPin);
+    CLEDService(uint8_t ledPin, int nrOfPins);
     ~CLEDService(){};
 
 public:

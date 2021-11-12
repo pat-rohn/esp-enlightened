@@ -2,11 +2,25 @@
 #include <array>
 #include <Adafruit_NeoPixel.h>
 
-#define NUMPIXELS 30
-
 class LedStrip
 {
 public:
+    struct PixelColors
+    {
+        std::vector<uint8_t> pRed;
+        std::vector<uint8_t> pGreen;
+        std::vector<uint8_t> pBlue;
+        PixelColors(int nrOfPixels)
+        {
+            for (int i = 0; i < nrOfPixels; i++)
+            {
+                pRed.emplace_back(0);
+                pGreen.emplace_back(0);
+                pBlue.emplace_back(0);
+            }
+        }
+    };
+
     enum class LEDColor
     {
         white = 0,
@@ -52,7 +66,7 @@ private:
     };
 
 public:
-    LedStrip(uint8_t pin);
+    LedStrip(uint8_t pin, int nrOfPixels);
     void beginPixels();
     void apply();
     void changeColor(bool autoChange = true);
@@ -67,7 +81,7 @@ private:
     void updateLEDs(bool doImmediate = false);
     void colorfulMode();
     void campfireMode();
-    void showPixels(std::array<uint8_t, NUMPIXELS> pRed, std::array<uint8_t, NUMPIXELS> pGreen, std::array<uint8_t, NUMPIXELS> pBlue);
+    void showPixels();
 
 public:
     Adafruit_NeoPixel m_Pixels;
@@ -80,4 +94,7 @@ private:
     FlameMode m_FlameMode;
     ColorfulMode m_ColorfulMode;
     std::array<uint8_t, 3> m_CurrentColor;
+    int m_NrOfPixels;
+    bool m_UseAllLEDs;
+    PixelColors m_PixelColors;
 };
