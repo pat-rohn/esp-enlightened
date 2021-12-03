@@ -18,11 +18,13 @@ std::map<std::string, std::string> wifiData{
 
 const String &sensorID = "Basel2";
 const String &port = "3004";
-const String &timeseriesAddress = "chropfmatt.ddnss.ch";
-
+const String &timeseriesAddress = "my-server.ch";
 
 unsigned long scanrate = 30000;
 unsigned long buffersize = 50;
+
+int nrOfLEDs = 1;
+bool hasNoWiFi = true;
 
 // For MY_ESP8266
 // 1 Wire DHT Pin WEMOS D1 mini
@@ -35,14 +37,12 @@ unsigned long buffersize = 50;
 //D6   = 12;
 //D7   = 13;
 //D8   = 15;
-//uint8_t LED_PIN = D4;
-//uint8_t DHT_PIN = D3;
 
 
 // For MY_ESP32
 //adafruit-huzzah32-esp32 https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts
-uint8_t LED_PIN = A0;
-uint8_t DHT_PIN = A1;
+uint8_t LED_PIN = 26;
+uint8_t DHT_PIN = 25;
 ```
 
 ## Example Wemos with DHT22

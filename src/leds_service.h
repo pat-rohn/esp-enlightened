@@ -15,21 +15,19 @@
 class CLEDService
 {
 public:
-    CLEDService(uint8_t ledPin, int nrOfPins);
+    CLEDService(LedStrip* ledStrip);
     ~CLEDService(){};
 
 public:
     WiFiServer m_Server;
     String header;
 
-    LedStrip m_LedStrip;
-    void beginPixels();
+    LedStrip* m_LedStrip;
     void beginServer();
     void listen();
     String getHomepage();
     String getHTTPOK();
     String getHTTPNotOK();
-    void fancy();
     void showError();
 
 private:

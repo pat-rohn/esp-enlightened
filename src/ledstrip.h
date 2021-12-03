@@ -36,6 +36,7 @@ public:
         campfire = 2,
         colorful = 3,
         autochange = 4,
+        pulse = 5,
     };
 
 private:
@@ -65,6 +66,24 @@ private:
         }
     };
 
+    struct PulseMode
+    {
+        unsigned long NextUpdateTime;
+        unsigned long UpdateInterval;
+        double LowerLimit;
+        double UpperLimit;
+        double StepSize;
+        bool IsIncreasing;
+        PulseMode() : NextUpdateTime(0),
+                      UpdateInterval(10),
+                      LowerLimit(0.4),
+                      UpperLimit(0.9),
+                      StepSize(0.0015),
+                      IsIncreasing(false)
+        {
+        }
+    };
+
 public:
     LedStrip(uint8_t pin, int nrOfPixels);
     void beginPixels();
@@ -81,6 +100,7 @@ private:
     void updateLEDs(bool doImmediate = false);
     void colorfulMode();
     void campfireMode();
+    void pulseMode();
     void showPixels();
 
 public:
@@ -93,6 +113,7 @@ private:
     unsigned long m_NextLEDActionTime;
     FlameMode m_FlameMode;
     ColorfulMode m_ColorfulMode;
+    PulseMode m_PulseMode;
     std::array<uint8_t, 3> m_CurrentColor;
     int m_NrOfPixels;
     bool m_UseAllLEDs;

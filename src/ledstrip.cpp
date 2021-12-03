@@ -1,12 +1,9 @@
 #include "ledstrip.h"
 
-#ifdef __AVR__
-#include <avr/power.h>
-#endif
-
 LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_GRB + NEO_KHZ800),
                                                   m_FlameMode(),
                                                   m_ColorfulMode(),
+                                                  m_PulseMode(),
                                                   m_PixelColors(nrOfPixels)
 {
     m_NextLEDActionTime = millis();
@@ -58,7 +55,11 @@ void LedStrip::updateLEDs(bool doImmediate)
         }
         else
         {
-            m_Pixels.setPixelColor(i, m_Pixels.Color(m_CurrentColor[0] * m_Factor, m_CurrentColor[1] * m_Factor, m_CurrentColor[2] * m_Factor));
+            m_Pixels.setPixelColor(i,
+                                   m_Pixels.Color(
+                                       m_CurrentColor[0] * m_Factor,
+                                       m_CurrentColor[1] * m_Factor,
+                                       m_CurrentColor[2] * m_Factor));
         }
         if (!doImmediate)
         {
@@ -129,23 +130,51 @@ void LedStrip::changeColor(bool autoChange)
 
 void LedStrip::fancy()
 {
-    Serial.println("color");
+    Serial.println("fancy");
     double currentFactor = m_Factor;
-    int delayTime = 20;
-    for (double f = currentFactor; f > 0.1; f = f - 0.02)
+    for (double f = currentFactor; f > 0.1; f = f - 0.01)
     {
         m_Factor = f;
         updateLEDs(true);
-        delay(delayTime);
+        delay(20);
     }
-    for (double f = 0; f < currentFactor; f = f + 0.02)
+    for (double f = 0; f < currentFactor; f = f + 0.01)
     {
         m_Factor = f;
         updateLEDs(true);
-        delay(delayTime);
+        delay(20);
     }
 
     m_Factor = currentFactor;
+}
+
+void LedStrip::pulseMode()
+{
+    unsigned long currentTime = millis();
+    if (currentTime > m_PulseMode.NextUpdateTime)
+    {
+        m_PulseMode.NextUpdateTime = currentTime + m_PulseMode.UpdateInterval;
+        if (m_PulseMode.IsIncreasing)
+        {
+            m_Factor += m_PulseMode.StepSize;
+            if (m_Factor > m_PulseMode.UpperLimit)
+            {
+                m_PulseMode.IsIncreasing = false;
+                Serial.println("Go down");
+            }
+        }
+        else
+        {
+            m_Factor -= m_PulseMode.StepSize;
+            if (m_Factor < m_PulseMode.LowerLimit)
+            {
+                m_PulseMode.IsIncreasing = true;
+                Serial.println("Go up");
+            }
+        }
+
+        updateLEDs(true);
+    }
 }
 
 void LedStrip::showError()
@@ -167,10 +196,14 @@ void LedStrip::runModeAction()
     case LEDModes::campfire:
         campfireMode();
         break;
+    case LEDModes::pulse:
+        pulseMode();
+        break;
     default:
         break;
     }
 }
+
 void LedStrip::colorfulMode()
 {
     const double maxBrightness = 4.0 * m_Factor;
@@ -214,7 +247,7 @@ void LedStrip::campfireMode()
 
     for (int i = 0; i <= m_NrOfPixels; i++)
     {
-        if (colorTemplate.size() <= i)
+        if (colorTemplate.size() <= uint8(i))
         {
             colorTemplate.emplace_back(colorTemplate[i % 30]);
         }

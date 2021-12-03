@@ -4,28 +4,23 @@
 #include <sstream>
 #include <ArduinoJson.h>
 
-CLEDService::CLEDService(uint8_t ledPin, int nrOfPins) : m_Server(80),
-                                           m_LedStrip(ledPin, nrOfPins)
+CLEDService::CLEDService(LedStrip *ledStrip) : m_Server(80),
+                                               m_LedStrip(ledStrip)
 {
   m_CurrentTime = millis();
   m_PreviousTime = 0;
   m_TimeoutTime = 500;
 }
 
-void CLEDService::beginPixels()
-{
-  m_LedStrip.beginPixels();
-  m_LedStrip.apply();
-}
-
 void CLEDService::beginServer()
 {
+  Serial.println("LED Service: Begin Server.");
   m_Server.begin();
 }
 
 void CLEDService::listen()
 {
-  m_LedStrip.runModeAction();
+  m_LedStrip->runModeAction();
 
   WiFiClient client = m_Server.available();
   if (client)
@@ -47,7 +42,7 @@ void CLEDService::listen()
         {
           if (currentLine.length() == 0)
           {
-            
+
             if (header.indexOf("POST /api/apply") >= 0)
             {
               Serial.println("POST Apply");
@@ -71,12 +66,12 @@ void CLEDService::listen()
                 doc.clear();
                 client.println(getHTTPOK().c_str());
                 std::stringstream str;
-                std::array<uint8_t, 3> color = m_LedStrip.getColor();
+                std::array<uint8_t, 3> color = m_LedStrip->getColor();
                 str << R"({"Red":)" << int(color[0])
                     << R"( ,"Green": )" << int(color[1])
                     << R"( ,"Blue": )" << int(color[2])
-                    << R"( ,"Brightness": )" << int(m_LedStrip.m_Factor * 100.0)
-                    << R"( ,"Mode": )" << int(m_LedStrip.m_LEDMode)
+                    << R"( ,"Brightness": )" << int(m_LedStrip->m_Factor * 100.0)
+                    << R"( ,"Mode": )" << int(m_LedStrip->m_LEDMode)
                     << R"( ,"Message": "Failed to parse: )" << err.code() << R"( ")"
                     << R"( })" << std::endl;
                 client.println(str.str().c_str());
@@ -87,23 +82,23 @@ void CLEDService::listen()
                 Serial.print("Input ");
                 Serial.println(body);
                 int mode = doc["Mode"];
-                m_LedStrip.m_LEDMode = LedStrip::LEDModes(mode);
+                m_LedStrip->m_LEDMode = LedStrip::LEDModes(mode);
                 double factor = doc["Brightness"];
-                m_LedStrip.m_Factor = factor / 100.0;
+                m_LedStrip->m_Factor = factor / 100.0;
                 double factorRed = doc["Red"];
                 double factorGreen = doc["Green"];
                 double factorBlue = doc["Blue"];
                 String message = doc["Message"];
-                m_LedStrip.setColor(factorRed, factorGreen, factorBlue);
-                m_LedStrip.apply();
+                m_LedStrip->setColor(factorRed, factorGreen, factorBlue);
+                m_LedStrip->apply();
                 client.println(getHTTPOK().c_str());
                 std::stringstream str;
-                std::array<uint8_t, 3> color = m_LedStrip.getColor();
+                std::array<uint8_t, 3> color = m_LedStrip->getColor();
                 str << R"({"Red":)" << int(color[0])
                     << R"( ,"Green": )" << int(color[1])
                     << R"( ,"Blue": )" << int(color[2])
-                    << R"( ,"Brightness": )" << int(m_LedStrip.m_Factor * 100.0)
-                    << R"( ,"Mode": )" << int(m_LedStrip.m_LEDMode)
+                    << R"( ,"Brightness": )" << int(m_LedStrip->m_Factor * 100.0)
+                    << R"( ,"Mode": )" << int(m_LedStrip->m_LEDMode)
                     << R"( ,"Message": "Success - )" << message.c_str() << R"( ")"
                     << R"( })" << std::endl;
                 client.println(str.str().c_str());
@@ -111,20 +106,20 @@ void CLEDService::listen()
                 body = "";
                 doc.clear();
               }
-                break;
+              break;
             }
             else if (header.indexOf("GET /api/get") >= 0)
             {
               Serial.println("GET api");
               client.println(getHTTPOK().c_str());
               std::stringstream str;
-              std::array<uint8_t, 3> color = m_LedStrip.getColor();
+              std::array<uint8_t, 3> color = m_LedStrip->getColor();
               str << R"({"Red":)" << int(color[0])
                   << R"( ,"Green": )" << int(color[1])
                   << R"( ,"Blue": )" << int(color[2])
-                  << R"( ,"Brightness": )" << int(m_LedStrip.m_Factor * 100)
-                  << R"( ,"Mode": )" << int(m_LedStrip.m_LEDMode)
-                    << R"( ,"Message": "Success")"
+                  << R"( ,"Brightness": )" << int(m_LedStrip->m_Factor * 100)
+                  << R"( ,"Mode": )" << int(m_LedStrip->m_LEDMode)
+                  << R"( ,"Message": "Success")"
                   << R"( })" << std::endl;
               client.println(str.str().c_str());
               Serial.println(str.str().c_str());
@@ -204,29 +199,29 @@ String CLEDService::getHomepage()
   str << "<body><h1>Caromio</h1>" << std::endl;
   if (header.indexOf("GET /colorchange") >= 0)
   {
-    m_LedStrip.m_LEDMode = LedStrip::LEDModes::autochange;
-    m_LedStrip.apply();
+    m_LedStrip->m_LEDMode = LedStrip::LEDModes::autochange;
+    m_LedStrip->apply();
   }
   else if (header.indexOf("GET /low") >= 0)
   {
     Serial.println("low");
-    m_LedStrip.m_Factor -= 0.05;
-    m_LedStrip.m_LEDMode = LedStrip::LEDModes::on;
-    m_LedStrip.apply();
+    m_LedStrip->m_Factor -= 0.05;
+    m_LedStrip->m_LEDMode = LedStrip::LEDModes::on;
+    m_LedStrip->apply();
   }
 
   else if (header.indexOf("GET /bright") >= 0)
   {
     Serial.println("bright");
-    m_LedStrip.m_Factor += 0.05;
-    m_LedStrip.m_LEDMode = LedStrip::LEDModes::on;
-    m_LedStrip.apply();
+    m_LedStrip->m_Factor += 0.05;
+    m_LedStrip->m_LEDMode = LedStrip::LEDModes::on;
+    m_LedStrip->apply();
   }
   else if (header.indexOf("GET /off") >= 0)
   {
     Serial.println("off");
-    m_LedStrip.m_LEDMode = LedStrip::LEDModes::off;
-    m_LedStrip.apply();
+    m_LedStrip->m_LEDMode = LedStrip::LEDModes::off;
+    m_LedStrip->apply();
   }
 
   str << "<p><a href=\"/low\"><button class=\"button\">Low</button></a></p>" << std::endl;
@@ -242,12 +237,7 @@ String CLEDService::getHomepage()
   return String(str.str().c_str());
 }
 
-void CLEDService::fancy()
-{
-  m_LedStrip.fancy();
-}
-
 void CLEDService::showError()
 {
-  m_LedStrip.showError();
+  m_LedStrip->showError();
 }

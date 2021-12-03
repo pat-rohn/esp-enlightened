@@ -20,7 +20,8 @@
 #include "leds_service.h"
 
 CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
-CLEDService ledService = CLEDService(LED_PIN, nrOfLEDs);
+LedStrip ledStrip = LedStrip(LED_PIN, nrOfLEDs);
+CLEDService ledService = CLEDService(&ledStrip);
 
 bool hasSensors = false;
 
@@ -84,9 +85,14 @@ bool connectToWiFi()
 
 void startLedControl()
 {
-  ledService.beginPixels();
-  ledService.beginServer();
-  ledService.fancy();
+  Serial.println("startLedControl");
+  ledStrip.beginPixels();
+  ledStrip.apply();
+  ledStrip.fancy();
+  if (hasNoWiFi)
+  {
+    ledStrip.m_LEDMode = LedStrip::LEDModes::pulse;
+  }
 }
 
 void setup()
@@ -95,40 +101,109 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-
-  if (connectToWiFi())
+  if (sensorsInit(DHT_PIN))
   {
-    if (sensorsInit(DHT_PIN))
-    {
-      hasSensors = true;
-      return;
-    }
-    hasSensors = false;
-    startLedControl();
-    return;
+    hasSensors = true;
   }
-  else
+  hasSensors = false;
+  if (!hasNoWiFi)
   {
-    WiFi.disconnect();
-    if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+    if (!connectToWiFi())
     {
-      ledService.showError();
-      Serial.println("STA Failed to configure");
-      setup();
+      WiFi.disconnect();
+      if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+      {
+        ledService.showError();
+        Serial.println("STA Failed to configure");
+        setup();
+      }
+      Serial.print("Has access point:");
+      Serial.println(WiFi.localIP());
+      isAccessPoint = true;
+      if (!WiFi.mode(WIFI_AP))
+      {
+        Serial.print("mode failed.");
+      }
+      if (!WiFi.softAP(ssidAP, passwordAP))
+      {
+        Serial.print("softAP failed.");
+        setup();
+      }
     }
-    Serial.print("Has access point:");
-    Serial.println(WiFi.localIP());
-    isAccessPoint = true;
-    if (!WiFi.mode(WIFI_AP))
-    {
-      Serial.print("mode failed.");
-    }
-    if (!WiFi.softAP(ssidAP, passwordAP))
-    {
-      Serial.print("softAP failed.");
-    }
+    ledService.beginServer();
   }
   startLedControl();
+}
+
+unsigned long lastColorChange = 0;
+
+void colorUpdate()
+{
+  if (millis() > lastColorChange + 30000)
+  {
+    lastColorChange = millis();
+
+    auto values = getValues();
+    if (values.empty())
+    {
+      Serial.println("No Sensors");
+      return;
+    }
+    if (values.count("CO2"))
+    {
+      // good: 0-1500 (white to yellow)
+      // medium: 1500-4000 (yellow to red)
+      // bad:4000:8000 (red to dark)
+      double blue = (1.0 - (values["CO2"].value - 500) / 1000) * 100.0;
+      if (blue > 100.0)
+      {
+        blue = 100;
+      }
+      if (blue < 0)
+      {
+        blue = 0;
+      }
+      double green = (1.0 - (values["CO2"].value - 1500) / 3500) * 100.0;
+      if (green > 100.0)
+      {
+        green = 100;
+      }
+      if (green < 0)
+      {
+        green = 0;
+      }
+      double red = (1.0 - (values["CO2"].value - 4000) / 4000) * 100.0;
+      if (red > 100.0)
+      {
+        red = 100;
+      }
+      if (red < 0)
+      {
+        red = 0;
+      }
+
+      ledStrip.setColor(red, green, blue);
+    }
+    else if (values.count("Temperature"))
+    {
+      Serial.print("Temperature: ");
+      if (values["Temperature"].value > 25.0)
+      {
+        Serial.println(">25");
+        ledStrip.setColor(80, 0, 0);
+      }
+      else if (values["Temperature"].value < 20.0)
+      {
+        Serial.println("<20");
+        ledStrip.setColor(0, 0, 80);
+      }
+      else
+      {
+        Serial.println("20-25");
+        ledStrip.setColor(80, 80, 80);
+      }
+    }
+  }
 }
 
 unsigned long lastUpdate = millis();
@@ -174,8 +249,14 @@ void measureAndSendSensorData()
 
 void loop()
 {
+  if (hasNoWiFi)
+  {
+    colorUpdate();
+    ledStrip.runModeAction();
+    return;
+  }
   if (isAccessPoint || !hasSensors)
-  { // is LED control
+  {
     ledService.listen();
     return;
   }
