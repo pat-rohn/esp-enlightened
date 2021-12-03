@@ -96,25 +96,29 @@ void findAndInitSensors()
 void findAndInitMHZ19()
 {
     Serial.println("Find and init MHZ19 sensor");
+
     myMHZ19.begin(MySerial);
     myMHZ19.verify();
-
-    int CO2 = myMHZ19.getCO2();
-
-    Serial.print("CO2 (ppm): ");
-    Serial.println(CO2);
-
-    int8_t Temp = myMHZ19.getTemperature();
-    Serial.print("Temperature (C): ");
-    Serial.println(Temp);
-    if (Temp > 0 && CO2 > 0)
+    for (int i = 0; i < 4; i++)
     {
-        Serial.println("Found MHZ19 (CO2)");
-        m_SensorTypes.emplace_back(SensorType::mhz19);
-    }
-    else
-    {
-        Serial.println("No MHZ19 found (CO2)");
+        int CO2 = myMHZ19.getCO2();
+
+        Serial.print("CO2 (ppm): ");
+        Serial.println(CO2);
+
+        float Temp = myMHZ19.getTemperature();
+        Serial.print("Temperature (C): ");
+        Serial.println(Temp);
+        if (Temp > 0 && CO2 > 0)
+        {
+            Serial.println("Found MHZ19 (CO2)");
+            m_SensorTypes.emplace_back(SensorType::mhz19);
+            return;
+        }
+        else
+        {
+            Serial.println("No MHZ19 found (CO2)");
+        }
     }
 }
 
@@ -373,19 +377,12 @@ std::array<SensorData, 3> getMHZ19()
     Serial.print("CO2 (ppm): ");
     Serial.println(CO2);
 
-    int8_t Temp = myMHZ19.getTemperature();
-    Serial.print("Temperature (C): ");
-    Serial.println(Temp);
-    if (Temp > 0 && CO2 > 0)
+    if (CO2 > 0)
     {
         sensorData[0].isValid = true;
-        sensorData[0].value = Temp;
-        sensorData[0].unit = "*C";
-        sensorData[0].name = "Temperature";
-        sensorData[1].isValid = true;
-        sensorData[1].value = CO2;
-        sensorData[1].unit = "ppm";
-        sensorData[1].name = "CO2";
+        sensorData[0].value = CO2;
+        sensorData[0].unit = "ppm";
+        sensorData[0].name = "CO2";
     }
 
     return sensorData;

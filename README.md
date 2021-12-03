@@ -41,8 +41,8 @@ int kNrOfLEDs = 1;
 //adafruit-huzzah32-esp32 https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts
 // https://gist.github.com/iamamused/968694bea91e087b7d85fe9f1a7cca99
 
-const uint8_t kLEDPin = 26;
-const uint8_t kDHTPin = 25;
+const uint8_t kLEDPin = 26; // A0
+const uint8_t kDHTPin = 25; // A1
 
 const uint8_t kRX = 16;
 const uint8_t kTX = 17;
