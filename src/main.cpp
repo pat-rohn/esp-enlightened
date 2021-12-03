@@ -102,7 +102,7 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (sensorsInit(kDHTPin))
+  if (sensorsInit(kDHTPin, kRX ,kTX))
   {
     hasSensors = true;
   }

@@ -13,6 +13,7 @@ enum class SensorType
     bmp280 = 4,
     sht30 = 5,
     sgp30 = 6,
+    mhz19 = 6,
 };
 
 struct SensorData
@@ -79,11 +80,13 @@ private:
     DHT *m_Dht;
 };
 
-bool sensorsInit(uint8_t dhtPin);
+bool sensorsInit(uint8_t dhtPin, uint8_t rx, uint8_t tx);
 void findAndInitSensors();
+void findAndInitMHZ19();
 std::map<String, SensorData> getValues();
 std::array<SensorData, 3> getBME280();
 std::array<SensorData, 3> getCjmcu();
 std::array<SensorData, 3> getDHT22();
 std::array<SensorData, 3> getEnv();
+std::array<SensorData, 3> getMHZ19();
 void initI2CSensor(uint8_t address);

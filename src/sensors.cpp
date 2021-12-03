@@ -9,8 +9,13 @@
 #include "Adafruit_CCS811.h"
 //#include "Adafruit_SGP30.h"
 #include <Adafruit_BMP280.h>
+#include <MHZ19.h>
 
 //#include <WEMOS_SHT3X.h>
+
+//ESP32 Serial2
+#define RXD2 16
+#define TXD2 17
 
 std::vector<SensorType> m_SensorTypes;
 
@@ -25,11 +30,19 @@ Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
 //SHT3X sht30(0x44);
 DHTSensor *dhtSensor;
 
+MHZ19 myMHZ19;
 //Adafruit_SGP30 sgp;
 
-bool sensorsInit(uint8_t dhtPin)
+#ifdef ESP32
+HardwareSerial MySerial = Serial2;
+#else
+HardwareSerial MySerial = Serial1;
+#endif
+
+bool sensorsInit(uint8_t dhtPin, uint8_t rx, uint8_t tx)
 {
     Serial.println("Sensors init.");
+
     m_SensorTypes.clear();
     dhtSensor = new DHTSensor(dhtPin);
 
@@ -38,7 +51,13 @@ bool sensorsInit(uint8_t dhtPin)
     {
         m_SensorTypes.emplace_back(SensorType::dht22);
     }
+#ifdef ESP32
+    MySerial.begin(9600, SERIAL_8N1, rx, tx);
+#else
+    MySerial.begin(9600);
+#endif
     findAndInitSensors();
+
     if (m_SensorTypes.empty() && !hasDHT)
     {
         //MyWire.begin(32, 33);
@@ -52,7 +71,7 @@ void findAndInitSensors()
 {
     Serial.println("Find and init i2c sensors");
     byte count = 0;
-    MyWire.begin(SDA,SCL);
+    MyWire.begin(SDA, SCL);
     for (byte i = 8; i < 120; i++)
     {
         MyWire.beginTransmission(i);
@@ -70,6 +89,33 @@ void findAndInitSensors()
     }
 
     Serial.println();
+
+    findAndInitMHZ19();
+}
+
+void findAndInitMHZ19()
+{
+    Serial.println("Find and init MHZ19 sensor");
+    myMHZ19.begin(MySerial);
+    myMHZ19.verify();
+
+    int CO2 = myMHZ19.getCO2();
+
+    Serial.print("CO2 (ppm): ");
+    Serial.println(CO2);
+
+    int8_t Temp = myMHZ19.getTemperature();
+    Serial.print("Temperature (C): ");
+    Serial.println(Temp);
+    if (Temp > 0 && CO2 > 0)
+    {
+        Serial.println("Found MHZ19 (CO2)");
+        m_SensorTypes.emplace_back(SensorType::mhz19);
+    }
+    else
+    {
+        Serial.println("No MHZ19 found (CO2)");
+    }
 }
 
 std::map<String, SensorData> getValues()
@@ -118,6 +164,17 @@ std::map<String, SensorData> getValues()
         }
     }
 
+    if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::mhz19) != m_SensorTypes.end())
+    {
+        for (const auto &val : getMHZ19())
+        {
+            if (val.isValid)
+            {
+                res[val.name] = val;
+            }
+        }
+    }
+
     return res;
 }
 
@@ -155,7 +212,6 @@ std::array<SensorData, 3> getDHT22()
         Serial.print(sensorData[1].value);
         Serial.println(sensorData[1].unit);
     }
-
     return sensorData;
 }
 
@@ -304,6 +360,33 @@ std::array<SensorData, 3> getEnv()
     sensorData[2].value = humidity;
     sensorData[2].unit = "%";
     sensorData[2].name = "Humidity";
+
+    return sensorData;
+}
+
+std::array<SensorData, 3> getMHZ19()
+{
+    std::array<SensorData, 3> sensorData;
+    sensorData.fill(SensorData());
+    int CO2 = myMHZ19.getCO2();
+
+    Serial.print("CO2 (ppm): ");
+    Serial.println(CO2);
+
+    int8_t Temp = myMHZ19.getTemperature();
+    Serial.print("Temperature (C): ");
+    Serial.println(Temp);
+    if (Temp > 0 && CO2 > 0)
+    {
+        sensorData[0].isValid = true;
+        sensorData[0].value = Temp;
+        sensorData[0].unit = "*C";
+        sensorData[0].name = "Temperature";
+        sensorData[1].isValid = true;
+        sensorData[1].value = CO2;
+        sensorData[1].unit = "ppm";
+        sensorData[1].name = "CO2";
+    }
 
     return sensorData;
 }
