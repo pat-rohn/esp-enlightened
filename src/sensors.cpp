@@ -13,9 +13,6 @@
 
 //#include <WEMOS_SHT3X.h>
 
-//ESP32 Serial2
-#define RXD2 16
-#define TXD2 17
 
 std::vector<SensorType> m_SensorTypes;
 
@@ -99,7 +96,7 @@ void findAndInitMHZ19()
 
     myMHZ19.begin(MySerial);
     myMHZ19.verify();
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < 2; i++)
     {
         int CO2 = myMHZ19.getCO2();
 
