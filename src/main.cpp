@@ -19,8 +19,8 @@
 #include "sensors.h"
 #include "leds_service.h"
 
-CTimeseries timeseries = CTimeseries(timeseriesAddress, port);
-LedStrip ledStrip = LedStrip(LED_PIN, nrOfLEDs);
+CTimeseries timeseries = CTimeseries(kTimeseriesAddress, kTimeseriesPort);
+LedStrip ledStrip = LedStrip(kLEDPin, kNrOfLEDs);
 CLEDService ledService = CLEDService(&ledStrip);
 
 bool hasSensors = false;
@@ -35,9 +35,6 @@ bool isAccessPoint = false;
 
 const char *ssidAP = "AI-Caramba";
 const char *passwordAP = "ki-caramba";
-
-uint32_t SENSOR_SCANRATE = 20 * 1000L;
-unsigned long target_time = 0L;
 
 SensorType sensorType = SensorType::unknown;
 
@@ -89,8 +86,9 @@ void startLedControl()
   ledStrip.beginPixels();
   ledStrip.apply();
   ledStrip.fancy();
-  if (hasNoWiFi)
+  if (hasSensors)
   {
+    Serial.println("Pulse Mode");
     ledStrip.m_LEDMode = LedStrip::LEDModes::pulse;
   }
 }
@@ -101,12 +99,11 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (sensorsInit(DHT_PIN))
+  if (sensorsInit(kDHTPin))
   {
     hasSensors = true;
   }
-  hasSensors = false;
-  if (!hasNoWiFi)
+  if (!kIsOfflineMode)
   {
     if (!connectToWiFi())
     {
@@ -211,7 +208,7 @@ unsigned long counter = 0;
 
 void measureAndSendSensorData()
 {
-  if (millis() > lastUpdate + scanrate)
+  if (millis() > lastUpdate + kSensorScanRate)
   {
     lastUpdate = millis();
     auto values = getValues();
@@ -226,12 +223,12 @@ void measureAndSendSensorData()
     {
       if (it->second.isValid)
       {
-        String name = sensorID;
+        String name = kSensorID;
         timeseries.addValue(name + it->second.name, it->second.value);
       }
     }
     counter++;
-    if (counter > buffersize)
+    if (counter >= kSensorBuffersize)
     {
       if (WiFi.status() != WL_CONNECTED)
       {
@@ -249,16 +246,18 @@ void measureAndSendSensorData()
 
 void loop()
 {
-  if (hasNoWiFi)
+  if (hasSensors && !isAccessPoint)
+  { // has internet connection
+    measureAndSendSensorData();
+  }
+  if (ledStrip.m_LEDMode == LedStrip::LEDModes::pulse && kIsOfflineMode)
   {
     colorUpdate();
     ledStrip.runModeAction();
-    return;
   }
-  if (isAccessPoint || !hasSensors)
+
+  if (isAccessPoint || !kIsOfflineMode)
   {
     ledService.listen();
-    return;
   }
-  measureAndSendSensorData();
 }
