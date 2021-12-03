@@ -82,14 +82,17 @@ bool connectToWiFi()
 
 void startLedControl()
 {
-  Serial.println("startLedControl");
-  ledStrip.beginPixels();
-  ledStrip.apply();
-  ledStrip.fancy();
-  if (hasSensors)
+  if (kNrOfLEDs > 0)
   {
-    Serial.println("Pulse Mode");
-    ledStrip.m_LEDMode = LedStrip::LEDModes::pulse;
+    Serial.println("startLedControl");
+    ledStrip.beginPixels();
+    ledStrip.apply();
+    ledStrip.fancy();
+    if (hasSensors)
+    {
+      Serial.println("Pulse Mode");
+      ledStrip.m_LEDMode = LedStrip::LEDModes::pulse;
+    }
   }
 }
 
@@ -132,13 +135,89 @@ void setup()
   startLedControl();
 }
 
+void setCO2Color(double co2Val)
+{
+  // good: 0-1500 (white to yellow)
+  // medium: 1500-4000 (yellow to red)
+  // bad:4000:8000 (red to dark)
+  double blue = (1.0 - (co2Val - 500) / 1000) * 100.0;
+  if (blue > 100.0)
+  {
+    blue = 100;
+  }
+  if (blue < 0)
+  {
+    blue = 0;
+  }
+  double green = (1.0 - (co2Val - 1500) / 2500) * 100.0;
+  if (green > 100.0)
+  {
+    green = 100;
+  }
+  if (green < 0)
+  {
+    green = 0;
+  }
+  double red = (1.0 - (co2Val - 4000) / 4000) * 100.0;
+  if (red > 100.0)
+  {
+    red = 100;
+  }
+  if (red < 0)
+  {
+    red = 0;
+  }
+
+  ledStrip.setColor(red, green, blue);
+}
+
+void setTemperatureColor(double temperature)
+{
+  double blue = (1.0 - (temperature - 15) / 5) * 100.0;
+  if (blue > 100.0)
+  {
+    blue = 100;
+  }
+  if (blue < 0)
+  {
+    blue = 0;
+  }
+  double green = (1.0 - (temperature - 20) / 5) * 100.0;
+  if (green > 100.0)
+  {
+    green = 100;
+  }
+  if (green < 0)
+  {
+    green = 0;
+  }
+  double red = (1.0 - (temperature - 25) / 5) * 100.0;
+  if (red > 100.0)
+  {
+    red = 100;
+  }
+  if (red < 0)
+  {
+    red = 0;
+  }
+  ledStrip.setColor(red, green, blue);
+}
+
 unsigned long lastColorChange = 0;
+const double kColorUpdateInterval = 120000;
+double co2TestVal = 400;
+double tempTestVal = 15;
 
 void colorUpdate()
 {
-  if (millis() > lastColorChange + 30000)
+  if (ledStrip.m_LEDMode != LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
   {
     lastColorChange = millis();
+    //co2TestVal *= 1.1;
+    //setCO2Color(co2TestVal);
+    //tempTestVal += 1.0;
+    //setTemperatureColor(tempTestVal);
+    //return;
 
     auto values = getValues();
     if (values.empty())
@@ -148,57 +227,11 @@ void colorUpdate()
     }
     if (values.count("CO2"))
     {
-      // good: 0-1500 (white to yellow)
-      // medium: 1500-4000 (yellow to red)
-      // bad:4000:8000 (red to dark)
-      double blue = (1.0 - (values["CO2"].value - 500) / 1000) * 100.0;
-      if (blue > 100.0)
-      {
-        blue = 100;
-      }
-      if (blue < 0)
-      {
-        blue = 0;
-      }
-      double green = (1.0 - (values["CO2"].value - 1500) / 3500) * 100.0;
-      if (green > 100.0)
-      {
-        green = 100;
-      }
-      if (green < 0)
-      {
-        green = 0;
-      }
-      double red = (1.0 - (values["CO2"].value - 4000) / 4000) * 100.0;
-      if (red > 100.0)
-      {
-        red = 100;
-      }
-      if (red < 0)
-      {
-        red = 0;
-      }
-
-      ledStrip.setColor(red, green, blue);
+      setCO2Color(values["CO2"].value);
     }
     else if (values.count("Temperature"))
     {
-      Serial.print("Temperature: ");
-      if (values["Temperature"].value > 25.0)
-      {
-        Serial.println(">25");
-        ledStrip.setColor(80, 0, 0);
-      }
-      else if (values["Temperature"].value < 20.0)
-      {
-        Serial.println("<20");
-        ledStrip.setColor(0, 0, 80);
-      }
-      else
-      {
-        Serial.println("20-25");
-        ledStrip.setColor(80, 80, 80);
-      }
+      setTemperatureColor(values["Temperature"].value);
     }
   }
 }
@@ -246,17 +279,20 @@ void measureAndSendSensorData()
 
 void loop()
 {
-  if (hasSensors && !isAccessPoint)
-  { // has internet connection
+  if (hasSensors && !isAccessPoint && !kIsOfflineMode)
+  { // should have connection to timeseries server
     measureAndSendSensorData();
   }
-  if (ledStrip.m_LEDMode == LedStrip::LEDModes::pulse && kIsOfflineMode)
+  if (kNrOfLEDs <= 0)
   {
-    colorUpdate();
+    return;
+  }
+  colorUpdate();
+  if (kIsOfflineMode)
+  {
     ledStrip.runModeAction();
   }
-
-  if (isAccessPoint || !kIsOfflineMode)
+  else
   {
     ledService.listen();
   }

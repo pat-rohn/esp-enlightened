@@ -247,7 +247,7 @@ void LedStrip::campfireMode()
 
     for (int i = 0; i <= m_NrOfPixels; i++)
     {
-        if (colorTemplate.size() <= uint8(i))
+        if (colorTemplate.size() <= uint8_t(i))
         {
             colorTemplate.emplace_back(colorTemplate[i % 30]);
         }
