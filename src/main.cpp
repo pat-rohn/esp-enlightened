@@ -102,7 +102,7 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (sensorsInit(kDHTPin, kRX ,kTX))
+  if (sensorsInit(kDHTPin))
   {
     hasSensors = true;
   }
@@ -210,7 +210,7 @@ double tempTestVal = 15;
 
 void colorUpdate()
 {
-  if (ledStrip.m_LEDMode != LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
+  if (ledStrip.m_LEDMode == LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
   {
     lastColorChange = millis();
     //co2TestVal *= 1.1;

@@ -44,8 +44,6 @@ int kNrOfLEDs = 1;
 const uint8_t kLEDPin = 26; // A0
 const uint8_t kDHTPin = 25; // A1
 
-const uint8_t kRX = 16;
-const uint8_t kTX = 17;
 ```
 
 ## Example Wemos with DHT22

@@ -36,7 +36,7 @@ HardwareSerial MySerial = Serial2;
 HardwareSerial MySerial = Serial1;
 #endif
 
-bool sensorsInit(uint8_t dhtPin, uint8_t rx, uint8_t tx)
+bool sensorsInit(uint8_t dhtPin)
 {
     Serial.println("Sensors init.");
 
@@ -49,7 +49,7 @@ bool sensorsInit(uint8_t dhtPin, uint8_t rx, uint8_t tx)
         m_SensorTypes.emplace_back(SensorType::dht22);
     }
 #ifdef ESP32
-    MySerial.begin(9600, SERIAL_8N1, rx, tx);
+    MySerial.begin(9600, SERIAL_8N1, RX, TX);
 #else
     MySerial.begin(9600);
 #endif

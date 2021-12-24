@@ -80,7 +80,7 @@ private:
     DHT *m_Dht;
 };
 
-bool sensorsInit(uint8_t dhtPin, uint8_t rx, uint8_t tx);
+bool sensorsInit(uint8_t dhtPin);
 void findAndInitSensors();
 void findAndInitMHZ19();
 std::map<String, SensorData> getValues();
