@@ -11,8 +11,11 @@
 #include <Adafruit_BMP280.h>
 #include <MHZ19.h>
 
-//#include <WEMOS_SHT3X.h>
+#ifndef ESP32
+    #include <SoftwareSerial.h>
+#endif
 
+//#include <WEMOS_SHT3X.h>
 
 std::vector<SensorType> m_SensorTypes;
 
@@ -33,7 +36,7 @@ MHZ19 myMHZ19;
 #ifdef ESP32
 HardwareSerial MySerial = Serial2;
 #else
-HardwareSerial MySerial = Serial1;
+SoftwareSerial MySerial(D7, D6);
 #endif
 
 bool sensorsInit(uint8_t dhtPin)
@@ -95,10 +98,35 @@ void findAndInitMHZ19()
     Serial.println("Find and init MHZ19 sensor");
 
     myMHZ19.begin(MySerial);
-    myMHZ19.verify();
-    for (int i = 0; i < 2; i++)
+    delay(500);
+
+    char version[4];
+    myMHZ19.getVersion(version);
+    Serial.println(version);
+    Serial.print("\nFirmware Version: ");
+    String v = "";
+    for (byte i = 0; i < 4; i++)
+    {
+        v += version[i];
+
+        if (i == 1)
+        {
+            v += ".";
+        }
+    }
+    Serial.println(v);
+    if (v == "04.43")
+    {
+        Serial.println("Found sensor");
+        m_SensorTypes.emplace_back(SensorType::mhz19);
+        myMHZ19.autoCalibration();
+        return;
+    }
+    // takes a while after powering sensor. therefore this is a very insecure check
+    for (int i = 0; i < 10; i++)
     {
         int CO2 = myMHZ19.getCO2();
+        delay(500);
 
         Serial.print("CO2 (ppm): ");
         Serial.println(CO2);
@@ -109,13 +137,9 @@ void findAndInitMHZ19()
         if (Temp > 0 && CO2 > 0)
         {
             Serial.println("Found MHZ19 (CO2)");
-            m_SensorTypes.emplace_back(SensorType::mhz19);
             return;
         }
-        else
-        {
-            Serial.println("No MHZ19 found (CO2)");
-        }
+        Serial.println("No MHZ19 found (CO2)");
     }
 }
 
