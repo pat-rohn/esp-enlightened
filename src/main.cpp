@@ -102,7 +102,7 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (sensorsInit(kDHTPin))
+  if (!khasNoSensors && sensorsInit(kDHTPin)) 
   {
     hasSensors = true;
   }
@@ -137,10 +137,10 @@ void setup()
 
 void setCO2Color(double co2Val)
 {
-  // good: 0-1500 (white to yellow)
-  // medium: 1500-4000 (yellow to red)
-  // bad:4000:8000 (red to dark)
-  double blue = (1.0 - (co2Val - 500) / 1000) * 100.0;
+  // good: 0-800 (white to yellow)
+  // medium: 800-1000 (yellow to red)
+  // bad:1000:1800 (red to dark)
+  double blue = (1.0 - (co2Val - 400) / 400) * 100.0;
   if (blue > 100.0)
   {
     blue = 100;
@@ -149,7 +149,7 @@ void setCO2Color(double co2Val)
   {
     blue = 0;
   }
-  double green = (1.0 - (co2Val - 1500) / 2500) * 100.0;
+  double green = (1.0 - (co2Val - 800) / 600) * 100.0;
   if (green > 100.0)
   {
     green = 100;
@@ -158,7 +158,7 @@ void setCO2Color(double co2Val)
   {
     green = 0;
   }
-  double red = (1.0 - (co2Val - 4000) / 4000) * 100.0;
+  double red = (1.0 - (co2Val - 1400) / 1000) * 100.0;
   if (red > 100.0)
   {
     red = 100;
@@ -213,8 +213,10 @@ void colorUpdate()
   if (ledStrip.m_LEDMode == LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
   {
     lastColorChange = millis();
-    //co2TestVal *= 1.1;
+    //Serial.print("co2TestVal: ");
+    //Serial.println(co2TestVal);
     //setCO2Color(co2TestVal);
+    //co2TestVal += 100;
     //tempTestVal += 1.0;
     //setTemperatureColor(tempTestVal);
     //return;

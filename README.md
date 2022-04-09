@@ -15,6 +15,7 @@ std::map<std::string, std::string> wifiData{
 };
 
 bool kIsOfflineMode = false;
+bool khasNoSensors = false;
 
 const String &kSensorID = "Sensor1";
 const String &kTimeseriesAddress = "my-server.ch";
