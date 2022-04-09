@@ -80,6 +80,29 @@ bool connectToWiFi()
   return false;
 }
 
+void createAccesPoint()
+{
+  WiFi.disconnect();
+  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
+  {
+    ledService.showError();
+    Serial.println("STA Failed to configure");
+    setup();
+  }
+  Serial.print("Has access point:");
+  Serial.println(WiFi.localIP());
+  isAccessPoint = true;
+  if (!WiFi.mode(WIFI_AP))
+  {
+    Serial.print("mode failed.");
+  }
+  if (!WiFi.softAP(ssidAP, passwordAP))
+  {
+    Serial.print("softAP failed.");
+    setup();
+  }
+}
+
 void startLedControl()
 {
   if (kNrOfLEDs > 0)
@@ -102,35 +125,21 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (!khasNoSensors && sensorsInit(kDHTPin)) 
+  if (kTryFindingSensors && sensorsInit(kDHTPin))
   {
     hasSensors = true;
   }
   if (!kIsOfflineMode)
   {
-    if (!connectToWiFi())
+    while (!connectToWiFi())
     {
-      WiFi.disconnect();
-      if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
-      {
-        ledService.showError();
-        Serial.println("STA Failed to configure");
-        setup();
-      }
-      Serial.print("Has access point:");
-      Serial.println(WiFi.localIP());
-      isAccessPoint = true;
-      if (!WiFi.mode(WIFI_AP))
-      {
-        Serial.print("mode failed.");
-      }
-      if (!WiFi.softAP(ssidAP, passwordAP))
-      {
-        Serial.print("softAP failed.");
-        setup();
-      }
+      Serial.println("Failed to connect to WiFi. Retry..");
     }
     ledService.beginServer();
+  }
+  else
+  {
+    createAccesPoint();
   }
   startLedControl();
 }
