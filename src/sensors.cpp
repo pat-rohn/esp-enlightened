@@ -115,7 +115,7 @@ void findAndInitMHZ19()
         }
     }
     Serial.println(v);
-    if (v == "04.43")
+    if (v == "04.43" || v == "05.02") //Todo: Find generic way
     {
         Serial.println("Found sensor");
         m_SensorTypes.emplace_back(SensorType::mhz19);
