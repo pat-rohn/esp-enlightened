@@ -22,7 +22,7 @@ bool CTimeHelper::initTime()
         Serial.print(" .. ");
         if (m_TimeClient.forceUpdate())
         {
-            Serial.print("Success");
+            Serial.println("Timesync success");
             return true;
         }
         delay(600);

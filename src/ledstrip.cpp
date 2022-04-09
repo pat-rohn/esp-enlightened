@@ -160,7 +160,7 @@ void LedStrip::pulseMode()
             if (m_Factor > m_PulseMode.UpperLimit)
             {
                 m_PulseMode.IsIncreasing = false;
-                Serial.println("Go down");
+                //Serial.println("Go down");
             }
         }
         else
@@ -169,7 +169,7 @@ void LedStrip::pulseMode()
             if (m_Factor < m_PulseMode.LowerLimit)
             {
                 m_PulseMode.IsIncreasing = true;
-                Serial.println("Go up");
+                //Serial.println("Go up");
             }
         }
 
