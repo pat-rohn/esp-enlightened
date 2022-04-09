@@ -21,8 +21,6 @@ const String &kSensorID = "Sensor1";
 const String &kTimeseriesAddress = "my-server.ch";
 const String &kTimeseriesPort = "3004";
 
-unsigned long kSensorScanRate = 30000;
-unsigned long kSensorBuffersize = 30;
 
 int kNrOfLEDs = 1;
 
@@ -32,8 +30,8 @@ int kNrOfLEDs = 1;
 //D0   = 16;
 //D1   = 5;
 //D2   = 4;
-//D3   = 0;
-//D4   = 2;
+//D3   = 0; (DHT)
+//D4   = 2; (LED)
 //D5   = 14;
 //D6   = 12;
 //D7   = 13;

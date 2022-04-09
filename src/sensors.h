@@ -4,6 +4,8 @@
 #include <map>
 #include <DHT.h>
 
+namespace sensor{
+
 enum class SensorType
 {
     unknown = 0,
@@ -90,3 +92,6 @@ std::array<SensorData, 3> getDHT22();
 std::array<SensorData, 3> getEnv();
 std::array<SensorData, 3> getMHZ19();
 void initI2CSensor(uint8_t address);
+std::vector<String> getValueNames();
+
+}

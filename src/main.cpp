@@ -36,7 +36,13 @@ bool isAccessPoint = false;
 const char *ssidAP = "AI-Caramba";
 const char *passwordAP = "ki-caramba";
 
-SensorType sensorType = SensorType::unknown;
+sensor::SensorType sensorType = sensor::SensorType::unknown;
+
+CTimeHelper::Device deviceConfig = CTimeHelper::Device("", 60.0, 3);
+std::map<String, float> sensorOffsets;
+
+unsigned long lastUpdate = millis();
+int valueCounter = 0;
 
 bool tryConnect(std::string ssid, std::string password)
 {
@@ -125,10 +131,11 @@ void setup()
   Serial.println("setup");
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (kTryFindingSensors && sensorsInit(kDHTPin))
+  if (kTryFindingSensors && sensor::sensorsInit(kDHTPin))
   {
     hasSensors = true;
   }
+
   if (!kIsOfflineMode)
   {
     while (!connectToWiFi())
@@ -142,6 +149,12 @@ void setup()
     createAccesPoint();
   }
   startLedControl();
+  deviceConfig = timeseries.init(kSensorID, sensor::getValueNames());
+  for (auto const &d : deviceConfig.Sensors)
+  {
+    sensorOffsets[d.Name] = d.Offset;
+  }
+  lastUpdate = millis() - deviceConfig.Interval;
 }
 
 void setCO2Color(double co2Val)
@@ -230,7 +243,7 @@ void colorUpdate()
     //setTemperatureColor(tempTestVal);
     //return;
 
-    auto values = getValues();
+    auto values = sensor::getValues();
     if (values.empty())
     {
       Serial.println("No Sensors");
@@ -247,18 +260,17 @@ void colorUpdate()
   }
 }
 
-unsigned long lastUpdate = millis();
-unsigned long counter = 0;
+
 
 void measureAndSendSensorData()
 {
-  if (millis() > lastUpdate + kSensorScanRate)
+  if (millis() > lastUpdate + deviceConfig.Interval * 1000)
   {
     lastUpdate = millis();
-    auto values = getValues();
+    auto values = sensor::getValues();
     std::vector<String> valueNames;
     std::vector<float> tsValues;
-    std::map<String, SensorData>::iterator it;
+    std::map<String, sensor::SensorData>::iterator it;
     if (values.empty())
     {
       Serial.println("No Values");
@@ -268,11 +280,13 @@ void measureAndSendSensorData()
       if (it->second.isValid)
       {
         String name = kSensorID;
-        timeseries.addValue(name + it->second.name, it->second.value);
+        String valueName = name + it->second.name;
+
+        timeseries.addValue(valueName, it->second.value + sensorOffsets[valueName]);
       }
     }
-    counter++;
-    if (counter >= kSensorBuffersize)
+    valueCounter++;
+    if (valueCounter >= deviceConfig.Buffer)
     {
       if (WiFi.status() != WL_CONNECTED)
       {
@@ -283,7 +297,7 @@ void measureAndSendSensorData()
         }
       }
       timeseries.sendData();
-      counter = 0;
+      valueCounter = 0;
     }
   }
 }

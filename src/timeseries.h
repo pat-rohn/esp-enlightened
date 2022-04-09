@@ -23,6 +23,7 @@ public:
     };
 
     void addValue(const double &value, String timestamp);
+
     std::vector<DataPoint> m_DataSeries;
     String m_Name;
 };
@@ -34,8 +35,10 @@ public:
     CTimeseries(const String &timeseriesAddress, const String &port);
 
 public:
+    CTimeHelper::Device init(const String &name, const std::vector<String> &sensors);
     void addValue(const String &name, const double &value);
     bool sendData();
+    CTimeHelper::Device deserializeDevice(const char *deviceJson);
 
 private:
     bool postData(const String &root, const String &url);
