@@ -66,7 +66,7 @@ CTimeHelper::Device CTimeseries::init(const String &name, const std::vector<Stri
         Serial.print("Error code: ");
         Serial.println(httpResponseCode);
         http.end();
-        delay(500);
+        delay(5000);
         init(name, sensors);
     }
     return CTimeHelper::Device("No Device", 60.0, 3);
