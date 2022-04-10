@@ -154,7 +154,7 @@ void setup()
   desc += "ESP8266;";
 #endif
 #ifdef ESP32
-  desc += "ES32;";
+  desc += "ESP32;";
 #endif
   desc += sensor::getDescription();
   CTimeseries::DeviceDesc deviceDesc(kSensorID, desc);
