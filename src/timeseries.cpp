@@ -28,17 +28,18 @@ CTimeseries::CTimeseries(const String &timeseriesAddress, const String &port)
     m_TimeHelper = CTimeHelper();
 }
 
-CTimeHelper::Device CTimeseries::init(const String &name, const std::vector<String> &sensors)
+CTimeseries::Device CTimeseries::init(const DeviceDesc &deviceDesc)
 {
-    StaticJsonDocument<192> doc;
+    StaticJsonDocument<300> doc;
 
-    JsonObject Device = doc.createNestedObject("Device");
-    Device["Name"] = name;
+    JsonObject JSONDevice = doc.createNestedObject("Device");
+    JSONDevice["Name"] = deviceDesc.Name;
+    JSONDevice["Description"] = deviceDesc.Description;
 
-    JsonArray Device_Sensors = Device.createNestedArray("Sensors");
-    for (const String &s : sensors)
+    JsonArray Device_Sensors = JSONDevice.createNestedArray("Sensors");
+    for (const String &s : deviceDesc.Sensors)
     {
-        Device_Sensors.add(name + s);
+        Device_Sensors.add(deviceDesc.Name + s);
     }
 
     WiFiClient client = WiFiClient();
@@ -48,7 +49,8 @@ CTimeHelper::Device CTimeseries::init(const String &name, const std::vector<Stri
     Serial.println(serverPath);
 
     http.begin(client, serverPath.c_str());
-    Serial.println("Post data");
+    Serial.print("Post deviceDesc: ");
+    Serial.println(deviceDesc.Description);
 
     int httpResponseCode = http.POST(doc.as<String>());
 
@@ -56,8 +58,8 @@ CTimeHelper::Device CTimeseries::init(const String &name, const std::vector<Stri
     {
         Serial.print("HTTP Response code: ");
         Serial.println(httpResponseCode);
-        const char * payload = http.getString().c_str();
-        //Serial.println(payload);
+        const char *payload = http.getString().c_str();
+        // Serial.println(payload);
         http.end();
         return deserializeDevice(payload);
     }
@@ -67,12 +69,12 @@ CTimeHelper::Device CTimeseries::init(const String &name, const std::vector<Stri
         Serial.println(httpResponseCode);
         http.end();
         delay(5000);
-        init(name, sensors);
+        return init(deviceDesc);
     }
-    return CTimeHelper::Device("No Device", 60.0, 3);
+    return Device("No Device", 60.0, 3);
 }
 
-CTimeHelper::Device CTimeseries::deserializeDevice(const char *deviceJson)
+CTimeseries::Device CTimeseries::deserializeDevice(const char *deviceJson)
 {
     StaticJsonDocument<4000> doc;
     DeserializationError error = deserializeJson(doc, deviceJson);
@@ -81,13 +83,13 @@ CTimeHelper::Device CTimeseries::deserializeDevice(const char *deviceJson)
     {
         Serial.print("deserializeJson() failed: ");
         Serial.println(error.c_str());
-        return CTimeHelper::Device("No Device", 60.0, 3);
+        return CTimeseries::Device("No Device", 60.0, 3);
     }
 
-    const char *Device = doc["Name"];                      // "myName"
+    const char *Name = doc["Name"]; // "myName"
     int Interval = doc["Interval"]; // 60.0
-    int Buffer = doc["Buffer"]; // 3
-    CTimeHelper::Device device(Device, Interval, Buffer);
+    int Buffer = doc["Buffer"];     // 3
+    Device device(Name, Interval, Buffer);
     Serial.print("Device: ");
     Serial.println(device.Name);
     Serial.print("Interval/Buffer: ");
@@ -95,16 +97,16 @@ CTimeHelper::Device CTimeseries::deserializeDevice(const char *deviceJson)
     Serial.print("/");
     Serial.println(device.Buffer);
     Serial.println("Sensors: ");
-    device.Sensors = std::vector<CTimeHelper::Sensor>();
-    for (JsonObject Sensor : doc["Sensors"].as<JsonArray>())
+    device.Sensors = std::vector<Sensor>();
+    for (JsonObject JSONSensor : doc["Sensors"].as<JsonArray>())
     {
-        const char *Sensor_Name = Sensor["Name"]; // "askdmlaksmdasmySensor1", "askdmlaksmdasmySensor2", ...
-        double Sensor_Offset = Sensor["Offset"];  // 1.2, 1.2, 1.2
-        CTimeHelper::Sensor sensor = CTimeHelper::Sensor();
+        const char *Sensor_Name = JSONSensor["Name"];
+        double Sensor_Offset = JSONSensor["Offset"];
+        CTimeseries::Sensor sensor = Sensor();
         sensor.Name = Sensor_Name;
         sensor.Offset = Sensor_Offset;
         Serial.print(sensor.Name);
-        Serial.print("  ");
+        Serial.print(" Offset:  ");
         Serial.print(sensor.Offset);
         Serial.println("");
         device.Sensors.emplace_back(sensor);
@@ -124,8 +126,8 @@ void CTimeseries::addValue(const String &name, const double &value)
 
 bool CTimeseries::sendData()
 {
-    //https://arduinojson.org/v6/assistant/
-    //https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
+    // https://arduinojson.org/v6/assistant/
+    // https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
 
     DynamicJsonDocument doc(10000); // uses heap because it's too much data for stack
     for (auto const &ts : m_Data)

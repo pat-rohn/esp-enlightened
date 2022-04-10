@@ -30,18 +30,59 @@ public:
 
 class CTimeseries
 {
+public:
+    struct Sensor
+    {
+        String Name;
+        double Offset;
+
+        Sensor()
+        {
+        }
+        Sensor(const String &name, double offset)
+        {
+            this->Name = name;
+            this->Offset = Offset;
+        }
+    };
+    struct Device
+    {
+        String Name;
+        std::vector<Sensor> Sensors;
+        double Interval;
+        int Buffer;
+
+        Device(const String &name, double interval, int buffer)
+        {
+            this->Name = name;
+            this->Interval = interval;
+            this->Buffer = buffer;
+        }
+    };
+
+    struct DeviceDesc
+    {
+        String Name;
+        std::vector<String> Sensors;
+        String Description;
+        DeviceDesc(const String &name, const String &desc)
+        {
+            this->Name = name;
+            this->Description = desc;
+        }
+    };
 
 public:
     CTimeseries(const String &timeseriesAddress, const String &port);
 
 public:
-    CTimeHelper::Device init(const String &name, const std::vector<String> &sensors);
+    CTimeseries::Device init(const CTimeseries::DeviceDesc &deviceDesc);
     void addValue(const String &name, const double &value);
     bool sendData();
-    CTimeHelper::Device deserializeDevice(const char *deviceJson);
 
 private:
     bool postData(const String &root, const String &url);
+    CTimeseries::Device deserializeDevice(const char *deviceJson);
 
 private:
     String m_ServerAddress;

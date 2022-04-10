@@ -12,7 +12,7 @@
 #include <MHZ19.h>
 
 #ifndef ESP32
-#include <SoftwareSerial.h>
+    #include <SoftwareSerial.h>
 #endif
 
 namespace sensor
@@ -22,6 +22,7 @@ namespace sensor
 
     std::vector<SensorType> m_SensorTypes;
     std::vector<String> m_ValueNames;
+    String m_Description = "";
 
     Adafruit_BME280 bme; // I2C
 
@@ -31,11 +32,11 @@ namespace sensor
     Adafruit_BMP280 bmp = Adafruit_BMP280(&MyWire);
     Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
     Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
-    //SHT3X sht30(0x44);
+    // SHT3X sht30(0x44);
     DHTSensor *dhtSensor;
 
     MHZ19 myMHZ19;
-    //Adafruit_SGP30 sgp;
+    // Adafruit_SGP30 sgp;
 
 #ifdef ESP32
     HardwareSerial MySerial = Serial2;
@@ -54,6 +55,7 @@ namespace sensor
         if (hasDHT)
         {
             m_SensorTypes.emplace_back(SensorType::dht22);
+            m_Description = m_Description + "DHT22;";
             // todo: improve
             m_ValueNames.emplace_back("Temperature");
             m_ValueNames.emplace_back("Humidity");
@@ -67,7 +69,7 @@ namespace sensor
 
         if (m_SensorTypes.empty() && !hasDHT)
         {
-            //MyWire.begin(32, 33);
+            // MyWire.begin(32, 33);
             Serial.println("Change Wire since nothing found.");
             return false;
         }
@@ -122,11 +124,12 @@ namespace sensor
             }
         }
         Serial.println(v);
-        if (v == "04.43" || v == "05.02") //Todo: Find generic way
+        if (v == "04.43" || v == "05.02") // Todo: Find generic way
         {
             Serial.println("Found sensor");
             m_SensorTypes.emplace_back(SensorType::mhz19);
             m_ValueNames.emplace_back("CO2");
+            m_Description = m_Description + "MHZ19(" + v + ");";
             myMHZ19.autoCalibration();
             return;
         }
@@ -146,6 +149,7 @@ namespace sensor
             {
                 Serial.println("Found MHZ19 (CO2)");
                 m_SensorTypes.emplace_back(SensorType::mhz19);
+                m_Description = m_Description + "MHZ19;";
                 m_ValueNames.emplace_back("CO2");
                 return;
             }
@@ -388,8 +392,8 @@ namespace sensor
         }
 
         // Convert the data
-        //double cTemp = ((((data[0] * 256.0) + data[1]) * 175) / 65535.0) - 45;
-        //fTemp = (cTemp * 1.8) + 32;
+        // double cTemp = ((((data[0] * 256.0) + data[1]) * 175) / 65535.0) - 45;
+        // fTemp = (cTemp * 1.8) + 32;
         double humidity = ((((data[3] * 256.0) + data[4]) * 100) / 65535.0);
         sensorData[2].isValid = true;
         sensorData[2].value = humidity;
@@ -446,6 +450,7 @@ namespace sensor
                                 Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
                 bmp_temp->printSensorDetails();
                 m_SensorTypes.emplace_back(SensorType::bmp280);
+                m_Description = m_Description + "BMP280;";
 
                 m_ValueNames.emplace_back("Temperature");
                 m_ValueNames.emplace_back("Humidity");
@@ -454,6 +459,7 @@ namespace sensor
             else
             {
                 m_SensorTypes.emplace_back(SensorType::bme280);
+                m_Description = m_Description + "BME280;";
                 m_ValueNames.emplace_back("Temperature");
                 m_ValueNames.emplace_back("Humidity");
             }
@@ -468,7 +474,7 @@ namespace sensor
             }
 
             Serial.println("cjmcu: wait till available");
-            //calibrate temperature sensor
+            // calibrate temperature sensor
             while (!ccs.available())
             {
                 delay(0.1);
@@ -481,11 +487,13 @@ namespace sensor
             m_SensorTypes.emplace_back(SensorType::cjmcu);
             m_ValueNames.emplace_back("CO2");
             m_ValueNames.emplace_back("TVOC");
+            m_Description = m_Description + "CJMCU;";
         }
         else if (address == 0x44)
         {
             Serial.println("Sensor SHT30.");
             m_SensorTypes.emplace_back(SensorType::sht30);
+            m_Description = m_Description + "SHT30;";
         }
         else if (address == 0x58)
         {
@@ -510,6 +518,12 @@ namespace sensor
         }
 
         return m_ValueNames;
+    }
+
+    const String &getDescription()
+    {
+        Serial.println(m_Description);
+        return m_Description;
     }
 
 }; // namespace sensor

@@ -38,7 +38,7 @@ const char *passwordAP = "ki-caramba";
 
 sensor::SensorType sensorType = sensor::SensorType::unknown;
 
-CTimeHelper::Device deviceConfig = CTimeHelper::Device("", 60.0, 3);
+CTimeseries::Device deviceConfig = CTimeseries::Device("", 60.0, 3);
 std::map<String, float> sensorOffsets;
 
 unsigned long lastUpdate = millis();
@@ -149,7 +149,17 @@ void setup()
     createAccesPoint();
   }
   startLedControl();
-  deviceConfig = timeseries.init(kSensorID, sensor::getValueNames());
+  String desc = "";
+#ifdef ESP8266
+  desc += "ESP8266;";
+#endif
+#ifdef ESP32
+  desc += "ES32;";
+#endif
+  desc += sensor::getDescription();
+  CTimeseries::DeviceDesc deviceDesc(kSensorID, desc);
+  deviceDesc.Sensors = sensor::getValueNames();
+  deviceConfig = timeseries.init(deviceDesc);
   for (auto const &d : deviceConfig.Sensors)
   {
     sensorOffsets[d.Name] = d.Offset;
@@ -235,13 +245,13 @@ void colorUpdate()
   if (ledStrip.m_LEDMode == LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
   {
     lastColorChange = millis();
-    //Serial.print("co2TestVal: ");
-    //Serial.println(co2TestVal);
-    //setCO2Color(co2TestVal);
-    //co2TestVal += 100;
-    //tempTestVal += 1.0;
-    //setTemperatureColor(tempTestVal);
-    //return;
+    // Serial.print("co2TestVal: ");
+    // Serial.println(co2TestVal);
+    // setCO2Color(co2TestVal);
+    // co2TestVal += 100;
+    // tempTestVal += 1.0;
+    // setTemperatureColor(tempTestVal);
+    // return;
 
     auto values = sensor::getValues();
     if (values.empty())
@@ -259,8 +269,6 @@ void colorUpdate()
     }
   }
 }
-
-
 
 void measureAndSendSensorData()
 {
