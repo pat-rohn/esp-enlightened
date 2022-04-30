@@ -18,5 +18,6 @@ git clone https://github.com/arduino-libraries/NTPClient.git
 git clone  https://github.com/plerup/espsoftwareserial
 mkdir NTPClient/src
 mv ./NTPClient/NTPClient.* src 
+git clone https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library.git SCD30
 
 ```
