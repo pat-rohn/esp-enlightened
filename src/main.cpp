@@ -5,12 +5,25 @@
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+
+const uint8_t kLEDPin = D4;
+const uint8_t kDHTPin = D3;
 #endif /* ESP8266 */
 
 #ifdef ESP32
 #include "WiFi.h"
 #include <HTTPClient.h>
+
+const uint8_t kLEDPin = 26; // A0
+const uint8_t kDHTPin = 25; // A1
 #endif /* ESP32 */
+
+uint8_t kLEDON = 0x0;
+uint8_t kLEDOFF = 0x1;
+
+
+//const uint8_t kLEDPin = 14;
+//const uint8_t kDHTPin = 0;
 
 #include "configuration.h" // TODO: Create this file, see README
 
@@ -54,10 +67,10 @@ bool tryConnect(std::string ssid, std::string password)
   int counter = 0;
   while (WiFi.status() != WL_CONNECTED && counter <= 15)
   {
-    digitalWrite(LED_BUILTIN, 0x0);
+    digitalWrite(LED_BUILTIN, kLEDON);
     delay(250);
     Serial.print(".");
-    digitalWrite(LED_BUILTIN, 0x1);
+    digitalWrite(LED_BUILTIN, kLEDOFF);
     delay(250);
     counter++;
     if (counter >= 15)
@@ -142,7 +155,6 @@ void setup()
     {
       Serial.println("Failed to connect to WiFi. Retry..");
     }
-    ledService.beginServer();
   }
   else
   {
@@ -165,6 +177,8 @@ void setup()
     sensorOffsets[d.Name] = d.Offset;
   }
   lastUpdate = millis() - deviceConfig.Interval;
+
+  digitalWrite(LED_BUILTIN, kLEDOFF);
 }
 
 void setCO2Color(double co2Val)
