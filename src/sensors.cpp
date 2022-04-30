@@ -10,14 +10,14 @@
 //#include "Adafruit_SGP30.h"
 #include <Adafruit_BMP280.h>
 #include <MHZ19.h>
+#include <SparkFun_SCD30_Arduino_Library.h>
 
 #ifndef ESP32
-    #include <SoftwareSerial.h>
+#include <SoftwareSerial.h>
 #endif
 
 namespace sensor
 {
-
     //#include <WEMOS_SHT3X.h>
 
     std::vector<SensorType> m_SensorTypes;
@@ -28,6 +28,7 @@ namespace sensor
 
     Adafruit_CCS811 ccs;
     TwoWire MyWire = Wire;
+    SCD30 airSensor;
 
     Adafruit_BMP280 bmp = Adafruit_BMP280(&MyWire);
     Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
@@ -56,7 +57,6 @@ namespace sensor
         {
             m_SensorTypes.emplace_back(SensorType::dht22);
             m_Description = m_Description + "DHT22;";
-            // todo: improve
             m_ValueNames.emplace_back("Temperature");
             m_ValueNames.emplace_back("Humidity");
         }
@@ -90,11 +90,12 @@ namespace sensor
                 Serial.print(i, DEC);
                 Serial.print(" (0x");
                 Serial.print(i, HEX);
-                Serial.print(")");
+                Serial.println(")");
                 count++;
-                delay(0.1);
+                delay(100);
                 initI2CSensor(i);
             }
+            delay(50);
         }
 
         Serial.println();
@@ -132,28 +133,6 @@ namespace sensor
             m_Description = m_Description + "MHZ19(" + v + ");";
             myMHZ19.autoCalibration();
             return;
-        }
-        // takes a while after powering sensor. therefore this is a very insecure check
-        for (int i = 0; i < 10; i++)
-        {
-            int CO2 = myMHZ19.getCO2();
-            delay(500);
-
-            Serial.print("CO2 (ppm): ");
-            Serial.println(CO2);
-
-            float Temp = myMHZ19.getTemperature();
-            Serial.print("Temperature (C): ");
-            Serial.println(Temp);
-            if (Temp > 0 && CO2 > 0)
-            {
-                Serial.println("Found MHZ19 (CO2)");
-                m_SensorTypes.emplace_back(SensorType::mhz19);
-                m_Description = m_Description + "MHZ19;";
-                m_ValueNames.emplace_back("CO2");
-                return;
-            }
-            Serial.println("No MHZ19 found (CO2)");
         }
     }
 
@@ -206,6 +185,17 @@ namespace sensor
         if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::mhz19) != m_SensorTypes.end())
         {
             for (const auto &val : getMHZ19())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+
+        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::scd30) != m_SensorTypes.end())
+        {
+            for (const auto &val : getSCD30())
             {
                 if (val.isValid)
                 {
@@ -423,6 +413,59 @@ namespace sensor
         return sensorData;
     }
 
+    std::array<SensorData, 3> getSCD30()
+    {
+        std::array<SensorData, 3> sensorData;
+        if (!airSensor.dataAvailable())
+        {
+            Serial.println("SCD30: Data not available.");
+            return sensorData;
+        }
+        sensorData.fill(SensorData());
+        float CO2 = airSensor.getCO2();
+        float temperature = airSensor.getTemperature();
+        float humidity = airSensor.getHumidity();
+
+        Serial.print("CO2 (ppm): ");
+        Serial.println(CO2);
+        Serial.print("Temperature (°C): ");
+        Serial.println(temperature);
+        Serial.print("Humidity (%): ");
+        Serial.println(humidity);
+
+        if (CO2 > 0)
+        {
+            sensorData[0].isValid = true;
+            sensorData[0].value = CO2;
+            sensorData[0].unit = "ppm";
+            sensorData[0].name = "CO2";
+            if (CO2 < 400)
+            {
+                double offset = 420 - CO2;
+                airSensor.setForcedRecalibrationFactor(400 + offset);
+                Serial.print("Prevent values below 400. Increase concentration to: ");
+                Serial.println(400 + offset);
+                sensorData[0].value = 400;
+            }
+        }
+        if (temperature > 0)
+        {
+            sensorData[1].isValid = true;
+            sensorData[1].value = temperature;
+            sensorData[1].unit = "*C";
+            sensorData[1].name = "Temperature";
+        }
+        if (humidity > 0)
+        {
+            sensorData[2].isValid = true;
+            sensorData[2].value = humidity;
+            sensorData[2].unit = "%";
+            sensorData[2].name = "Humidity";
+        }
+
+        return sensorData;
+    }
+
     void initI2CSensor(uint8_t address)
     {
         Serial.print("Init Sensor: ");
@@ -477,7 +520,7 @@ namespace sensor
             // calibrate temperature sensor
             while (!ccs.available())
             {
-                delay(0.1);
+                delay(10);
             }
             Serial.println("cjmcu: Calc temperature");
             float cTemp = ccs.calculateTemperature();
@@ -495,6 +538,11 @@ namespace sensor
             m_SensorTypes.emplace_back(SensorType::sht30);
             m_Description = m_Description + "SHT30;";
         }
+        else if (address == 0x61)
+        {
+            Serial.println("Sensor SCD30.");
+            initSCD30();
+        }
         else if (address == 0x58)
         {
             /*Serial.println("Sensor SGP30.");
@@ -508,6 +556,51 @@ namespace sensor
         Serial.print(sgp.serialnumber[1], HEX);
         Serial.println(sgp.serialnumber[2], HEX);*/
         }
+    }
+
+    void initSCD30()
+    {
+        if (airSensor.begin(MyWire, false) && airSensor.isConnected())
+        {
+            Serial.println("Found SCD30 (CO2)");
+
+            m_SensorTypes.emplace_back(SensorType::scd30);
+            m_Description = m_Description + "SCD30;";
+            m_ValueNames.emplace_back("CO2");
+            m_ValueNames.emplace_back("Temperature");
+            m_ValueNames.emplace_back("Humidity");
+            airSensor.setForcedRecalibrationFactor(420); // Assuming outdoor conditions.
+            delay(300);
+
+            unsigned long timeoutTime = millis() + 5000;
+            while (!airSensor.dataAvailable())
+            {
+                delay(200);
+                if (millis() > timeoutTime)
+                {
+                    Serial.println("Timeout: No data available.");
+                }
+            }
+
+            double co2 = airSensor.getCO2();
+            Serial.print("Check calibration: ");
+            Serial.println(co2);
+            if (co2 < 400)
+            {
+                double offset = 420 - co2;
+                airSensor.setForcedRecalibrationFactor(400 + offset);
+                Serial.print("Prevent values below 400. Increase concentration to: ");
+                Serial.println(400 + offset);
+            }
+
+            return;
+        }
+        Serial.println("SCD sensor not detected.");
+        uint16_t fwVer;
+        airSensor.getFirmwareVersion(&fwVer);
+        Serial.println(fwVer, HEX);
+
+        delay(300);
     }
 
     std::vector<String> getValueNames()

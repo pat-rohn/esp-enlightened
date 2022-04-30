@@ -17,6 +17,7 @@ namespace sensor
         sht30 = 5,
         sgp30 = 6,
         mhz19 = 6,
+        scd30 = 7,
     };
 
     struct SensorData
@@ -92,7 +93,9 @@ namespace sensor
     std::array<SensorData, 3> getDHT22();
     std::array<SensorData, 3> getEnv();
     std::array<SensorData, 3> getMHZ19();
+    std::array<SensorData, 3> getSCD30();
     void initI2CSensor(uint8_t address);
+    void initSCD30();
     std::vector<String> getValueNames();
     const String &getDescription();
 
