@@ -4,8 +4,8 @@ WiFiUDP ntpUDP;
 
 CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP)), m_IsTimeInitialized(false)
 {
-    //initTime();
-    //timeClient.begin();
+    // initTime();
+    // timeClient.begin();
     // todo: fix this
     Serial.print("CTimeHelper");
 }
@@ -23,12 +23,29 @@ bool CTimeHelper::initTime()
         if (m_TimeClient.forceUpdate())
         {
             Serial.println("Timesync success");
+            unsigned long timeout = millis() + 60000;
+            time_t now;
+            while (now < 1651000000 || now >= 35435628436)
+            {
+                Serial.print("Wait for time...");
+                Serial.println(now);
+                delay(500);
+                time(&now);
+                if (millis() > timeout)
+                {
+                    Serial.println("Timeout while waiting for time. ");
+                    break;
+                }
+            }
+
+            Serial.println("Time in ms: ");
+            Serial.println(now);
             return true;
         }
         delay(600);
     }
 
-    Serial.println("");
+    Serial.println("Failed to sync...");
     return m_TimeClient.update();
 }
 
@@ -55,11 +72,10 @@ String CTimeHelper::getTimestamp()
     timestamp += buf;
     timestamp += "Z";
 
-    //Serial.print("Time:");
-    //Serial.println(timestamp);
+    // Serial.print("Time:");
+    // Serial.println(timestamp);
     return timestamp;
 }
-
 
 String CTimeHelper::fillUpZeros(int number)
 {
