@@ -139,7 +139,17 @@ bool CTimeseries::sendData()
         for (auto val : ts.second.m_DataSeries)
         {
             tsValuesTS.add(val.Timestamp);
-            tsValuesV.add(String(val.Value));
+            if (val.Value < 0.00001)
+            {
+                tsValuesV.add(String(val.Value, 8));
+            }else if (val.Value < 0.001)
+            {
+                tsValuesV.add(String(val.Value, 5));
+            }
+            else 
+            {
+                tsValuesV.add(String(val.Value, 4));
+            }
         }
     }
     Serial.println(doc.as<String>());
