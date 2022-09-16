@@ -6,8 +6,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
-const uint8_t kLEDPin = D4;
-const uint8_t kDHTPin = D3;
+const uint8_t kLEDPin = D3;
+const uint8_t kDHTPin = D2;
 #endif /* ESP8266 */
 
 #ifdef ESP32
@@ -16,14 +16,13 @@ const uint8_t kDHTPin = D3;
 
 const uint8_t kLEDPin = 26; // A0
 const uint8_t kDHTPin = 25; // A1
-#endif /* ESP32 */
+#endif                      /* ESP32 */
 
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
 
-
-//const uint8_t kLEDPin = 14;
-//const uint8_t kDHTPin = 0;
+// const uint8_t kLEDPin = 14;
+// const uint8_t kDHTPin = 0;
 
 #include "configuration.h" // TODO: Create this file, see README
 
@@ -143,12 +142,6 @@ void setup()
   Serial.begin(115200);
   Serial.println("setup");
 
-  pinMode(LED_BUILTIN, OUTPUT);
-  if (kTryFindingSensors && sensor::sensorsInit(kDHTPin))
-  {
-    hasSensors = true;
-  }
-
   if (!kIsOfflineMode)
   {
     while (!connectToWiFi())
@@ -160,23 +153,37 @@ void setup()
   {
     createAccesPoint();
   }
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  if (kTryFindingSensors && sensor::sensorsInit(kDHTPin, D4))
+  {
+    hasSensors = true;
+  }
+
   startLedControl();
-  String desc = "";
+  if (hasSensors)
+  {
+    String desc = "";
 #ifdef ESP8266
-  desc += "ESP8266;";
+    desc += "ESP8266;";
 #endif
 #ifdef ESP32
-  desc += "ESP32;";
+    desc += "ESP32;";
 #endif
-  desc += sensor::getDescription();
-  CTimeseries::DeviceDesc deviceDesc(kSensorID, desc);
-  deviceDesc.Sensors = sensor::getValueNames();
-  deviceConfig = timeseries.init(deviceDesc);
-  for (auto const &d : deviceConfig.Sensors)
-  {
-    sensorOffsets[d.Name] = d.Offset;
+    desc += sensor::getDescription();
+    CTimeseries::DeviceDesc deviceDesc(kSensorID, desc);
+    deviceDesc.Sensors = sensor::getValueNames();
+    deviceConfig = timeseries.init(deviceDesc);
+    for (auto const &d : deviceConfig.Sensors)
+    {
+      sensorOffsets[d.Name] = d.Offset;
+    }
+    lastUpdate = millis() - deviceConfig.Interval;
   }
-  lastUpdate = millis() - deviceConfig.Interval;
+  else
+  {
+     ledService.beginServer();
+  }
 
   digitalWrite(LED_BUILTIN, kLEDOFF);
 }
@@ -330,14 +337,9 @@ void loop()
   { // should have connection to timeseries server
     measureAndSendSensorData();
   }
-  if (kNrOfLEDs <= 0)
+  if (hasSensors && kNrOfLEDs > 0)
   {
-    return;
-  }
-  colorUpdate();
-  if (kIsOfflineMode)
-  {
-    ledStrip.runModeAction();
+    colorUpdate();
   }
   else
   {

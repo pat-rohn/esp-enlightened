@@ -16,6 +16,8 @@
 #include <SoftwareSerial.h>
 #endif
 
+#include "watersensor.h"
+
 namespace sensor
 {
     //#include <WEMOS_SHT3X.h>
@@ -37,6 +39,7 @@ namespace sensor
     DHTSensor *dhtSensor;
 
     MHZ19 myMHZ19;
+
     // Adafruit_SGP30 sgp;
 
 #ifdef ESP32
@@ -45,7 +48,7 @@ namespace sensor
     SoftwareSerial MySerial(D7, D6);
 #endif
 
-    bool sensorsInit(uint8_t dhtPin)
+    bool sensorsInit(uint8_t dhtPin, uint8_t watersensorPin)
     {
         Serial.println("Sensors init.");
 
@@ -66,6 +69,11 @@ namespace sensor
         MySerial.begin(9600);
 #endif
         findAndInitSensors();
+        if (watersensorPin >= 0)
+        {
+            m_SensorTypes.emplace_back(SensorType::watersensor);
+            watersensor::start(watersensorPin);
+        }
 
         if (m_SensorTypes.empty() && !hasDHT)
         {
@@ -196,6 +204,17 @@ namespace sensor
         if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::scd30) != m_SensorTypes.end())
         {
             for (const auto &val : getSCD30())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+
+        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::watersensor) != m_SensorTypes.end())
+        {
+            for (const auto &val : getWaterValues())
             {
                 if (val.isValid)
                 {
@@ -462,6 +481,38 @@ namespace sensor
             sensorData[2].unit = "%";
             sensorData[2].name = "Humidity";
         }
+
+        return sensorData;
+    }
+
+    std::array<SensorData, 3> getWaterValues()
+    {
+        std::array<SensorData, 3> sensorData;
+        sensorData.fill(SensorData());
+        double vol = watersensor::getValue();
+        Serial.print("Volume: ");
+        Serial.println(vol, 9);
+        Serial.println("mm");
+        sensorData[0].isValid = true;
+        sensorData[0].value = vol;
+        sensorData[0].unit = "mm";
+        sensorData[0].name = "WaterVolume";
+
+        float clicks = watersensor::getClicks();
+        Serial.print("Clicks: ");
+        Serial.println(clicks);
+        sensorData[1].isValid = true;
+        sensorData[1].value = clicks;
+        sensorData[1].unit = "1";
+        sensorData[1].name = "WaterClicks";
+                
+        double flow = watersensor::getFlow();
+        Serial.print("Flow: ");
+        Serial.println(flow, 9);
+        sensorData[2].isValid = true;
+        sensorData[2].value = flow;
+        sensorData[2].unit = "mm/s";
+        sensorData[2].name = "WaterFlow";
 
         return sensorData;
     }
