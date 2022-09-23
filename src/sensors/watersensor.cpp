@@ -9,8 +9,8 @@
 namespace watersensor
 {
     int clickCounter = 0;
-    int lastValue = millis();
-    int lastCount = 0;
+    int lastTime = millis();
+    int lastClickCount = 0;
 
     double getValue()
     {
@@ -24,9 +24,9 @@ namespace watersensor
 
     double getFlow()
     {
-        double diffFlow = (clickCounter - lastCount)*getFactor();
-        lastCount = getClicks();
-        return diffFlow / (millis() - lastValue) * 1000.0;
+        double diffFlow = (clickCounter - lastClickCount) * getFactor();
+        lastClickCount = getClicks();
+        return diffFlow / (millis() - lastTime) * 1000.0;
     }
 
     IRAM_ATTR void detectsChange()

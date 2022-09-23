@@ -19,6 +19,7 @@ namespace sensor
         mhz19 = 6,
         scd30 = 7,
         watersensor = 8,
+        windsensor = 9,
     };
 
     struct SensorData
@@ -85,7 +86,7 @@ namespace sensor
         DHT *m_Dht;
     };
 
-    bool sensorsInit(uint8_t dhtPin, uint8_t watersensorPin);
+    bool sensorsInit();
     void findAndInitSensors();
     void findAndInitMHZ19();
     std::map<String, SensorData> getValues();
@@ -96,6 +97,7 @@ namespace sensor
     std::array<SensorData, 3> getMHZ19();
     std::array<SensorData, 3> getSCD30();
     std::array<SensorData, 3> getWaterValues();
+    std::array<SensorData, 3> getWindValues();
     void initI2CSensor(uint8_t address);
     void initSCD30();
     std::vector<String> getValueNames();
