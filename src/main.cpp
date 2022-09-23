@@ -7,7 +7,6 @@
 #include <ESP8266HTTPClient.h>
 
 const uint8_t kLEDPin = D3;
-const uint8_t kDHTPin = D2;
 #endif /* ESP8266 */
 
 #ifdef ESP32
@@ -15,20 +14,17 @@ const uint8_t kDHTPin = D2;
 #include <HTTPClient.h>
 
 const uint8_t kLEDPin = 26; // A0
-const uint8_t kDHTPin = 25; // A1
 #endif                      /* ESP32 */
 
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
 
-// const uint8_t kLEDPin = 14;
-// const uint8_t kDHTPin = 0;
 
 #include "configuration.h" // TODO: Create this file, see README
 
 #include "timeseries.h"
 
-#include "sensors.h"
+#include "sensors/sensors.h"
 #include "leds_service.h"
 
 CTimeseries timeseries = CTimeseries(kTimeseriesAddress, kTimeseriesPort);
@@ -155,7 +151,7 @@ void setup()
   }
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (kTryFindingSensors && sensor::sensorsInit(kDHTPin, D4))
+  if (kTryFindingSensors && sensor::sensorsInit())
   {
     hasSensors = true;
   }
