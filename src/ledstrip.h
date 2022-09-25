@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <array>
+#include <vector>
 #include <Adafruit_NeoPixel.h>
 
 class LedStrip
