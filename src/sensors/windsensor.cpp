@@ -9,8 +9,12 @@
 namespace windsensor
 {
     unsigned long clickCounter = 0;
-    unsigned long lastTime = millis();
+    unsigned long lastTime = 0;
     unsigned long lastClickCount = 0;
+
+    unsigned long lastPeakTime = 0;
+    unsigned long lastPeakClickCount = 0;
+    double peakSpeed = 0;
 
     double getValue()
     {
@@ -22,26 +26,42 @@ namespace windsensor
         return clickCounter;
     }
 
-    double getSpeed()
+    std::pair<double, double> getSpeed()
     {
-        double diffFlow = (clickCounter - lastClickCount) * getFactor();
+        double diff = (clickCounter - lastClickCount) * getFactor();
         double diffTime = (millis() - lastTime) / 1000.0;
-        Serial.print("DiffTime:  ");
-        Serial.println(diffTime);
-        Serial.print("DiffFlow:  ");
-        Serial.println(diffFlow);
         lastClickCount = getClicks();
         lastTime = millis();
-        return diffFlow / diffTime;
+        std::pair<double, double> res = std::make_pair(diff / diffTime, getPeak());
+        peakSpeed = 0.0;
+        return res;
+    }
+
+    double getPeak()
+    {
+        return peakSpeed;
     }
 
     IRAM_ATTR void detectsChange()
     {
-        Serial.print("Counter:  ");
+        Serial.print(" ");
         Serial.print(clickCounter);
         Serial.print("; ");
-
         clickCounter++;
+        if (clickCounter % 3 == 0)
+        {
+            double diff = (clickCounter - lastPeakClickCount) * getFactor();
+            double diffTime = (millis() - lastPeakTime) / 1000.0;
+            double currentSpeed = diff / diffTime;
+            if (peakSpeed < currentSpeed)
+            {
+                Serial.print("New Peak: ");
+                Serial.println(currentSpeed);
+                peakSpeed = currentSpeed;
+            }
+            lastPeakClickCount = getClicks();
+            lastPeakTime = millis();
+        }
     }
 
     void start(uint8_t pin)
@@ -49,6 +69,8 @@ namespace windsensor
         Serial.print("Start windsensor with pin:  ");
         Serial.print(pin);
         attachInterrupt(digitalPinToInterrupt(pin), detectsChange, RISING);
+        lastPeakTime = millis();
+        lastTime = millis();
     }
 
     double getFactor()

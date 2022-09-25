@@ -18,9 +18,13 @@
 #ifdef ESP8266
 #include <SoftwareSerial.h>
 int dhTPin = -1;
-// Digital Input: D1,D2,D5,D6,D7
+
+/*
+GPIOs 3, 12, 13 and 14 pulled HIGH during boot. Their actual state does (should) not influence the boot process.
+*/
+// Digital Input: (D5,D6,D7) (GPIO 12, 13 and 14 )
 int waterSensorPin = -1;
-int windSensorPin = D5;
+int windSensorPin = D1;
 #else
 int dhTPin = -1;
 // Digital Input: e.g. D16-D33
@@ -561,13 +565,21 @@ namespace sensor
         sensorData[0].unit = "1";
         sensorData[0].name = "WindClicks";
 
-        double flow = windsensor::getSpeed();
+        std::pair<double, double> speed = windsensor::getSpeed();
         Serial.print("Speed: ");
-        Serial.println(flow, 9);
+        Serial.println(speed.first, 9);
         sensorData[1].isValid = true;
-        sensorData[1].value = flow;
+        sensorData[1].value = speed.first;
         sensorData[1].unit = "m/s";
         sensorData[1].name = "WindSpeed";
+
+        double peak = speed.second;
+        Serial.print("Peak: ");
+        Serial.println(peak, 9);
+        sensorData[2].isValid = true;
+        sensorData[2].value = peak;
+        sensorData[2].unit = "m/s";
+        sensorData[2].name = "WindPeak";
 
         return sensorData;
     }
