@@ -8,17 +8,32 @@
 #include <Adafruit_BME280.h>
 #include "Adafruit_CCS811.h"
 //#include "Adafruit_SGP30.h"
+//#include <WEMOS_SHT3X.h>
 #include <Adafruit_BMP280.h>
 #include <MHZ19.h>
 #include <SparkFun_SCD30_Arduino_Library.h>
+#include "sensors/watersensor.h"
+#include "sensors/windsensor.h"
 
-#ifndef ESP32
+#ifdef ESP8266
 #include <SoftwareSerial.h>
-#endif
+int dhTPin = -1;
+
+/*
+GPIOs 3, 12, 13 and 14 pulled HIGH during boot. Their actual state does (should) not influence the boot process.
+*/
+// Digital Input: (D5,D6,D7) (GPIO 12, 13 and 14 )
+int waterSensorPin = -1;
+int windSensorPin = D1;
+#else
+int dhTPin = -1;
+// Digital Input: e.g. D16-D33
+int waterSensorPin = -1;
+int windSensorPin = -1;
+#endif /* ESP8266 */
 
 namespace sensor
 {
-    //#include <WEMOS_SHT3X.h>
 
     std::vector<SensorType> m_SensorTypes;
     std::vector<String> m_ValueNames;
@@ -37,6 +52,7 @@ namespace sensor
     DHTSensor *dhtSensor;
 
     MHZ19 myMHZ19;
+
     // Adafruit_SGP30 sgp;
 
 #ifdef ESP32
@@ -45,29 +61,42 @@ namespace sensor
     SoftwareSerial MySerial(D7, D6);
 #endif
 
-    bool sensorsInit(uint8_t dhtPin)
+    bool sensorsInit()
     {
         Serial.println("Sensors init.");
 
         m_SensorTypes.clear();
-        dhtSensor = new DHTSensor(dhtPin);
-
-        bool hasDHT = dhtSensor->init();
-        if (hasDHT)
+        if (dhTPin >= 0)
         {
-            m_SensorTypes.emplace_back(SensorType::dht22);
-            m_Description = m_Description + "DHT22;";
-            m_ValueNames.emplace_back("Temperature");
-            m_ValueNames.emplace_back("Humidity");
+            dhtSensor = new DHTSensor(D3);
+
+            if (dhtSensor->init())
+            {
+                m_SensorTypes.emplace_back(SensorType::dht22);
+                m_Description = m_Description + "DHT22;";
+                m_ValueNames.emplace_back("Temperature");
+                m_ValueNames.emplace_back("Humidity");
+            }
         }
+
 #ifdef ESP32
         MySerial.begin(9600, SERIAL_8N1, RX, TX);
 #else
         MySerial.begin(9600);
 #endif
         findAndInitSensors();
+        if (waterSensorPin >= 0)
+        {
+            m_SensorTypes.emplace_back(SensorType::watersensor);
+            watersensor::start(waterSensorPin);
+        }
+        if (windSensorPin >= 0)
+        {
+            m_SensorTypes.emplace_back(SensorType::windsensor);
+            windsensor::start(windSensorPin);
+        }
 
-        if (m_SensorTypes.empty() && !hasDHT)
+        if (m_SensorTypes.empty())
         {
             // MyWire.begin(32, 33);
             Serial.println("Change Wire since nothing found.");
@@ -138,6 +167,10 @@ namespace sensor
 
     std::map<String, SensorData> getValues()
     {
+        if (m_SensorTypes.empty())
+        {
+            Serial.println("No Sensors detected?");
+        }
         std::map<String, SensorData> res;
 
         if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::dht22) != m_SensorTypes.end())
@@ -196,6 +229,27 @@ namespace sensor
         if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::scd30) != m_SensorTypes.end())
         {
             for (const auto &val : getSCD30())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+
+        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::watersensor) != m_SensorTypes.end())
+        {
+            for (const auto &val : getWaterValues())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::windsensor) != m_SensorTypes.end())
+        {
+            for (const auto &val : getWindValues())
             {
                 if (val.isValid)
                 {
@@ -462,6 +516,70 @@ namespace sensor
             sensorData[2].unit = "%";
             sensorData[2].name = "Humidity";
         }
+
+        return sensorData;
+    }
+
+    std::array<SensorData, 3> getWaterValues()
+    {
+        std::array<SensorData, 3> sensorData;
+        sensorData.fill(SensorData());
+        double vol = watersensor::getValue();
+        Serial.print("Volume: ");
+        Serial.println(vol, 9);
+        Serial.println("mm");
+        sensorData[0].isValid = true;
+        sensorData[0].value = vol;
+        sensorData[0].unit = "mm";
+        sensorData[0].name = "WaterVolume";
+
+        float clicks = watersensor::getClicks();
+        Serial.print("Clicks: ");
+        Serial.println(clicks);
+        sensorData[1].isValid = true;
+        sensorData[1].value = clicks;
+        sensorData[1].unit = "1";
+        sensorData[1].name = "WaterClicks";
+
+        double flow = watersensor::getFlow();
+        Serial.print("Flow: ");
+        Serial.println(flow, 9);
+        sensorData[2].isValid = true;
+        sensorData[2].value = flow;
+        sensorData[2].unit = "mm/s";
+        sensorData[2].name = "WaterFlow";
+
+        return sensorData;
+    }
+
+    std::array<SensorData, 3> getWindValues()
+    {
+        std::array<SensorData, 3> sensorData;
+        sensorData.fill(SensorData());
+
+        float clicks = windsensor::getClicks();
+        Serial.print("Clicks: ");
+        Serial.println(clicks);
+        sensorData[0].isValid = true;
+        sensorData[0].value = clicks;
+        sensorData[0].unit = "1";
+        sensorData[0].name = "WindClicks";
+
+        std::pair<double, double> speed = windsensor::getSpeed();
+        Serial.print("Speed: ");
+        Serial.println(speed.first, 9);
+        sensorData[1].isValid = true;
+        sensorData[1].value = speed.first;
+        sensorData[1].unit = "m/s";
+        sensorData[1].name = "WindSpeed";
+
+        double peak = speed.second;
+        Serial.print("Peak: ");
+        Serial.println(peak, 9);
+        sensorData[2].isValid = true;
+        sensorData[2].value = peak;
+        sensorData[2].unit = "m/s";
+        sensorData[2].name = "WindPeak";
 
         return sensorData;
     }
