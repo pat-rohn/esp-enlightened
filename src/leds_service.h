@@ -15,14 +15,14 @@
 class CLEDService
 {
 public:
-    CLEDService(LedStrip* ledStrip);
+    CLEDService(LedStrip *ledStrip);
     ~CLEDService(){};
 
 public:
     WiFiServer m_Server;
-    String header;
+    String m_Header;
 
-    LedStrip* m_LedStrip;
+    LedStrip *m_LedStrip;
     void beginServer();
     void listen();
     String getHomepage();
