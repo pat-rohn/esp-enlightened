@@ -14,17 +14,18 @@
 #include <SparkFun_SCD30_Arduino_Library.h>
 #include "sensors/watersensor.h"
 #include "sensors/windsensor.h"
+#include <set>
 
 #ifdef ESP8266
 #include <SoftwareSerial.h>
-int dhTPin = -1;
+int dhTPin = D3;
 
 /*
 GPIOs 3, 12, 13 and 14 pulled HIGH during boot. Their actual state does (should) not influence the boot process.
 */
 // Digital Input: (D5,D6,D7) (GPIO 12, 13 and 14 )
 int waterSensorPin = -1;
-int windSensorPin = D1;
+int windSensorPin = D5;
 #else
 int dhTPin = -1;
 // Digital Input: e.g. D16-D33
@@ -35,7 +36,7 @@ int windSensorPin = -1;
 namespace sensor
 {
 
-    std::vector<SensorType> m_SensorTypes;
+    std::set<SensorType> m_SensorTypes;
     std::vector<String> m_ValueNames;
     String m_Description = "";
 
@@ -72,7 +73,7 @@ namespace sensor
 
             if (dhtSensor->init())
             {
-                m_SensorTypes.emplace_back(SensorType::dht22);
+                m_SensorTypes.insert(SensorType::dht22);
                 m_Description = m_Description + "DHT22;";
                 m_ValueNames.emplace_back("Temperature");
                 m_ValueNames.emplace_back("Humidity");
@@ -87,12 +88,12 @@ namespace sensor
         findAndInitSensors();
         if (waterSensorPin >= 0)
         {
-            m_SensorTypes.emplace_back(SensorType::watersensor);
+            m_SensorTypes.insert(SensorType::watersensor);
             watersensor::start(waterSensorPin);
         }
         if (windSensorPin >= 0)
         {
-            m_SensorTypes.emplace_back(SensorType::windsensor);
+            m_SensorTypes.insert(SensorType::windsensor);
             windsensor::start(windSensorPin);
         }
 
@@ -157,7 +158,7 @@ namespace sensor
         if (v == "04.43" || v == "05.02") // Todo: Find generic way
         {
             Serial.println("Found sensor");
-            m_SensorTypes.emplace_back(SensorType::mhz19);
+            m_SensorTypes.insert(SensorType::mhz19);
             m_ValueNames.emplace_back("CO2");
             m_Description = m_Description + "MHZ19(" + v + ");";
             myMHZ19.autoCalibration();
@@ -173,7 +174,7 @@ namespace sensor
         }
         std::map<String, SensorData> res;
 
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::dht22) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::dht22) != m_SensorTypes.end())
         {
             for (const auto &val : getDHT22())
             {
@@ -183,8 +184,7 @@ namespace sensor
                 }
             }
         }
-
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::cjmcu) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::cjmcu) != m_SensorTypes.end())
         {
             for (const auto &val : getCjmcu())
             {
@@ -194,7 +194,7 @@ namespace sensor
                 }
             }
         }
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::bme280) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::bme280) != m_SensorTypes.end())
         {
             for (const auto &val : getBME280())
             {
@@ -204,7 +204,7 @@ namespace sensor
                 }
             }
         }
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::bmp280) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::bmp280) != m_SensorTypes.end())
         {
             for (const auto &val : getEnv())
             {
@@ -214,8 +214,7 @@ namespace sensor
                 }
             }
         }
-
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::mhz19) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::mhz19) != m_SensorTypes.end())
         {
             for (const auto &val : getMHZ19())
             {
@@ -225,8 +224,7 @@ namespace sensor
                 }
             }
         }
-
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::scd30) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::scd30) != m_SensorTypes.end())
         {
             for (const auto &val : getSCD30())
             {
@@ -236,8 +234,7 @@ namespace sensor
                 }
             }
         }
-
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::watersensor) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::watersensor) != m_SensorTypes.end())
         {
             for (const auto &val : getWaterValues())
             {
@@ -247,7 +244,7 @@ namespace sensor
                 }
             }
         }
-        if (std::find(m_SensorTypes.begin(), m_SensorTypes.end(), SensorType::windsensor) != m_SensorTypes.end())
+        if (m_SensorTypes.find(SensorType::windsensor) != m_SensorTypes.end())
         {
             for (const auto &val : getWindValues())
             {
