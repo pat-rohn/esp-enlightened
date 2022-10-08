@@ -19,13 +19,12 @@ void CTimeseriesData::addValue(const double &value, String timestamp)
     }
 }
 
-CTimeseries::CTimeseries(const String &timeseriesAddress, const String &port)
+CTimeseries::CTimeseries(String timeseriesAddress, CTimeHelper *timehelper)
+    : m_TimeHelper(timehelper)
+
 {
     m_ServerAddress = "http://";
     m_ServerAddress += timeseriesAddress;
-    m_ServerAddress += ":";
-    m_ServerAddress += port;
-    m_TimeHelper = CTimeHelper();
 }
 
 CTimeseries::Device CTimeseries::init(const DeviceDesc &deviceDesc)
@@ -121,7 +120,7 @@ void CTimeseries::addValue(const String &name, const double &value)
     {
         m_Data.insert(std::pair<String, CTimeseriesData>(name, CTimeseriesData(name)));
     }
-    m_Data.at(name).addValue(value, m_TimeHelper.getTimestamp());
+    m_Data.at(name).addValue(value, m_TimeHelper->getTimestamp());
 }
 
 bool CTimeseries::sendData()
@@ -142,11 +141,12 @@ bool CTimeseries::sendData()
             if (val.Value < 0.00001)
             {
                 tsValuesV.add(String(val.Value, 8));
-            }else if (val.Value < 0.001)
+            }
+            else if (val.Value < 0.001)
             {
                 tsValuesV.add(String(val.Value, 5));
             }
-            else 
+            else
             {
                 tsValuesV.add(String(val.Value, 4));
             }

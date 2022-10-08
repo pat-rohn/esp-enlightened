@@ -1,5 +1,6 @@
 #include "timehelper.h"
 #include <time.h>
+#include <stdio.h>
 
 WiFiUDP ntpUDP;
 
@@ -87,4 +88,23 @@ String CTimeHelper::fillUpZeros(int number)
     }
     numberStr += number;
     return numberStr;
+}
+
+std::pair<long, long> getHourseAndMinutes()
+{
+    time_t now;
+    char hours[32];
+    char minutes[32];
+    struct tm timeinfo;
+
+    time(&now);
+
+    localtime_r(&now, &timeinfo);
+    unsigned long millisec = millis();
+    strftime(hours, sizeof(hours), "%H", &timeinfo);
+    strftime(minutes, sizeof(minutes), "%H", &timeinfo);
+    String hoursStr = hours;
+    String minutesStr = minutes;
+
+    return std::pair(hoursStr.toInt(), minutesStr.toInt());
 }

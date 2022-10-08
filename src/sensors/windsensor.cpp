@@ -67,7 +67,7 @@ namespace windsensor
     void start(uint8_t pin)
     {
         Serial.print("Start windsensor with pin:  ");
-        Serial.print(pin);
+        Serial.println(pin);
         attachInterrupt(digitalPinToInterrupt(pin), detectsChange, RISING);
         lastPeakTime = millis();
         lastTime = millis();

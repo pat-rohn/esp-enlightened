@@ -1,0 +1,29 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    <title>IoT Multi Device Configuration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script>
+        function submitMessage() {
+            alert("Saved value to Device");
+            setTimeout(function () { document.location.reload(false); }, 500);
+        }
+    </script>
+</head>
+
+<body>
+    <h2>IoT Multi Device Configuration</h2>
+    <form action="/get" target="hidden-form">
+        <br>
+        <textarea disabled cols="80" rows="17">%config.json%</textarea>
+        <br>
+        <textarea id="config.json" name="config.json" cols="80" rows="17"></textarea>
+        <input type="submit" value="Submit" onclick="submitMessage()">
+    </form>
+    <br>
+
+    <iframe style="display:none" name="hidden-form"></iframe>
+</body>
+
+</html>

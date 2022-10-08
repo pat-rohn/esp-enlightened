@@ -14,6 +14,8 @@ public:
 
     String fillUpZeros(int number);
 
+    std::pair<long, long> getHourseAndMinutes();
+
 private:
     NTPClient m_TimeClient;
     bool m_IsTimeInitialized;

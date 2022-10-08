@@ -37,13 +37,13 @@ void CLEDService::listen()
       {                         // if there's bytes to read from the client,
         char c = client.read(); // read a byte, then
         Serial.write(c);        // print it out the serial monitor
-        header += c;
+        m_Header += c;
         if (c == '\n')
         {
           if (currentLine.length() == 0)
           {
 
-            if (header.indexOf("POST /api/apply") >= 0)
+            if (m_Header.indexOf("POST /api/apply") >= 0)
             {
               Serial.println("POST Apply");
               unsigned long endTime = millis() + 100;
@@ -108,7 +108,7 @@ void CLEDService::listen()
               }
               break;
             }
-            else if (header.indexOf("GET /api/get") >= 0)
+            else if (m_Header.indexOf("GET /api/get") >= 0)
             {
               Serial.println("GET api");
               client.println(getHTTPOK().c_str());
@@ -125,7 +125,7 @@ void CLEDService::listen()
               Serial.println(str.str().c_str());
               break;
             }
-            else if (header.indexOf("OPTIONS /api/get") >= 0)
+            else if (m_Header.indexOf("OPTIONS /api/get") >= 0)
             {
               Serial.println("OPTIONS api/get");
               std::stringstream str;
@@ -133,14 +133,14 @@ void CLEDService::listen()
               str << "Content-type:text/json" << std::endl;
               str << "Access-Control-Allow-Origin: * " << std::endl;
               str << "Access-Control-Allow-Methods: GET, OPTIONS, POST, PUT" << std::endl;
-              //str << "Access-Control-Allow-Headers: Content-Type, Authorization, Accept, Accept-Language, X-Authorization" << std::endl;
+              // str << "Access-Control-Allow-Headers: Content-Type, Authorization, Accept, Accept-Language, X-Authorization" << std::endl;
               str << "Connection: close" << std::endl;
               str << std::endl;
               client.println(str.str().c_str());
 
               break;
             }
-            else if (header.indexOf("OPTIONS /api/apply") >= 0)
+            else if (m_Header.indexOf("OPTIONS /api/apply") >= 0)
             {
               Serial.println("OPTIONS api/apply");
               std::stringstream str;
@@ -173,8 +173,8 @@ void CLEDService::listen()
         }
       }
     }
-    // Clear the header variable
-    header = "";
+    // Clear the m_Header variable
+    m_Header = "";
     // Close the connection
     client.stop();
     Serial.println("Client disconnected.");
@@ -229,12 +229,12 @@ String CLEDService::getHomepage()
 
   // Web Page Heading
   str << "<body><h1>Caromio</h1>" << std::endl;
-  if (header.indexOf("GET /colorchange") >= 0)
+  if (m_Header.indexOf("GET /colorchange") >= 0)
   {
     m_LedStrip->m_LEDMode = LedStrip::LEDModes::autochange;
     m_LedStrip->apply();
   }
-  else if (header.indexOf("GET /low") >= 0)
+  else if (m_Header.indexOf("GET /low") >= 0)
   {
     Serial.println("low");
     m_LedStrip->m_Factor -= 0.05;
@@ -242,14 +242,14 @@ String CLEDService::getHomepage()
     m_LedStrip->apply();
   }
 
-  else if (header.indexOf("GET /bright") >= 0)
+  else if (m_Header.indexOf("GET /bright") >= 0)
   {
     Serial.println("bright");
     m_LedStrip->m_Factor += 0.05;
     m_LedStrip->m_LEDMode = LedStrip::LEDModes::on;
     m_LedStrip->apply();
   }
-  else if (header.indexOf("GET /off") >= 0)
+  else if (m_Header.indexOf("GET /off") >= 0)
   {
     Serial.println("off");
     m_LedStrip->m_LEDMode = LedStrip::LEDModes::off;

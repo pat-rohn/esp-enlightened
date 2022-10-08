@@ -41,6 +41,8 @@ namespace watersensor
 
     void start(uint8_t pin)
     {
+        Serial.print("Water Sensor on pin ");
+        Serial.println(pin);
         clickCounter++;
         attachInterrupt(digitalPinToInterrupt(pin), detectsChange, RISING);
     }

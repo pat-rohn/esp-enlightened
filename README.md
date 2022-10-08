@@ -1,35 +1,20 @@
-# wemos-d1-lite
+# ESP32 / ESP8266 Project for using sensors and LED-Strips (WS28xx)
 Small platform.io project reading out multiple sensors or controlling LED's using WS28xx.
 Sensor data can be sent using http-request. A simple backend written in Go exists:
 [go-iotserver](https://github.com/pat-rohn/go-iotedge)
 
-## Get started:
-- Run commands described in lib/README.md to get dependencies.
-- Create a file named "configuration.h" with following content
 
-```
-#include <string>
+## Get Started
+This project is using Platform IO. To build project, first run commands described in lib/README.md to get dependencies
 
-std::map<std::string, std::string> wifiData{
-    {"MyWiFi", "X"},
-};
-
-const bool kTryFindingSensors = true;
-const bool kIsOfflineMode = false;
-const String &kSensorID = "Outdoor";
-const String &kTimeseriesAddress = "my.server.ch";
-const String &kTimeseriesPort = "3004";
-
-const int kNrOfLEDs = -1;
-
-
-```
+## Configure Device
+- Access point will be created and device will have IP IP 192.168.4.1
+- Connect to http://192.168.4.1 and change configuration to your needs (JSON)
+- Repower device
 
 ## Example Wemos with DHT22
 ![alt text](https://raw.githubusercontent.com/pat-rohn/wemos-d1-lite/main/wemosd1dht22.png)
 
 ## Pin Outs
-
-
 https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
 https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
