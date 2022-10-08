@@ -73,7 +73,7 @@ public:
     };
 
 public:
-    CTimeseries(const String &timeseriesAddress, const String &port);
+    CTimeseries(String timeseriesAddress, CTimeHelper *timehelper);
 
 public:
     CTimeseries::Device init(const CTimeseries::DeviceDesc &deviceDesc);
@@ -88,5 +88,5 @@ private:
     String m_ServerAddress;
     std::map<String, CTimeseriesData> m_Data;
 
-    CTimeHelper m_TimeHelper;
+    CTimeHelper *m_TimeHelper;
 };

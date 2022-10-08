@@ -6,30 +6,32 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
-const uint8_t kLEDPin = D3;
 #endif /* ESP8266 */
 
 #ifdef ESP32
 #include "WiFi.h"
 #include <HTTPClient.h>
 
-const uint8_t kLEDPin = 26; // A0
-#endif                      /* ESP32 */
+#endif /* ESP32 */
 
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
 
-
-#include "configuration.h" // TODO: Create this file, see README
-
 #include "timeseries.h"
+
+#include "config.h"
 
 #include "sensors/sensors.h"
 #include "leds_service.h"
+#include "webpage.h"
 
-CTimeseries timeseries = CTimeseries(kTimeseriesAddress, kTimeseriesPort);
-LedStrip ledStrip = LedStrip(kLEDPin, kNrOfLEDs);
-CLEDService ledService = CLEDService(&ledStrip);
+configman::Configuration config = configman::Configuration();
+CTimeHelper *timeHelper = new CTimeHelper();
+
+CTimeseries *timeseries;
+LedStrip *ledStrip;
+CLEDService *ledService;
+webpage::CWebPage *webPage;
 
 bool hasSensors = false;
 
@@ -43,8 +45,6 @@ bool isAccessPoint = false;
 
 const char *ssidAP = "AI-Caramba";
 const char *passwordAP = "ki-caramba";
-
-sensor::SensorType sensorType = sensor::SensorType::unknown;
 
 CTimeseries::Device deviceConfig = CTimeseries::Device("", 60.0, 3);
 std::map<String, float> sensorOffsets;
@@ -60,38 +60,29 @@ bool tryConnect(std::string ssid, std::string password)
   WiFi.begin(ssid.c_str(), password.c_str());
 
   int counter = 0;
+  unsigned long nextWifiLoopTime = millis();
   while (WiFi.status() != WL_CONNECTED && counter <= 15)
   {
-    digitalWrite(LED_BUILTIN, kLEDON);
-    delay(250);
-    Serial.print(".");
-    digitalWrite(LED_BUILTIN, kLEDOFF);
-    delay(250);
-    counter++;
-    if (counter >= 15)
+    if (millis() > nextWifiLoopTime)
     {
-      return false;
+      nextWifiLoopTime = millis() + 1000;
+      digitalWrite(LED_BUILTIN, counter % 2 == 0 ? kLEDON : kLEDOFF);
+      Serial.print(".");
+      delay(400);
+      counter++;
+      if (counter >= 15)
+      {
+        return false;
+      }
     }
   }
   Serial.println("");
   Serial.print("Connected to WiFi network with IP Address: ");
+  digitalWrite(LED_BUILTIN, kLEDOFF);
   Serial.println(WiFi.localIP());
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   return true;
-}
-
-bool connectToWiFi()
-{
-  WiFi.disconnect();
-  for (auto const &x : wifiData)
-  {
-    if (tryConnect(x.first, x.second))
-    {
-      return true;
-    }
-  }
-  return false;
 }
 
 void createAccesPoint()
@@ -99,7 +90,7 @@ void createAccesPoint()
   WiFi.disconnect();
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
   {
-    ledService.showError();
+    ledService->showError();
     Serial.println("STA Failed to configure");
     setup();
   }
@@ -119,69 +110,34 @@ void createAccesPoint()
 
 void startLedControl()
 {
-  if (kNrOfLEDs > 0)
+  if (config.NumberOfLEDs > 0)
   {
     Serial.println("startLedControl");
-    ledStrip.beginPixels();
-    ledStrip.apply();
-    ledStrip.fancy();
+    ledStrip->beginPixels();
+    ledStrip->apply();
+    ledStrip->fancy();
     if (hasSensors)
     {
       Serial.println("Pulse Mode");
-      ledStrip.m_LEDMode = LedStrip::LEDModes::pulse;
+      ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
     }
   }
 }
 
-void setup()
+void configureDevice()
 {
-  Serial.begin(115200);
-  Serial.println("setup");
-
-  if (!kIsOfflineMode)
+  Serial.println("configureDevice.");
+  config = configman::readConfig();
+  delete timeseries;
+  delete ledStrip;
+  delete ledService;
+  timeseries = new CTimeseries(config.ServerAddress, timeHelper);
+  ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
+  ledService = new CLEDService(ledStrip);
+  if (config.ShowWebpage)
   {
-    while (!connectToWiFi())
-    {
-      Serial.println("Failed to connect to WiFi. Retry..");
-    }
+    webPage = new webpage::CWebPage();
   }
-  else
-  {
-    createAccesPoint();
-  }
-
-  pinMode(LED_BUILTIN, OUTPUT);
-  if (kTryFindingSensors && sensor::sensorsInit())
-  {
-    hasSensors = true;
-  }
-
-  startLedControl();
-  if (hasSensors)
-  {
-    String desc = "";
-#ifdef ESP8266
-    desc += "ESP8266;";
-#endif
-#ifdef ESP32
-    desc += "ESP32;";
-#endif
-    desc += sensor::getDescription();
-    CTimeseries::DeviceDesc deviceDesc(kSensorID, desc);
-    deviceDesc.Sensors = sensor::getValueNames();
-    deviceConfig = timeseries.init(deviceDesc);
-    for (auto const &d : deviceConfig.Sensors)
-    {
-      sensorOffsets[d.Name] = d.Offset;
-    }
-    lastUpdate = millis() - deviceConfig.Interval;
-  }
-  else
-  {
-     ledService.beginServer();
-  }
-
-  digitalWrite(LED_BUILTIN, kLEDOFF);
 }
 
 void setCO2Color(double co2Val)
@@ -217,7 +173,7 @@ void setCO2Color(double co2Val)
     red = 0;
   }
 
-  ledStrip.setColor(red, green, blue);
+  ledStrip->setColor(red, green, blue);
 }
 
 void setTemperatureColor(double temperature)
@@ -249,7 +205,7 @@ void setTemperatureColor(double temperature)
   {
     red = 0;
   }
-  ledStrip.setColor(red, green, blue);
+  ledStrip->setColor(red, green, blue);
 }
 
 unsigned long lastColorChange = 0;
@@ -259,7 +215,7 @@ double tempTestVal = 15;
 
 void colorUpdate()
 {
-  if (ledStrip.m_LEDMode == LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
+  if (ledStrip->m_LEDMode == LedStrip::LEDModes::pulse && millis() > lastColorChange + kColorUpdateInterval)
   {
     lastColorChange = millis();
     // Serial.print("co2TestVal: ");
@@ -304,10 +260,10 @@ void measureAndSendSensorData()
     {
       if (it->second.isValid)
       {
-        String name = kSensorID;
+        String name = config.SensorID;
         String valueName = name + it->second.name;
 
-        timeseries.addValue(valueName, it->second.value + sensorOffsets[valueName]);
+        timeseries->addValue(valueName, it->second.value + sensorOffsets[valueName]);
       }
     }
     valueCounter++;
@@ -315,30 +271,139 @@ void measureAndSendSensorData()
     {
       if (WiFi.status() != WL_CONNECTED)
       {
-        if (!connectToWiFi())
+        if (!tryConnect(config.WiFiName.c_str(), config.WiFiPassword.c_str()))
         {
           Serial.println("No WiFi Connection");
           return;
         }
       }
-      timeseries.sendData();
+      timeseries->sendData();
       valueCounter = 0;
     }
   }
 }
 
+void setup()
+{
+  Serial.begin(115200);
+  Serial.println("setup");
+  configman::begin();
+
+  delay(200);
+  config = configman::readConfig();
+  delay(200);
+  if (false) // overwrite showing webpage
+  {
+    Serial.println("Overwrite to reconfigure (Reset)");
+    config.ShowWebpage = true;
+    config.IsConfigured = false;
+    configman::saveConfig(&config);
+    delay(200);
+  }
+
+  configureDevice();
+
+  if (!config.IsOfflineMode)
+  {
+    WiFi.disconnect();
+    while (!tryConnect(config.WiFiName.c_str(), config.WiFiPassword.c_str()))
+    {
+      if (!config.IsConfigured)
+      {
+        createAccesPoint();
+        Serial.println("Created access point");
+        break;
+      }
+      Serial.println("Failed to connect to WiFi. Retry..");
+    }
+  }
+  else
+  {
+    createAccesPoint();
+  }
+
+  pinMode(LED_BUILTIN, OUTPUT);
+  if (config.FindSensors && sensor::sensorsInit())
+  {
+    hasSensors = true;
+  }
+
+  startLedControl();
+  if (hasSensors)
+  {
+    String desc = "";
+#ifdef ESP8266
+    desc += "ESP8266;";
+#endif
+#ifdef ESP32
+    desc += "ESP32;";
+#endif
+    if (config.IsConfigured)
+    {
+      desc += sensor::getDescription();
+      CTimeseries::DeviceDesc deviceDesc(config.SensorID, desc);
+      deviceDesc.Sensors = sensor::getValueNames();
+      deviceConfig = timeseries->init(deviceDesc);
+      for (auto const &d : deviceConfig.Sensors)
+      {
+        sensorOffsets[d.Name] = d.Offset;
+      }
+    }
+
+    lastUpdate = millis() - deviceConfig.Interval;
+    if (config.ShowWebpage || !config.IsConfigured)
+    {
+      webPage->beginServer();
+    }
+  }
+  else
+  {
+    if (config.ShowWebpage || !config.IsConfigured)
+    {
+      webPage->beginServer();
+    }
+    else
+    {
+      ledService->beginServer();
+    }
+  }
+
+  digitalWrite(LED_BUILTIN, kLEDOFF);
+}
+
+unsigned long nextLoopTime = millis();
+
 void loop()
 {
-  if (hasSensors && !isAccessPoint && !kIsOfflineMode)
+  if (millis() < nextLoopTime)
+  {
+    return;
+  }
+  nextLoopTime = millis() + 500;
+  if (!config.IsConfigured)
+  {
+    config = configman::readConfig();
+    if (config.IsConfigured)
+    {
+      configureDevice();
+    }
+    nextLoopTime = millis() + 30000;
+    Serial.print("Connected to device and change configuration: ");
+    Serial.println(WiFi.localIP());
+    configman::print(&config);
+    config = configman::readConfig();
+    return;
+  }
+  if (hasSensors && !isAccessPoint && !config.IsOfflineMode)
   { // should have connection to timeseries server
     measureAndSendSensorData();
   }
-  if (hasSensors && kNrOfLEDs > 0)
+  if (hasSensors && config.NumberOfLEDs > 0)
   {
     colorUpdate();
   }
   else
   {
-    ledService.listen();
+    ledService->listen();
   }
 }

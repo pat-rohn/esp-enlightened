@@ -1,7 +1,12 @@
+
+
 #include <Arduino.h>
 #include <array>
 #include <vector>
 #include <Adafruit_NeoPixel.h>
+
+#ifndef LED_STRIP_H
+#define LED_STRIP_H
 
 class LedStrip
 {
@@ -38,6 +43,7 @@ public:
         colorful = 3,
         autochange = 4,
         pulse = 5,
+        sunrise = 6,
     };
 
 private:
@@ -97,11 +103,14 @@ public:
     void setColor(double red, double green, double blue);
     std::array<uint8_t, 3> getColor();
 
+    void setAlarm(unsigned long time);
+
 private:
     void updateLEDs(bool doImmediate = false);
     void colorfulMode();
     void campfireMode();
     void pulseMode();
+    void sunriseMode();
     void showPixels();
 
 public:
@@ -119,4 +128,9 @@ private:
     int m_NrOfPixels;
     bool m_UseAllLEDs;
     PixelColors m_PixelColors;
+
+    unsigned long m_AlarmTime;
+    double m_LastAlarmFactor;
 };
+
+#endif

@@ -7,27 +7,24 @@
 #include <SPI.h>
 #include <Adafruit_BME280.h>
 #include "Adafruit_CCS811.h"
+#include <set>
 //#include "Adafruit_SGP30.h"
 //#include <WEMOS_SHT3X.h>
 #include <Adafruit_BMP280.h>
 #include <MHZ19.h>
 #include <SparkFun_SCD30_Arduino_Library.h>
+#include "config.h"
 #include "sensors/watersensor.h"
 #include "sensors/windsensor.h"
-#include <set>
 
 #ifdef ESP8266
 #include <SoftwareSerial.h>
-int dhTPin = D3;
 
 /*
 GPIOs 3, 12, 13 and 14 pulled HIGH during boot. Their actual state does (should) not influence the boot process.
 */
-// Digital Input: (D5,D6,D7) (GPIO 12, 13 and 14 )
-int waterSensorPin = -1;
-int windSensorPin = D5;
+// Digital Input: (D5,D6,D7) (GPIO 12, 13 and 14)
 #else
-int dhTPin = -1;
 // Digital Input: e.g. D16-D33
 int waterSensorPin = -1;
 int windSensorPin = -1;
@@ -65,11 +62,12 @@ namespace sensor
     bool sensorsInit()
     {
         Serial.println("Sensors init.");
+        configman::Configuration config = configman::readConfig();
 
         m_SensorTypes.clear();
-        if (dhTPin >= 0)
+        if (config.DhtPin >= 0)
         {
-            dhtSensor = new DHTSensor(D3);
+            dhtSensor = new DHTSensor(config.DhtPin);
 
             if (dhtSensor->init())
             {
@@ -86,15 +84,15 @@ namespace sensor
         MySerial.begin(9600);
 #endif
         findAndInitSensors();
-        if (waterSensorPin >= 0)
+        if (config.RainfallSensorPin >= 0)
         {
             m_SensorTypes.insert(SensorType::watersensor);
-            watersensor::start(waterSensorPin);
+            watersensor::start(config.RainfallSensorPin);
         }
-        if (windSensorPin >= 0)
+        if (config.WindSensorPin >= 0)
         {
             m_SensorTypes.insert(SensorType::windsensor);
-            windsensor::start(windSensorPin);
+            windsensor::start(config.WindSensorPin);
         }
 
         if (m_SensorTypes.empty())
@@ -340,7 +338,7 @@ namespace sensor
         {
             while (!ccs.available())
             {
-                delay(0.1);
+                delay(100);
             }
             auto res = ccs.readData();
             for (int i = 0; i < 5; i++)
@@ -350,7 +348,7 @@ namespace sensor
                     break;
                 }
                 res = ccs.readData();
-                delay(0.3);
+                delay(300);
             }
             if (!res)
             {
@@ -607,7 +605,7 @@ namespace sensor
                                 Adafruit_BMP280::FILTER_X16,      /* Filtering. */
                                 Adafruit_BMP280::STANDBY_MS_500); /* Standby time. */
                 bmp_temp->printSensorDetails();
-                m_SensorTypes.emplace_back(SensorType::bmp280);
+                m_SensorTypes.insert(SensorType::bmp280);
                 m_Description = m_Description + "BMP280;";
 
                 m_ValueNames.emplace_back("Temperature");
@@ -616,7 +614,7 @@ namespace sensor
             }
             else
             {
-                m_SensorTypes.emplace_back(SensorType::bme280);
+                m_SensorTypes.insert(SensorType::bme280);
                 m_Description = m_Description + "BME280;";
                 m_ValueNames.emplace_back("Temperature");
                 m_ValueNames.emplace_back("Humidity");
@@ -642,7 +640,7 @@ namespace sensor
             ccs.setTempOffset(cTemp - 25.0);
             getCjmcu();
             Serial.println("cjmcu: Add to sensors");
-            m_SensorTypes.emplace_back(SensorType::cjmcu);
+            m_SensorTypes.insert(SensorType::cjmcu);
             m_ValueNames.emplace_back("CO2");
             m_ValueNames.emplace_back("TVOC");
             m_Description = m_Description + "CJMCU;";
@@ -650,7 +648,7 @@ namespace sensor
         else if (address == 0x44)
         {
             Serial.println("Sensor SHT30.");
-            m_SensorTypes.emplace_back(SensorType::sht30);
+            m_SensorTypes.insert(SensorType::sht30);
             m_Description = m_Description + "SHT30;";
         }
         else if (address == 0x61)
@@ -679,7 +677,7 @@ namespace sensor
         {
             Serial.println("Found SCD30 (CO2)");
 
-            m_SensorTypes.emplace_back(SensorType::scd30);
+            m_SensorTypes.insert(SensorType::scd30);
             m_Description = m_Description + "SCD30;";
             m_ValueNames.emplace_back("CO2");
             m_ValueNames.emplace_back("Temperature");

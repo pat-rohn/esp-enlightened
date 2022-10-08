@@ -13,6 +13,7 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
     m_LedColor = LEDColor::white;
     m_NrOfPixels = nrOfPixels;
     m_UseAllLEDs = true;
+    m_LastAlarmFactor = 0;
 }
 
 void LedStrip::beginPixels()
@@ -160,7 +161,7 @@ void LedStrip::pulseMode()
             if (m_Factor > m_PulseMode.UpperLimit)
             {
                 m_PulseMode.IsIncreasing = false;
-                //Serial.println("Go down");
+                // Serial.println("Go down");
             }
         }
         else
@@ -169,7 +170,36 @@ void LedStrip::pulseMode()
             if (m_Factor < m_PulseMode.LowerLimit)
             {
                 m_PulseMode.IsIncreasing = true;
-                //Serial.println("Go up");
+                // Serial.println("Go up");
+            }
+        }
+
+        updateLEDs(true);
+    }
+}
+
+void LedStrip::sunriseMode()
+{
+    unsigned long currentTime = millis();
+    if (currentTime > m_PulseMode.NextUpdateTime)
+    {
+        m_PulseMode.NextUpdateTime = currentTime + m_PulseMode.UpdateInterval;
+        if (m_PulseMode.IsIncreasing)
+        {
+            m_Factor += m_PulseMode.StepSize;
+            if (m_Factor > m_PulseMode.UpperLimit)
+            {
+                m_PulseMode.IsIncreasing = false;
+                // Serial.println("Go down");
+            }
+        }
+        else
+        {
+            m_Factor -= m_PulseMode.StepSize;
+            if (m_Factor < m_PulseMode.LowerLimit)
+            {
+                m_PulseMode.IsIncreasing = true;
+                // Serial.println("Go up");
             }
         }
 
@@ -197,6 +227,9 @@ void LedStrip::runModeAction()
         campfireMode();
         break;
     case LEDModes::pulse:
+        pulseMode();
+        break;
+    case LEDModes::sunrise:
         pulseMode();
         break;
     default:

@@ -33,7 +33,7 @@ namespace sensor
         }
     };
 
-     bool sensorsInit();
+    bool sensorsInit();
     void findAndInitSensors();
     void findAndInitMHZ19();
     std::map<String, SensorData> getValues();
