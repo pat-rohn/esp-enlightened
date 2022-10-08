@@ -56,7 +56,7 @@ namespace webpage
             if (var == configman::kPathToConfig)
             {
                 Serial.println("read from configuration");
-                return configman::readPrettyJson();
+                return configman::readConfigAsString();
             }
             else
             {

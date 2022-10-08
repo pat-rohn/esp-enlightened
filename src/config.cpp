@@ -118,23 +118,26 @@ namespace configman
 
     String serializeConfig(const Configuration *config)
     {
-        std::stringstream str;
-        str << R"({"ServerAddress":")" << config->ServerAddress.c_str()
-            << R"(" ,"SensorID": ")" << config->SensorID.c_str()
-            << R"(" ,"WiFiName": ")" << config->WiFiName.c_str()
-            << R"(" ,"WiFiPassword": ")" << config->WiFiPassword.c_str()
-            << R"(" ,"DhtPin": )" << config->DhtPin
-            << R"( ,"WindSensorPin": )" << config->WindSensorPin
-            << R"( ,"RainfallSensorPin": )" << config->RainfallSensorPin
-            << R"( ,"LEDPin": )" << config->LEDPin
-            << R"( ,"NumberOfLEDs": )" << config->NumberOfLEDs
-            << R"( ,"FindSensors": )" << (config->FindSensors ? "true" : "false")
-            << R"( ,"IsOfflineMode": )" << (config->IsOfflineMode ? "true" : "false")
-            << R"( ,"ShowWebpage": )" << (config->ShowWebpage ? "true" : "false")
-            << R"( ,"IsConfigured": )" << (config->IsConfigured ? "true" : "false")
-            << R"( })" << std::endl;
+        DynamicJsonDocument doc(4096);
+        doc["ServerAddress"] = config->ServerAddress;
+        doc["SensorID"] = config->SensorID;
+        doc["WiFiName"] = config->WiFiName;
+        doc["WiFiPassword"] = config->WiFiPassword;
+        doc["DhtPin"] = config->DhtPin;
+        doc["WindSensorPin"] = config->WindSensorPin;
+        doc["RainfallSensorPin"] = config->RainfallSensorPin;
+        doc["LEDPin"] = config->LEDPin;
+        doc["NumberOfLEDs"] = config->NumberOfLEDs;
+        doc["FindSensors"] = config->FindSensors;
+        doc["IsOfflineMode"] = config->IsOfflineMode;
+        doc["ShowWebpage"] = config->ShowWebpage;
+        doc["IsConfigured"] = config->IsConfigured;
 
-        return String(str.str().c_str());
+        char buffer[2000];
+
+        serializeJsonPretty(doc, buffer);
+
+        return String(buffer);
     }
 
     std::pair<bool, Configuration> deserializeConfig(const char *configStr)
@@ -165,14 +168,14 @@ namespace configman
         return res;
     }
 
-    String readPrettyJson()
+    String readConfigAsString()
     {
         auto configStr = readFileLFS(kPathToConfig);
         DynamicJsonDocument doc(4096);
         DeserializationError err = deserializeJson(doc, configStr.c_str());
         if (err.code() != DeserializationError::Code::Ok)
         {
-            return "";
+            return String(err.code());
         }
 
         char buffer[2000];
@@ -183,25 +186,4 @@ namespace configman
         Serial.println(pretty);
         return buffer;
     }
-
-    void print(const Configuration *config)
-    {
-        Serial.println("Configuration:");
-        Serial.println("------------------------");
-        Serial.printf("Server-address: %s\n", config->ServerAddress.c_str());
-        Serial.printf("Sensor ID: %s\n", config->SensorID.c_str());
-        Serial.printf("WiFi-Name: %s\n", config->WiFiName.c_str());
-        Serial.printf("WiFi-Password: %s\n", config->WiFiPassword.c_str());
-        Serial.printf("DHT Pin:%d\n", config->DhtPin);
-        Serial.printf("WindSensorPin Pin:%d\n", config->WindSensorPin);
-        Serial.printf("RainfallSensorPin Pin:%d\n", config->RainfallSensorPin);
-        Serial.printf("LED Pin:%d\n", config->LEDPin);
-        Serial.printf("Number of LEDs:%d\n", config->NumberOfLEDs);
-        Serial.printf("Show Webpage:%s\n", config->ShowWebpage ? "true" : "false");
-        Serial.printf("Find sensors:%s\n", config->FindSensors ? "true" : "false");
-        Serial.printf("Is Offline Mode:%s\n", config->IsOfflineMode ? "true" : "false");
-        Serial.printf("IsConfigured:%s\n", config->IsConfigured ? "true" : "false");
-        Serial.println("-------------");
-    }
-
 }

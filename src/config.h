@@ -62,9 +62,7 @@ namespace configman
 
     String serializeConfig(const Configuration *config);
     std::pair<bool, Configuration> deserializeConfig(const char *configStr);
-    String readPrettyJson();
-
-    void print(const Configuration *config);
+    String readConfigAsString();
 
 }
 
