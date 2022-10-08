@@ -390,7 +390,7 @@ void loop()
     nextLoopTime = millis() + 30000;
     Serial.print("Connected to device and change configuration: ");
     Serial.println(WiFi.localIP());
-    configman::print(&config);
+    Serial.println(configman::readConfigAsString());
     config = configman::readConfig();
     return;
   }
