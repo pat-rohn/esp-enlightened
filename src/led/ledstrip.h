@@ -105,6 +105,10 @@ public:
 
     void setAlarm(unsigned long time);
 
+    // Sensor Coloring
+    void setCO2Color(double co2Val);
+    void setTemperatureColor(double temperature);
+
 private:
     void updateLEDs(bool doImmediate = false);
     void colorfulMode();
