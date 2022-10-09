@@ -20,6 +20,8 @@ void LedStrip::beginPixels()
 {
     Serial.println("beginPixels.");
     m_Pixels.begin();
+    apply();
+    fancy();
 }
 
 void LedStrip::apply()
@@ -384,4 +386,72 @@ void LedStrip::showPixels()
         m_Pixels.setPixelColor(i, m_Pixels.Color(m_PixelColors.pRed[i], m_PixelColors.pGreen[i], m_PixelColors.pBlue[i]));
     }
     m_Pixels.show();
+}
+
+void LedStrip::setCO2Color(double co2Val)
+{
+    // good: 0-800 (white to yellow)
+    // medium: 800-1000 (yellow to red)
+    // bad:1000:1800 (red to dark)
+    double blue = (1.0 - (co2Val - 400) / 400) * 100.0;
+    if (blue > 100.0)
+    {
+        blue = 100;
+    }
+    if (blue < 0)
+    {
+        blue = 0;
+    }
+    double green = (1.0 - (co2Val - 800) / 600) * 100.0;
+    if (green > 100.0)
+    {
+        green = 100;
+    }
+    if (green < 0)
+    {
+        green = 0;
+    }
+    double red = (1.0 - (co2Val - 1400) / 1000) * 100.0;
+    if (red > 100.0)
+    {
+        red = 100;
+    }
+    if (red < 0)
+    {
+        red = 0;
+    }
+
+    setColor(red, green, blue);
+}
+
+void LedStrip::setTemperatureColor(double temperature)
+{
+    double blue = (1.0 - (temperature - 15) / 5) * 100.0;
+    if (blue > 100.0)
+    {
+        blue = 100;
+    }
+    if (blue < 0)
+    {
+        blue = 0;
+    }
+    double green = (1.0 - (temperature - 20) / 5) * 100.0;
+    if (green > 100.0)
+    {
+        green = 100;
+    }
+    if (green < 0)
+    {
+        green = 0;
+    }
+    double red = (1.0 - (temperature - 25) / 5) * 100.0;
+    if (red > 100.0)
+    {
+        red = 100;
+    }
+    if (red < 0)
+    {
+        red = 0;
+    }
+    setColor(red, green, blue);
 }

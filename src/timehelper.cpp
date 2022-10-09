@@ -100,7 +100,6 @@ std::pair<long, long> getHourseAndMinutes()
     time(&now);
 
     localtime_r(&now, &timeinfo);
-    unsigned long millisec = millis();
     strftime(hours, sizeof(hours), "%H", &timeinfo);
     strftime(minutes, sizeof(minutes), "%H", &timeinfo);
     String hoursStr = hours;

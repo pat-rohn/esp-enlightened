@@ -189,6 +189,5 @@ bool CTimeseries::postData(const String &root, const String &url)
         http.end();
         return false;
     }
-    // Free resources
     return true;
 }

@@ -21,7 +21,6 @@
 #include <ESP8266HTTPClient.h>
 #endif /* ESP8266 */
 
-#include "ledstrip.h"
 #include "config.h"
 
 namespace webpage
