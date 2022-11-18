@@ -17,7 +17,7 @@
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
 
-#include "timeseries.h"
+#include "timeseries/ts_http.h"
 
 #include "config.h"
 
