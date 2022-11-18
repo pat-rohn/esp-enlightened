@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <array>
 #include <map>
+#include "events.h"
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -18,6 +19,7 @@ uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
 
 #include "timeseries/ts_http.h"
+#include "timeseries/ts_mqtt.h"
 
 #include "config.h"
 
@@ -29,7 +31,7 @@ uint8_t kLEDOFF = 0x1;
 configman::Configuration config = configman::Configuration();
 CTimeHelper *timeHelper = new CTimeHelper();
 
-CTimeseries *timeseries;
+timeseries::CTimeseries *timeSeries;
 LedStrip *ledStrip;
 CLEDService *ledService;
 webpage::CWebPage *webPage;
@@ -47,7 +49,7 @@ bool isAccessPoint = false;
 const char *ssidAP = "AI-Caramba";
 const char *passwordAP = "ki-caramba";
 
-CTimeseries::Device deviceConfig = CTimeseries::Device("", 60.0, 3);
+timeseries::Device deviceConfig = timeseries::Device("", 60.0, 3);
 std::map<String, float> sensorOffsets;
 
 unsigned long lastUpdate = millis();
@@ -55,9 +57,13 @@ int valueCounter = 0;
 
 bool tryConnect(std::string ssid, std::string password)
 {
-  Serial.print("Try connecting to: ");
-  Serial.print(ssid.c_str());
-  Serial.println("");
+  if (ssid.empty() || ssid.c_str() == nullptr || ssid == "null")
+  {
+    Serial.println("No WiFi configured ");
+    return false;
+  }
+  Serial.printf("Try connecting to: %s\n", ssid.c_str());
+
   WiFi.begin(ssid.c_str(), password.c_str());
 
   int counter = 0;
@@ -77,10 +83,9 @@ bool tryConnect(std::string ssid, std::string password)
       }
     }
   }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
-  digitalWrite(LED_BUILTIN, kLEDOFF);
+  Serial.print("\nConnected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
+  digitalWrite(LED_BUILTIN, kLEDOFF);
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   return true;
@@ -115,10 +120,16 @@ void startLedControl()
   {
     Serial.println("startLedControl");
     ledStrip->beginPixels();
-    if (hasSensors)
+    if (hasSensors && !config.IsSunriseAlarm)
     {
       Serial.println("Pulse Mode");
       ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
+    }
+    if (config.IsSunriseAlarm)
+    {
+      Serial.println("Is Alarm Clock");
+      ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+      ledStrip->apply();
     }
   }
 }
@@ -127,10 +138,10 @@ void configureDevice()
 {
   Serial.println("configureDevice.");
   config = configman::readConfig();
-  delete timeseries;
+  delete timeSeries;
   delete ledStrip;
   delete ledService;
-  timeseries = new CTimeseries(config.ServerAddress, timeHelper);
+  timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
   if (config.ShowWebpage)
@@ -163,13 +174,27 @@ void colorUpdate(const std::map<String, sensor::SensorData> &values)
       Serial.println("No Sensors");
       return;
     }
-    if (values.count("CO2"))
+    if (values.count("CO2") && values.at("CO2").isValid)
     {
       ledStrip->setCO2Color(values.at("CO2").value);
     }
     else if (values.count("Temperature"))
     {
       ledStrip->setTemperatureColor(values.at("Temperature").value);
+    }
+  }
+}
+
+void triggerEvents(const std::map<String, sensor::SensorData> &values)
+{
+  colorUpdate(values);
+  if (values.count("WindSpeed"))
+  {
+    Serial.println("Check for windspeed");
+    if (values.at("WindSpeed").value > 4.0)
+    {
+      Serial.println("Windspeed high, trigger event");
+      CallEvent();
     }
   }
 }
@@ -181,7 +206,7 @@ void measureAndSendSensorData()
     lastUpdate = millis();
     auto values = sensor::getValues();
 
-    if (config.NumberOfLEDs > 0)
+    if (config.NumberOfLEDs > 0 && !config.IsSunriseAlarm)
     {
       colorUpdate(values);
     }
@@ -200,7 +225,7 @@ void measureAndSendSensorData()
         String name = config.SensorID;
         String valueName = name + it->second.name;
 
-        timeseries->addValue(valueName, it->second.value + sensorOffsets[valueName]);
+        timeSeries->addValue(valueName, it->second.value + sensorOffsets[valueName]);
       }
     }
     valueCounter++;
@@ -214,7 +239,7 @@ void measureAndSendSensorData()
           return;
         }
       }
-      timeseries->sendData();
+      timeSeries->sendData();
       valueCounter = 0;
     }
   }
@@ -234,6 +259,8 @@ void setup()
     Serial.println("Overwrite to reconfigure (Reset)");
     config.ShowWebpage = true;
     config.IsConfigured = false;
+    config.WiFiName = "SSID Name";
+    config.WiFiPassword = "***";
     configman::saveConfig(&config);
     delay(200);
   }
@@ -278,37 +305,43 @@ void setup()
     if (config.IsConfigured)
     {
       desc += sensor::getDescription();
-      CTimeseries::DeviceDesc deviceDesc(config.SensorID, desc);
+      timeseries::DeviceDesc deviceDesc(config.SensorID, desc);
       deviceDesc.Sensors = sensor::getValueNames();
-      deviceConfig = timeseries->init(deviceDesc);
-      for (auto const &d : deviceConfig.Sensors)
+      auto device = timeSeries->init(deviceDesc);
+
+      Serial.printf("\nDevice Name: %s\n Sensor Offsets:\n", device.Name.c_str());
+      deviceConfig = device;
+      for (auto const &s : deviceConfig.Sensors)
       {
-        sensorOffsets[d.Name] = d.Offset;
+        Serial.printf("%s \n", s.Name.c_str());
+        sensorOffsets[s.Name] = s.Offset;
+        Serial.printf(" is %f\n", sensorOffsets[s.Name]);
       }
     }
 
     lastUpdate = millis() - deviceConfig.Interval;
-    if (config.ShowWebpage || !config.IsConfigured)
-    {
-      webPage->beginServer();
-    }
   }
   else
   {
-    if (config.ShowWebpage || !config.IsConfigured)
-    {
-      webPage->beginServer();
-    }
-    else
+    if (!config.ShowWebpage && config.IsConfigured)
     {
       ledService->beginServer();
     }
   }
+  if (config.ShowWebpage || !config.IsConfigured)
+  {
+    webPage->beginServer();
+  }
 
   digitalWrite(LED_BUILTIN, kLEDOFF);
+  Serial.println("Succesfully set up");
 }
 
 unsigned long nextLoopTime = millis();
+bool isAlarmActive = false;
+unsigned long alarmStartTime = millis();
+unsigned long alarmEndTime = millis();
+unsigned long loopTime = 500;
 
 void loop()
 {
@@ -316,7 +349,7 @@ void loop()
   {
     return;
   }
-  nextLoopTime = millis() + 500;
+  nextLoopTime = millis() + loopTime;
   if (!config.IsConfigured)
   {
     config = configman::readConfig();
@@ -331,9 +364,43 @@ void loop()
     config = configman::readConfig();
     return;
   }
+
+  if (config.IsSunriseAlarm)
+  {
+    auto currentTime = timeHelper->getHoursAndMinutes();
+    if ((config.AlarmTime.Hours == currentTime.first &&
+         config.AlarmTime.Minutes == currentTime.second)) // ||  true (test alarm)
+    {
+      if (!isAlarmActive)
+      {
+        Serial.printf("Activate Sunrise: %ld:%ld \n", currentTime.first, currentTime.second);
+        alarmEndTime = millis() + (15*60*1000);
+        isAlarmActive = true;
+        alarmStartTime = millis();
+        ledStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
+        ledStrip->m_SunriseStartTime = alarmStartTime;
+        ledStrip->runModeAction();
+        loopTime = 100;
+      }
+    }
+    if (isAlarmActive)
+    {
+      ledStrip->runModeAction();
+      if (millis() > alarmEndTime)
+      {
+        Serial.printf("Turn off Sunrise: %ld:%ld ", currentTime.first, currentTime.second);
+        isAlarmActive = false;
+        ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+        loopTime = 500;
+
+        ledStrip->apply();
+      }
+    }
+  }
   if (hasSensors && !isAccessPoint && !config.IsOfflineMode)
   { // should have connection to timeseries server
     measureAndSendSensorData();
+    // Serial.printf("Heap %d\n", ESP.getFreeHeap());
   }
   if (!hasSensors)
   {

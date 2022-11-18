@@ -122,6 +122,7 @@ public:
     LEDColor m_LedColor = LEDColor::white;
     LEDModes m_LEDMode = LEDModes::on;
     double m_Factor;
+    unsigned long m_SunriseStartTime;
 
 private:
     unsigned long m_NextLEDActionTime;
@@ -133,8 +134,7 @@ private:
     bool m_UseAllLEDs;
     PixelColors m_PixelColors;
 
-    unsigned long m_AlarmTime;
-    double m_LastAlarmFactor;
+
 };
 
 #endif

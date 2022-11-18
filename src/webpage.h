@@ -41,7 +41,6 @@ namespace webpage
         String getFrontPage();
         String getHTTPOK();
         String getHTTPNotOK();
-        void showError();
 
     public:
         static void notFound(AsyncWebServerRequest *request)

@@ -13,7 +13,6 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
     m_LedColor = LEDColor::white;
     m_NrOfPixels = nrOfPixels;
     m_UseAllLEDs = true;
-    m_LastAlarmFactor = 0;
 }
 
 void LedStrip::beginPixels()
@@ -183,30 +182,21 @@ void LedStrip::pulseMode()
 void LedStrip::sunriseMode()
 {
     unsigned long currentTime = millis();
-    if (currentTime > m_PulseMode.NextUpdateTime)
+    long timeDiff = currentTime - m_SunriseStartTime;
+    long max = 10*60*1000; 
+    double timeFactor = (float(timeDiff) / float(max))+0.1;
+    if (timeFactor > 1.2)
     {
-        m_PulseMode.NextUpdateTime = currentTime + m_PulseMode.UpdateInterval;
-        if (m_PulseMode.IsIncreasing)
-        {
-            m_Factor += m_PulseMode.StepSize;
-            if (m_Factor > m_PulseMode.UpperLimit)
-            {
-                m_PulseMode.IsIncreasing = false;
-                // Serial.println("Go down");
-            }
-        }
-        else
-        {
-            m_Factor -= m_PulseMode.StepSize;
-            if (m_Factor < m_PulseMode.LowerLimit)
-            {
-                m_PulseMode.IsIncreasing = true;
-                // Serial.println("Go up");
-            }
-        }
-
-        updateLEDs(true);
+        timeFactor = 1.2;
     }
+    m_CurrentColor[0] = 100;
+    m_CurrentColor[1] = 10 + timeFactor * 40;
+    m_CurrentColor[2] = 0 + timeFactor * 10;
+    m_Factor = timeFactor;
+    
+    //Serial.printf("Sunrise: %f (%ld/%ld)\n", m_Factor, timeDiff, max);
+
+    updateLEDs(true);
 }
 
 void LedStrip::showError()
@@ -232,7 +222,7 @@ void LedStrip::runModeAction()
         pulseMode();
         break;
     case LEDModes::sunrise:
-        pulseMode();
+        sunriseMode();
         break;
     default:
         break;

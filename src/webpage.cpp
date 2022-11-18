@@ -29,9 +29,9 @@ namespace webpage
     <h2>IoT Multi Device Configuration</h2>
     <form action="/get" target="hidden-form">
         <br>
-        <textarea disabled cols="80" rows="16">%config.json%</textarea>
+        <textarea disabled cols="80" rows="20">%config.json%</textarea>
         <br>
-        <textarea id="configuration" name="configuration" cols="80" rows="16"></textarea>
+        <textarea id="configuration" name="configuration" cols="80" rows="20"></textarea>
         <input type="submit" value="Submit" onclick="submitMessage()">
     </form>
     <br>
@@ -115,8 +115,5 @@ namespace webpage
     return String(str.str().c_str());
   }
 
-  void CWebPage::showError()
-  {
-  }
 
 }
