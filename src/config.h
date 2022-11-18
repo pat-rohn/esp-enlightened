@@ -14,6 +14,20 @@ namespace configman
 {
     // static const char kPathToConfig = "config.json";
     const char kPathToConfig[] = "config.json";
+    struct Time
+    {
+        int Hours;
+        int Minutes;
+        Time(){
+            Hours = 0;
+            Minutes = 0;
+        }
+
+        Time(int hours, int minutes){
+            Hours = hours;
+            Minutes = minutes;
+        }
+    };
 
     struct Configuration
     {
@@ -30,6 +44,8 @@ namespace configman
         int RainfallSensorPin;
         int LEDPin;
         bool ShowWebpage;
+        bool IsSunriseAlarm;
+        Time AlarmTime;
 
         Configuration() : IsConfigured(false),
                           ServerAddress("192.168.1.200:3004"),
@@ -43,7 +59,9 @@ namespace configman
                           WindSensorPin(-1),
                           RainfallSensorPin(-1),
                           LEDPin(-1),
-                          ShowWebpage(true)
+                          ShowWebpage(true),
+                          IsSunriseAlarm(false),
+                          AlarmTime(Time())
         {
         }
     };

@@ -2,7 +2,6 @@
 
 #include "config.h"
 #include <ArduinoJson.h>
-#include <sstream>
 
 namespace configman
 {
@@ -48,13 +47,16 @@ namespace configman
 
     void writeConfig(const char *configStr)
     {
+        Serial.println("Write config.");
         auto res = deserializeConfig(configStr);
         if (!res.first)
         {
             Serial.print("Invalid config.");
             return;
         }
-        if (!writeFileLFS(kPathToConfig, configStr))
+        Configuration c = res.second;
+        auto config = serializeConfig(&c);
+        if (!writeFileLFS(kPathToConfig, config.c_str()))
         {
             Serial.print("Failed to write config.");
         }
@@ -63,7 +65,6 @@ namespace configman
     bool saveConfig(const Configuration *config)
     {
         String confStr = serializeConfig(config);
-        Serial.print(confStr);
         return writeFileLFS(kPathToConfig, confStr.c_str());
     }
 
@@ -119,6 +120,7 @@ namespace configman
     String serializeConfig(const Configuration *config)
     {
         DynamicJsonDocument doc(4096);
+        doc["IsConfigured"] = config->IsConfigured;
         doc["ServerAddress"] = config->ServerAddress;
         doc["SensorID"] = config->SensorID;
         doc["WiFiName"] = config->WiFiName;
@@ -131,24 +133,33 @@ namespace configman
         doc["FindSensors"] = config->FindSensors;
         doc["IsOfflineMode"] = config->IsOfflineMode;
         doc["ShowWebpage"] = config->ShowWebpage;
-        doc["IsConfigured"] = config->IsConfigured;
+        doc["IsSunriseAlarm"] = config->IsSunriseAlarm;
+
+        String hours = std::to_string(config->AlarmTime.Hours).c_str();
+        String minutes = std::to_string(config->AlarmTime.Minutes).c_str();
+        doc["AlarmTime"] = hours + ":" + minutes;
 
         char buffer[2000];
-
         serializeJsonPretty(doc, buffer);
+        Serial.println(String(buffer));
 
         return String(buffer);
     }
 
     std::pair<bool, Configuration> deserializeConfig(const char *configStr)
     {
-        std::pair<bool, Configuration> res = std::pair(false, Configuration());
+        std::pair<bool, Configuration> res = std::pair<bool, Configuration>(false, Configuration());
         DynamicJsonDocument doc(4096);
         DeserializationError err = deserializeJson(doc, configStr);
         if (err.code() != DeserializationError::Code::Ok)
         {
             Serial.printf("Deserializing failed %d\n", err.code());
             Serial.print(configStr);
+            return res;
+        }
+        if (!doc.containsKey("IsConfigured"))
+        {
+            Serial.printf("No valid config %s\n", configStr);
             return res;
         }
         res.second.IsConfigured = doc["IsConfigured"];
@@ -164,13 +175,52 @@ namespace configman
         res.second.FindSensors = doc["FindSensors"];
         res.second.IsOfflineMode = doc["IsOfflineMode"];
         res.second.ShowWebpage = doc["ShowWebpage"];
+
+        if (doc.containsKey("IsSunriseAlarm"))
+        {
+            res.second.IsSunriseAlarm = doc["IsSunriseAlarm"];
+            
+            String alarmTime = doc["AlarmTime"].as<String>();
+            int index = alarmTime.lastIndexOf(':');
+            int length = alarmTime.length();
+            String minutes = alarmTime.substring(index + 1, length);
+            String hours = alarmTime.substring(0, index);
+            
+            res.second.AlarmTime = Time(hours.toInt(), minutes.toInt());
+            if (res.second.IsSunriseAlarm){
+                Serial.printf("Has Sunrise Alarm with time: %s:%s\n", hours.c_str(), minutes.c_str());
+            }else{
+                Serial.println("No Sunrise Alarm");
+            }
+        }
+        else
+        {
+            Serial.println("Warning: Alarm clock does not exist");
+            res.second.IsSunriseAlarm = false;
+            res.second.AlarmTime = Time();
+        }
+
         res.first = true;
         return res;
     }
 
     String readConfigAsString()
     {
+        Serial.println("readConfigAsString");
         auto configStr = readFileLFS(kPathToConfig);
+        auto res = deserializeConfig(configStr.c_str());
+        if (configStr.isEmpty() || !res.first)
+        {
+            Configuration defaultConf = Configuration();
+            Serial.print("Invalid config. write default.");
+            if (!saveConfig(&defaultConf))
+            {
+                Serial.print("Failed to write default.");
+                return "{}";
+            }
+            delay(1000);
+            return readConfigAsString();
+        }
         DynamicJsonDocument doc(4096);
         DeserializationError err = deserializeJson(doc, configStr.c_str());
         if (err.code() != DeserializationError::Code::Ok)

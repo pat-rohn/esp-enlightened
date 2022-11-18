@@ -90,7 +90,7 @@ String CTimeHelper::fillUpZeros(int number)
     return numberStr;
 }
 
-std::pair<long, long> getHourseAndMinutes()
+std::pair<long, long> CTimeHelper::getHoursAndMinutes()
 {
     time_t now;
     char hours[32];
@@ -101,9 +101,9 @@ std::pair<long, long> getHourseAndMinutes()
 
     localtime_r(&now, &timeinfo);
     strftime(hours, sizeof(hours), "%H", &timeinfo);
-    strftime(minutes, sizeof(minutes), "%H", &timeinfo);
+    strftime(minutes, sizeof(minutes), "%M", &timeinfo);
     String hoursStr = hours;
     String minutesStr = minutes;
 
-    return std::pair(hoursStr.toInt(), minutesStr.toInt());
+    return std::pair<int,int>(hoursStr.toInt()+1, minutesStr.toInt()); // todo: timezone
 }
