@@ -26,7 +26,7 @@ uint8_t kLEDOFF = 0x1;
 #include "sensors/sensors.h"
 #include "led/leds_service.h"
 #include "webpage.h"
-#include "ledcontrol.h"
+#include "led/sunrise_alarm.h"
 
 configman::Configuration config = configman::Configuration();
 CTimeHelper *timeHelper = new CTimeHelper();
@@ -35,6 +35,7 @@ timeseries::CTimeseries *timeSeries;
 LedStrip *ledStrip;
 CLEDService *ledService;
 webpage::CWebPage *webPage;
+sunrise::CSunriseAlarm *sunriseAlarm;
 
 bool hasSensors = false;
 
@@ -141,13 +142,16 @@ void configureDevice()
   delete timeSeries;
   delete ledStrip;
   delete ledService;
+  delete sunriseAlarm;
   timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
+  sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
   if (config.ShowWebpage)
   {
     webPage = new webpage::CWebPage();
   }
+  sunriseAlarm->setAlarmTime(config.AlarmTime, config.SunriseLightTime);
 }
 
 unsigned long lastColorChange = 0;
@@ -338,9 +342,7 @@ void setup()
 }
 
 unsigned long nextLoopTime = millis();
-bool isAlarmActive = false;
-unsigned long alarmStartTime = millis();
-unsigned long alarmEndTime = millis();
+
 unsigned long loopTime = 500;
 
 void loop()
@@ -367,34 +369,13 @@ void loop()
 
   if (config.IsSunriseAlarm)
   {
-    auto currentTime = timeHelper->getHoursAndMinutes();
-    if ((config.AlarmTime.Hours == currentTime.first &&
-         config.AlarmTime.Minutes == currentTime.second)) // ||  true (test alarm)
+    if (sunriseAlarm->run())
     {
-      if (!isAlarmActive)
-      {
-        Serial.printf("Activate Sunrise: %ld:%ld \n", currentTime.first, currentTime.second);
-        alarmEndTime = millis() + (15*60*1000);
-        isAlarmActive = true;
-        alarmStartTime = millis();
-        ledStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
-        ledStrip->m_SunriseStartTime = alarmStartTime;
-        ledStrip->runModeAction();
-        loopTime = 100;
-      }
+      loopTime = 50;
     }
-    if (isAlarmActive)
+    else
     {
-      ledStrip->runModeAction();
-      if (millis() > alarmEndTime)
-      {
-        Serial.printf("Turn off Sunrise: %ld:%ld ", currentTime.first, currentTime.second);
-        isAlarmActive = false;
-        ledStrip->m_LEDMode = LedStrip::LEDModes::off;
-        loopTime = 500;
-
-        ledStrip->apply();
-      }
+      loopTime = 500;
     }
   }
   if (hasSensors && !isAccessPoint && !config.IsOfflineMode)

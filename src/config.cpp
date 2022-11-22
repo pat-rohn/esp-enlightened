@@ -134,6 +134,7 @@ namespace configman
         doc["IsOfflineMode"] = config->IsOfflineMode;
         doc["ShowWebpage"] = config->ShowWebpage;
         doc["IsSunriseAlarm"] = config->IsSunriseAlarm;
+        doc["SunriseLightTime"] = config->SunriseLightTime;
 
         String hours = std::to_string(config->AlarmTime.Hours).c_str();
         String minutes = std::to_string(config->AlarmTime.Minutes).c_str();
@@ -179,6 +180,7 @@ namespace configman
         if (doc.containsKey("IsSunriseAlarm"))
         {
             res.second.IsSunriseAlarm = doc["IsSunriseAlarm"];
+            res.second.SunriseLightTime = doc["SunriseLightTime"];
             
             String alarmTime = doc["AlarmTime"].as<String>();
             int index = alarmTime.lastIndexOf(':');
@@ -197,6 +199,7 @@ namespace configman
         {
             Serial.println("Warning: Alarm clock does not exist");
             res.second.IsSunriseAlarm = false;
+            res.second.SunriseLightTime = 20.0;
             res.second.AlarmTime = Time();
         }
 

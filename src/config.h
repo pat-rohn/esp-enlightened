@@ -46,6 +46,7 @@ namespace configman
         bool ShowWebpage;
         bool IsSunriseAlarm;
         Time AlarmTime;
+        double SunriseLightTime;
 
         Configuration() : IsConfigured(false),
                           ServerAddress("192.168.1.200:3004"),
@@ -61,7 +62,8 @@ namespace configman
                           LEDPin(-1),
                           ShowWebpage(true),
                           IsSunriseAlarm(false),
-                          AlarmTime(Time())
+                          AlarmTime(Time()),
+                          SunriseLightTime(20.0)
         {
         }
     };

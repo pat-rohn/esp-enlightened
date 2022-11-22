@@ -8,6 +8,7 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
 {
     m_NextLEDActionTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 70, 35};
+    m_OldCurrentColor = m_CurrentColor;
     m_Factor = 0.35;
     m_LEDMode = LEDModes::on;
     m_LedColor = LEDColor::white;
@@ -57,22 +58,35 @@ void LedStrip::updateLEDs(bool doImmediate)
         }
         else
         {
+
             m_Pixels.setPixelColor(i,
                                    m_Pixels.Color(
                                        m_CurrentColor[0] * m_Factor,
                                        m_CurrentColor[1] * m_Factor,
                                        m_CurrentColor[2] * m_Factor));
+
         }
         if (!doImmediate)
         {
             m_Pixels.show();
             delay(25);
-            Serial.print(" .");
+            //Serial.print(" .");
+            m_OldCurrentColor = m_CurrentColor;
         }
     }
     if (doImmediate)
     {
-        m_Pixels.show();
+        if (m_OldCurrentColor[0] == m_CurrentColor[0] &&
+            m_OldCurrentColor[1] == m_CurrentColor[1] &&
+            m_OldCurrentColor[2] == m_CurrentColor[2])
+        {
+            // skip sending when nothing changed
+        }
+        else
+        {
+            m_OldCurrentColor = m_CurrentColor;
+            m_Pixels.show();
+        }
     }
 }
 
@@ -183,18 +197,17 @@ void LedStrip::sunriseMode()
 {
     unsigned long currentTime = millis();
     long timeDiff = currentTime - m_SunriseStartTime;
-    long max = 10*60*1000; 
-    double timeFactor = (float(timeDiff) / float(max))+0.1;
+    double timeFactor = (float(timeDiff) / float(m_SunriseMaxTime)) + 0.1;
     if (timeFactor > 1.2)
     {
         timeFactor = 1.2;
     }
     m_CurrentColor[0] = 100;
-    m_CurrentColor[1] = 10 + timeFactor * 40;
-    m_CurrentColor[2] = 0 + timeFactor * 10;
+    m_CurrentColor[1] = 10 + timeFactor * 35;
+    m_CurrentColor[2] = 0 + timeFactor/1.5* 15;
     m_Factor = timeFactor;
-    
-    //Serial.printf("Sunrise: %f (%ld/%ld)\n", m_Factor, timeDiff, max);
+
+    // Serial.printf("Sunrise: %f (%ld/%ld)\n", m_Factor, timeDiff, max);
 
     updateLEDs(true);
 }
