@@ -121,12 +121,12 @@ void startLedControl()
   {
     Serial.println("startLedControl");
     ledStrip->beginPixels();
-    if (hasSensors && !config.IsSunriseAlarm)
+    if (hasSensors && !config.AlarmSettings.IsActivated)
     {
       Serial.println("Pulse Mode");
       ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
     }
-    if (config.IsSunriseAlarm)
+    if (config.AlarmSettings.IsActivated)
     {
       Serial.println("Is Alarm Clock");
       ledStrip->m_LEDMode = LedStrip::LEDModes::off;
@@ -139,6 +139,10 @@ void configureDevice()
 {
   Serial.println("configureDevice.");
   config = configman::readConfig();
+  if (config.AlarmSettings.IsActivated)
+  {
+    Serial.println("Sunrise Activated");
+  }
   delete timeSeries;
   delete ledStrip;
   delete ledService;
@@ -147,11 +151,11 @@ void configureDevice()
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
   sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
+  sunriseAlarm->applySettings(config.AlarmSettings);
   if (config.ShowWebpage)
   {
     webPage = new webpage::CWebPage();
   }
-  sunriseAlarm->setAlarmTime(config.AlarmTime, config.SunriseLightTime);
 }
 
 unsigned long lastColorChange = 0;
@@ -210,7 +214,7 @@ void measureAndSendSensorData()
     lastUpdate = millis();
     auto values = sensor::getValues();
 
-    if (config.NumberOfLEDs > 0 && !config.IsSunriseAlarm)
+    if (config.NumberOfLEDs > 0 && !config.AlarmSettings.IsActivated)
     {
       colorUpdate(values);
     }
@@ -256,17 +260,18 @@ void setup()
   configman::begin();
 
   delay(200);
-  config = configman::readConfig();
-  delay(200);
   if (false) // overwrite showing webpage
   {
     Serial.println("Overwrite to reconfigure (Reset)");
-    config.ShowWebpage = true;
-    config.IsConfigured = false;
-    config.WiFiName = "SSID Name";
-    config.WiFiPassword = "***";
+    config = configman::Configuration();
+    config.WiFiName = String("SSIDName");
+    config.WiFiPassword = String("***");
     configman::saveConfig(&config);
     delay(200);
+  }
+  else
+  {
+    config = configman::readConfig();
   }
 
   configureDevice();
@@ -367,7 +372,7 @@ void loop()
     return;
   }
 
-  if (config.IsSunriseAlarm)
+  if (config.AlarmSettings.IsActivated)
   {
     if (sunriseAlarm->run())
     {

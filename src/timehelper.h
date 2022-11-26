@@ -15,6 +15,7 @@ public:
     String fillUpZeros(int number);
 
     std::pair<long, long> getHoursAndMinutes();
+    int getWeekDay();
 
 private:
     NTPClient m_TimeClient;

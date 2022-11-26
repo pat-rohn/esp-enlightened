@@ -15,15 +15,14 @@ namespace sunrise
         CSunriseAlarm(LedStrip *ledStrip, CTimeHelper *timelper);
         virtual ~CSunriseAlarm(){};
 
-        void setAlarmTime(const configman::Time &alarmTime, double maxAlarmTime);
+        void applySettings(const configman::SunriseSettings &settings);
         bool run();
 
     private:
         LedStrip *m_LedStrip;
         CTimeHelper *m_TimeHelper;
-        configman::Time m_AlarmTime;
+        configman::SunriseSettings m_Settings;
         bool m_IsAlarmActive;
-        int m_MaxAlarmTime;
         unsigned long m_AlarmStartTime;
         unsigned long m_AlarmEndTime;
     };
