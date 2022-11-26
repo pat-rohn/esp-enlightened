@@ -96,14 +96,32 @@ std::pair<long, long> CTimeHelper::getHoursAndMinutes()
     char hours[32];
     char minutes[32];
     struct tm timeinfo;
+    time(&now);
+
+    localtime_r(&now, &timeinfo);
+    //Serial.printf("Time: %d:%d", timeinfo.tm_hour + 1, timeinfo.tm_min);
+    return std::pair<int, int>(timeinfo.tm_hour + 1, timeinfo.tm_min); // todo: timezone
+}
+
+int CTimeHelper::getWeekDay()
+{
+    time_t now;
+    struct tm timeinfo;
 
     time(&now);
 
     localtime_r(&now, &timeinfo);
-    strftime(hours, sizeof(hours), "%H", &timeinfo);
-    strftime(minutes, sizeof(minutes), "%M", &timeinfo);
-    String hoursStr = hours;
-    String minutesStr = minutes;
+    switch (timeinfo.tm_wday)
+    {
+    case 0: // Sunday
+        // Serial.printf("Weekday: %d", timeinfo.tm_wday);
+        return 6;
+        break;
+    default:
+        // Serial.printf("Weekday: %d", timeinfo.tm_wday);
+        return timeinfo.tm_wday - 1;
+        break;
+    }
 
-    return std::pair<int,int>(hoursStr.toInt()+1, minutesStr.toInt()); // todo: timezone
+    return 0;
 }

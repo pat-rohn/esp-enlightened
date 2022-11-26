@@ -19,7 +19,7 @@ namespace webpage
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script>
         function submitMessage() {
-            alert("Saved value to Device");
+            alert("Saved value to Device and reboot");
             setTimeout(function () { document.location.reload(false); }, 500);
         }
     </script>
@@ -61,6 +61,8 @@ namespace webpage
     if (request->hasParam("configuration")) {
       inputMessage = request->getParam("configuration")->value();
       configman::writeConfig(inputMessage.c_str());
+      ESP.restart();
+
     } else {
       inputMessage = "No message sent";
     }

@@ -9,23 +9,62 @@
 #include <Hash.h>
 #include <FS.h>
 #endif
+#include <map>
+#include <ArduinoJson.h>
 
 namespace configman
 {
     // static const char kPathToConfig = "config.json";
-    const char kPathToConfig[] = "config.json";
+    const char kPathToConfig[] = "/config.json";
     struct Time
     {
         int Hours;
         int Minutes;
-        Time(){
-            Hours = 0;
-            Minutes = 0;
+        Time()
+        {
+            Hours = 8;
+            Minutes = 30;
         }
 
-        Time(int hours, int minutes){
+        Time(int hours, int minutes)
+        {
             Hours = hours;
             Minutes = minutes;
+        }
+    };
+
+    enum weekday_t
+    {
+        Monday,
+        Tuesday,
+        Wednesday,
+        Thursday,
+        Friday,
+        Saturday,
+        Sunday
+    };
+
+    struct AlarmWeekday
+    {
+        bool IsActive;
+        Time AlarmTime;
+        AlarmWeekday() : IsActive(false),
+                         AlarmTime(Time()){};
+    };
+
+    struct SunriseSettings
+    {
+        bool IsActivated;
+        double SunriseLightTime;
+        std::map<weekday_t, AlarmWeekday> DaySettings;
+        SunriseSettings() : IsActivated(false),
+                            SunriseLightTime(20.0)
+        {
+            DaySettings = std::map<weekday_t, AlarmWeekday>{};
+            for (int weekDay = weekday_t::Monday; weekDay <= weekday_t::Sunday; weekDay++)
+            {
+                DaySettings[static_cast<weekday_t>(weekDay)] = AlarmWeekday();
+            }
         }
     };
 
@@ -44,9 +83,7 @@ namespace configman
         int RainfallSensorPin;
         int LEDPin;
         bool ShowWebpage;
-        bool IsSunriseAlarm;
-        Time AlarmTime;
-        double SunriseLightTime;
+        SunriseSettings AlarmSettings;
 
         Configuration() : IsConfigured(false),
                           ServerAddress("192.168.1.200:3004"),
@@ -61,28 +98,30 @@ namespace configman
                           RainfallSensorPin(-1),
                           LEDPin(-1),
                           ShowWebpage(true),
-                          IsSunriseAlarm(false),
-                          AlarmTime(Time()),
-                          SunriseLightTime(20.0)
+                          AlarmSettings()
         {
         }
     };
 
     void begin();
     Configuration readConfig();
-
+    String readConfigAsString();
     bool saveConfig(const Configuration *config);
-
     void writeConfig(const char *configStr);
 
-    String readFile(fs::FS &fs, const char *path);
     String readFileLFS(const char *path);
+    String readFile(fs::FS &fs, const char *path);
+
     bool writeFile(fs::FS &fs, const char *path, const char *message);
     bool writeFileLFS(const char *path, const char *message);
 
-    String serializeConfig(const Configuration *config);
     std::pair<bool, Configuration> deserializeConfig(const char *configStr);
-    String readConfigAsString();
+    SunriseSettings deserializeSunrise(const DynamicJsonDocument &doc);
+    AlarmWeekday deserializeDaySetting(const DynamicJsonDocument &doc);
+
+    String serializeConfig(const Configuration *config);
+    DynamicJsonDocument serializeSunrise(const SunriseSettings *config);
+    DynamicJsonDocument serializeDaySettings(const AlarmWeekday *config);
 
 }
 
