@@ -126,7 +126,7 @@ void startLedControl()
       Serial.println("Pulse Mode");
       ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
     }
-    if (config.AlarmSettings.IsActivated)
+    else if (config.AlarmSettings.IsActivated)
     {
       Serial.println("Is Alarm Clock");
       ledStrip->m_LEDMode = LedStrip::LEDModes::off;
@@ -139,7 +139,7 @@ void configureDevice()
 {
   Serial.println("configureDevice.");
   config = configman::readConfig();
-  if (config.AlarmSettings.IsActivated)
+ if (config.AlarmSettings.IsActivated)
   {
     Serial.println("Sunrise Activated");
   }
@@ -151,6 +151,9 @@ void configureDevice()
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
   sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
+
+  startLedControl();
+  
   sunriseAlarm->applySettings(config.AlarmSettings);
   if (config.ShowWebpage)
   {
@@ -260,12 +263,21 @@ void setup()
   configman::begin();
 
   delay(200);
-  if (false) // overwrite showing webpage
+  if (false)
   {
-    Serial.println("Overwrite to reconfigure (Reset)");
+    Serial.println("Overwrite config to reconfigure (Reset)");
     config = configman::Configuration();
     config.WiFiName = String("SSIDName");
     config.WiFiPassword = String("***");
+    configman::saveConfig(&config);
+    delay(200);
+  }
+  else if (false)
+  {
+    Serial.println("overwrite showing webpage");
+    config = configman::readConfig();
+    config.IsConfigured = false;
+    config.ShowWebpage = true;
     configman::saveConfig(&config);
     delay(200);
   }
@@ -301,7 +313,6 @@ void setup()
     hasSensors = true;
   }
 
-  startLedControl();
   if (hasSensors)
   {
     String desc = "";
@@ -332,10 +343,7 @@ void setup()
   }
   else
   {
-    if (!config.ShowWebpage && config.IsConfigured)
-    {
-      ledService->beginServer();
-    }
+    ledService->beginServer();
   }
   if (config.ShowWebpage || !config.IsConfigured)
   {
@@ -390,6 +398,6 @@ void loop()
   }
   if (!hasSensors)
   {
-    ledService->listen();
+    loopTime = ledService->listen();
   }
 }

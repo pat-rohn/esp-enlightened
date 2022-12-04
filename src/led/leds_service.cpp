@@ -18,7 +18,7 @@ void CLEDService::beginServer()
   m_Server.begin();
 }
 
-void CLEDService::listen()
+int CLEDService::listen()
 {
   m_LedStrip->runModeAction();
 
@@ -79,15 +79,21 @@ void CLEDService::listen()
               }
               else
               {
-                Serial.print("Input ");
-                Serial.println(body);
+                Serial.printf("Input %s\n", body.c_str());
                 int mode = doc["Mode"];
                 m_LedStrip->m_LEDMode = LedStrip::LEDModes(mode);
+                if (m_LedStrip->m_LEDMode == LedStrip::LEDModes::pulse)
+                {
+                  m_LedStrip->m_PulseMode.LowerLimit = 0.15;
+                  m_LedStrip->m_PulseMode.UpperLimit = 0.5;
+                  m_LedStrip->m_PulseMode.StepSize = 0.002;
+                  m_LedStrip->m_PulseMode.UpdateInterval = 40;
+                }
                 double factor = doc["Brightness"];
                 m_LedStrip->m_Factor = factor / 100.0;
-                double factorRed = doc["Red"];
-                double factorGreen = doc["Green"];
-                double factorBlue = doc["Blue"];
+                int factorRed = doc["Red"];
+                int factorGreen = doc["Green"];
+                int factorBlue = doc["Blue"];
                 String message = doc["Message"];
                 m_LedStrip->setColor(factorRed, factorGreen, factorBlue);
                 m_LedStrip->apply();
@@ -180,6 +186,17 @@ void CLEDService::listen()
     Serial.println("Client disconnected.");
     Serial.println("");
   }
+  if (m_LedStrip->m_LEDMode == LedStrip::LEDModes::campfire ||
+      m_LedStrip->m_LEDMode == LedStrip::LEDModes::colorful ||
+      m_LedStrip->m_LEDMode == LedStrip::LEDModes::pulse)
+  {
+    if (m_LedStrip->m_LEDMode == LedStrip::LEDModes::pulse)
+    {
+      return 10;
+    }
+    return 50;
+  }
+  return 500;
 }
 
 String CLEDService::getHTTPOK()
