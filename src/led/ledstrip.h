@@ -100,7 +100,7 @@ public:
     void showError();
     void runModeAction();
 
-    void setColor(double red, double green, double blue);
+    void setColor(uint8_t red, uint8_t green, uint8_t blue);
     std::array<uint8_t, 3> getColor();
 
     void setAlarm(unsigned long time);
@@ -124,12 +124,12 @@ public:
     double m_Factor;
     unsigned long m_SunriseStartTime;
     unsigned long m_SunriseMaxTime;
+    PulseMode m_PulseMode;
 
 private:
     unsigned long m_NextLEDActionTime;
     FlameMode m_FlameMode;
     ColorfulMode m_ColorfulMode;
-    PulseMode m_PulseMode;
     std::array<uint8_t, 3> m_CurrentColor;
     std::array<uint8_t, 3> m_OldCurrentColor;
     int m_NrOfPixels;

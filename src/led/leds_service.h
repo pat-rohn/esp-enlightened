@@ -24,7 +24,7 @@ public:
 
     LedStrip *m_LedStrip;
     void beginServer();
-    void listen();
+    int listen();
     String getHomepage();
     String getHTTPOK();
     String getHTTPNotOK();

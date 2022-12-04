@@ -8,19 +8,20 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
 {
     m_NextLEDActionTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 70, 35};
-    m_OldCurrentColor = m_CurrentColor;
+    m_OldCurrentColor = std::array<uint8_t, 3>{100, 70, 35};
     m_Factor = 0.35;
     m_LEDMode = LEDModes::on;
     m_LedColor = LEDColor::white;
     m_NrOfPixels = nrOfPixels;
     m_UseAllLEDs = true;
+    Serial.printf("LedStrip with pin %d (%d)\n", pin, nrOfPixels);
 }
 
 void LedStrip::beginPixels()
 {
-    Serial.println("beginPixels.");
+    Serial.printf("beginPixels (%d)\n", m_NrOfPixels);
     m_Pixels.begin();
-    apply();
+
     fancy();
 }
 
@@ -34,9 +35,9 @@ void LedStrip::apply()
     {
         m_LedColor = LEDColor::white;
 
-        if (m_LEDMode != LEDModes::on)
+        if (m_LEDMode == LEDModes::off)
         {
-            Serial.println("Turn Leds Off.");
+            Serial.println("switch LEDs Off.");
             m_Pixels.clear();
             m_Pixels.show();
             return;
@@ -44,12 +45,14 @@ void LedStrip::apply()
     }
 
     updateLEDs(true);
+    if (m_LEDMode == LEDModes::on) // todo: hack
+    {
+        m_Pixels.show();
+    }
 }
 
 void LedStrip::updateLEDs(bool doImmediate)
 {
-
-    m_Pixels.clear();
     for (int i = 0; i < m_NrOfPixels; i++)
     {
         if (!m_UseAllLEDs && i % 2 == 0)
@@ -58,33 +61,34 @@ void LedStrip::updateLEDs(bool doImmediate)
         }
         else
         {
-
             m_Pixels.setPixelColor(i,
                                    m_Pixels.Color(
                                        m_CurrentColor[0] * m_Factor,
                                        m_CurrentColor[1] * m_Factor,
                                        m_CurrentColor[2] * m_Factor));
-
         }
         if (!doImmediate)
         {
             m_Pixels.show();
             delay(25);
-            //Serial.print(" .");
-            m_OldCurrentColor = m_CurrentColor;
         }
     }
     if (doImmediate)
     {
-        if (m_OldCurrentColor[0] == m_CurrentColor[0] &&
-            m_OldCurrentColor[1] == m_CurrentColor[1] &&
-            m_OldCurrentColor[2] == m_CurrentColor[2])
+        if (m_OldCurrentColor[0] == int(double(m_CurrentColor[0]) * m_Factor) &&
+            m_OldCurrentColor[1] == int(double(m_CurrentColor[1]) * m_Factor) &&
+            m_OldCurrentColor[2] == int(double(m_CurrentColor[2]) * m_Factor))
         {
             // skip sending when nothing changed
+            // Serial.printf("skip show (%d,%d,%d)", m_OldCurrentColor[0], m_OldCurrentColor[1], m_OldCurrentColor[2]);
+            // Serial.printf("-> (%d,%d,%d)", m_CurrentColor[0]*m_Factor, m_CurrentColor[1]*m_Factor, m_CurrentColor[2]*m_Factor);
         }
         else
         {
-            m_OldCurrentColor = m_CurrentColor;
+            for (int i = 0; i < m_CurrentColor.size(); i++)
+            {
+                m_OldCurrentColor.at(i) = m_CurrentColor.at(i) * m_Factor;
+            }
             m_Pixels.show();
         }
     }
@@ -100,14 +104,14 @@ void LedStrip::changeColor(bool autoChange)
         updateLEDs(true);
         delay(delayTime);
     }
-    Serial.print("color:");
-    Serial.println((int)m_LedColor);
+    Serial.printf("old color: %d\n", (int)m_LedColor);
     int nextColor = (int)m_LedColor + 1;
     if (nextColor > 3)
     {
         nextColor = 0;
     }
     m_LedColor = LEDColor(nextColor);
+    Serial.printf("new color: %d\n", (int)m_LedColor);
     switch (m_LedColor)
     {
     case LEDColor::red:
@@ -204,10 +208,10 @@ void LedStrip::sunriseMode()
     }
     m_CurrentColor[0] = 100;
     m_CurrentColor[1] = 10 + timeFactor * 35;
-    m_CurrentColor[2] = 0 + timeFactor/1.5* 15;
+    m_CurrentColor[2] = 0 + timeFactor / 1.5 * 15;
     m_Factor = timeFactor;
 
-    //Serial.printf("Sunrise: %f (%ld/%ld)\n", m_Factor, timeDiff, m_SunriseMaxTime);
+    // Serial.printf("Sunrise: %f (%ld/%ld)\n", m_Factor, timeDiff, m_SunriseMaxTime);
 
     updateLEDs(true);
 }
@@ -359,22 +363,17 @@ void LedStrip::campfireMode()
     showPixels();
 }
 
-void LedStrip::setColor(double red, double green, double blue)
+void LedStrip::setColor(uint8_t red, uint8_t green, uint8_t blue)
 {
-    Serial.print("red: ");
-    Serial.println(red);
-    Serial.print("green: ");
-    Serial.println(green);
-    Serial.print("blue: ");
-    Serial.println(blue);
-    m_CurrentColor[0] = red;
-    m_CurrentColor[1] = green;
-    m_CurrentColor[2] = blue;
+    m_CurrentColor.at(0) = red;
+    m_CurrentColor.at(1) = green;
+    m_CurrentColor.at(2) = blue;
     for (int i = 0; i < m_NrOfPixels; i++)
     {
-        m_Pixels.setPixelColor(i, m_Pixels.Color(m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]));
+        m_Pixels.setPixelColor(i, m_Pixels.Color(m_CurrentColor.at(0), m_CurrentColor.at(1), m_CurrentColor.at(2)));
     }
-    m_Pixels.show();
+    Serial.printf("\nColors Values (%d) - red: %d, green: %d, blue: %d\n",
+                  m_NrOfPixels, m_CurrentColor.at(0), m_CurrentColor.at(1), m_CurrentColor.at(2));
 }
 
 std::array<uint8_t, 3> LedStrip::getColor()
@@ -425,6 +424,7 @@ void LedStrip::setCO2Color(double co2Val)
     }
 
     setColor(red, green, blue);
+    apply();
 }
 
 void LedStrip::setTemperatureColor(double temperature)
@@ -457,4 +457,5 @@ void LedStrip::setTemperatureColor(double temperature)
         red = 0;
     }
     setColor(red, green, blue);
+    apply();
 }

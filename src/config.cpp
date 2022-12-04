@@ -8,6 +8,17 @@ namespace configman
     void begin()
     {
         Serial.println("LittleFS.begin()");
+#ifdef ESP8266
+        if (!LittleFS.begin())
+        {
+            Serial.println("Failed to mount LittleFS");
+        }
+        else
+        {
+            Serial.println("LittleFS succesfully mounted");
+        }
+#endif
+#ifdef ESP32
         if (!LittleFS.begin(false))
         {
             Serial.println("Failed to mount LittleFS");
@@ -24,6 +35,7 @@ namespace configman
         {
             Serial.println("LittleFS succesfully mounted");
         }
+#endif
     }
 
     Configuration readConfig()
@@ -179,7 +191,7 @@ namespace configman
 
         char buffer[2000];
         serializeJsonPretty(doc, buffer);
-        
+
         return String(buffer);
     }
 

@@ -18,7 +18,10 @@ void CSunriseAlarm::applySettings(const configman::SunriseSettings &settings)
 
     char buffer[2000];
     serializeJsonPretty(doc, buffer);
-    Serial.printf("Applied settings: %s", buffer);
+    if (settings.IsActivated)
+    {
+        Serial.printf("Applied settings: %s", buffer);
+    }
 }
 
 bool CSunriseAlarm::run()
