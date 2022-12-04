@@ -97,7 +97,6 @@ void createAccesPoint()
   WiFi.disconnect();
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
   {
-    ledService->showError();
     Serial.println("STA Failed to configure");
     setup();
   }
@@ -139,7 +138,7 @@ void configureDevice()
 {
   Serial.println("configureDevice.");
   config = configman::readConfig();
- if (config.AlarmSettings.IsActivated)
+  if (config.AlarmSettings.IsActivated)
   {
     Serial.println("Sunrise Activated");
   }
@@ -153,12 +152,11 @@ void configureDevice()
   sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
 
   startLedControl();
-  
+
   sunriseAlarm->applySettings(config.AlarmSettings);
-  if (config.ShowWebpage)
-  {
-    webPage = new webpage::CWebPage();
-  }
+
+  webPage = new webpage::CWebPage();
+  webPage->setLEDService(ledService);
 }
 
 unsigned long lastColorChange = 0;
@@ -341,10 +339,6 @@ void setup()
 
     lastUpdate = millis() - deviceConfig.Interval;
   }
-  else
-  {
-    ledService->beginServer();
-  }
   if (config.ShowWebpage || !config.IsConfigured)
   {
     webPage->beginServer();
@@ -391,13 +385,13 @@ void loop()
       loopTime = 500;
     }
   }
-  if (hasSensors && !isAccessPoint && !config.IsOfflineMode)
+  else if (hasSensors && !isAccessPoint && !config.IsOfflineMode)
   { // should have connection to timeseries server
     measureAndSendSensorData();
     // Serial.printf("Heap %d\n", ESP.getFreeHeap());
   }
-  if (!hasSensors)
+  else
   {
-    loopTime = ledService->listen();
+    loopTime = ledStrip->runModeAction();
   }
 }

@@ -1,9 +1,9 @@
 #include "ledstrip.h"
 
 LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_GRB + NEO_KHZ800),
+                                                  m_PulseMode(),
                                                   m_FlameMode(),
                                                   m_ColorfulMode(),
-                                                  m_PulseMode(),
                                                   m_PixelColors(nrOfPixels)
 {
     m_NextLEDActionTime = millis();
@@ -85,7 +85,7 @@ void LedStrip::updateLEDs(bool doImmediate)
         }
         else
         {
-            for (int i = 0; i < m_CurrentColor.size(); i++)
+            for (uint8_t i = 0; i < m_CurrentColor.size(); i++)
             {
                 m_OldCurrentColor.at(i) = m_CurrentColor.at(i) * m_Factor;
             }
@@ -225,23 +225,28 @@ void LedStrip::showError()
     updateLEDs();
 }
 
-void LedStrip::runModeAction()
+int LedStrip::runModeAction()
 {
     switch (m_LEDMode)
     {
     case LEDModes::colorful:
         colorfulMode();
+        return 50;
         break;
     case LEDModes::campfire:
         campfireMode();
+        return 50;
         break;
     case LEDModes::pulse:
         pulseMode();
+        return 10;
         break;
     case LEDModes::sunrise:
         sunriseMode();
+        return 50;
         break;
     default:
+        return 500;
         break;
     }
 }
