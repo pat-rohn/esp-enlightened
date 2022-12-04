@@ -4,11 +4,12 @@
 #include <sstream>
 #include <ArduinoJson.h>
 #include <array>
-
 #include "config.h"
 
 namespace webpage
 {
+
+  CLEDService *m_LedService;
 
   const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
@@ -27,11 +28,13 @@ namespace webpage
 
 <body>
     <h2>IoT Multi Device Configuration</h2>
+
+  </body></html>
     <form action="/get" target="hidden-form">
         <br>
-        <textarea disabled cols="80" rows="20">%config.json%</textarea>
+        <textarea disabled cols="80" rows="22">%devconfig%</textarea>
         <br>
-        <textarea id="configuration" name="configuration" cols="80" rows="20"></textarea>
+        <textarea id="configuration" name="configuration" cols="80" rows="22"></textarea>
         <input type="submit" value="Submit" onclick="submitMessage()">
     </form>
     <br>
@@ -46,10 +49,106 @@ namespace webpage
   {
   }
 
+  void CWebPage::setLEDService(CLEDService *ledService)
+  {
+    m_LedService = ledService;
+  }
+
   void CWebPage::beginServer()
   {
     Serial.println("Webpage: Begin Server.");
-    // Send web page with input fields to client
+    m_Server.on("/api/led", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+
+    m_Server.on("/api/led", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  String answer = m_LedService->get();
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+
+    m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
+                {
+                  int params = request->params();
+                  Serial.printf("%d params sent in\n", params);
+                  String input = "";
+                  for (int i = 0; i < params; i++)
+                  {
+                    AsyncWebParameter *p = request->getParam(i);
+                    if (p->isPost())
+                    {
+                      Serial.printf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
+                      input = p->value();
+                    }
+                  }
+                  Serial.printf("Input is: %s", input.c_str());
+                  String answer = m_LedService->apply(input);
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+
+                  request->send(response); });
+
+    m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", "");
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+
+    // Config Post
+    m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
+                { 
+                  int params = request->params();
+                  Serial.printf("%d params sent in\n", params);
+                  String input = "";
+                  for (int i = 0; i < params; i++)
+                  {
+                    AsyncWebParameter *p = request->getParam(i);
+                      if (p->isPost())
+                    {
+                        Serial.printf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
+                        input = p->value();
+                    }
+                  }
+                  Serial.printf("Input is: %s", input.c_str());
+                  configman::writeConfig(input.c_str());
+                  
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", input);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response);
+                  Serial.println("restart");
+                  ESP.restart(); });
+
+    // Config Get
+    m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
+                { 
+                  
+                String answer = configman::readConfigAsString();
+                AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
+                response->addHeader("Content-type", "text/json");
+                response->addHeader("Access-Control-Allow-Origin", "*");
+                response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                request->send(response); });
+
+    // HTML (WebPage)
     m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                 { request->send_P(200, "text/html", index_html, processor); });
 
@@ -63,8 +162,8 @@ namespace webpage
       configman::writeConfig(inputMessage.c_str());
       ESP.restart();
 
-    } else {
-      inputMessage = "No message sent";
+    } else{
+      inputMessage = "Unknown param";
     }
     Serial.println(inputMessage);
     request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); });
@@ -72,50 +171,20 @@ namespace webpage
     m_Server.begin();
   }
 
-  String CWebPage::getHTTPOK()
+  String CWebPage::processor(const String &var)
   {
-    std::stringstream str;
-    str << "HTTP/1.1 200 OK" << std::endl;
-    str << "Content-type:text/json" << std::endl;
-    str << "Access-Control-Allow-Origin: * " << std::endl;
-    str << "Access-Control-Allow-Headers: Content-Type, Authorization, Accept, Accept-Language, X-Authorization " << std::endl;
-    str << "Connection: close" << std::endl;
-    str << std::endl;
-    return String(str.str().c_str());
-  }
-
-  String CWebPage::getHTTPNotOK()
-  {
-    std::stringstream str;
-    str << "HTTP/1.1 400 Bad Request" << std::endl;
-    str << "Content-type:text/json" << std::endl;
-    str << "Connection: close" << std::endl;
-    str << std::endl;
-    return String(str.str().c_str());
-  }
-
-  String CWebPage::getFrontPage()
-  {
-    std::stringstream str;
-    str << "HTTP/1.1 200 OK" << std::endl;
-    str << "Content-type:text/html" << std::endl;
-    str << "Access-Control-Allow-Origin: * " << std::endl;
-    str << "Connection: close" << std::endl;
-    str << std::endl;
-
-    if (m_Header.indexOf("GET /") >= 0)
+    Serial.println(var);
+    if (var == "devconfig")
     {
-      str << index_html << std::endl;
+      Serial.println("read from configuration");
+      return configman::readConfigAsString();
     }
-    else if (m_Header.indexOf("GET /off") >= 0)
+    else
     {
-      Serial.println("off");
+      Serial.println("there is nothing yet with the call " + var);
+      Serial.println(configman::kPathToConfig);
+      return "there is nothing yet with the call " + var;
     }
-
-    // The HTTP response ends with another blank line
-    str << std::endl;
-    return String(str.str().c_str());
+    return String();
   }
-
-
 }

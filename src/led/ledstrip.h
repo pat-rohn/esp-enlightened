@@ -98,7 +98,7 @@ public:
     void changeColor(bool autoChange = true);
     void fancy();
     void showError();
-    void runModeAction();
+    int runModeAction();
 
     void setColor(uint8_t red, uint8_t green, uint8_t blue);
     std::array<uint8_t, 3> getColor();

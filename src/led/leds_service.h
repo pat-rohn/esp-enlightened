@@ -1,14 +1,8 @@
+#ifndef LED_SERVICE_H
+#define LED_SERVICE_H
+
+
 #include <Arduino.h>
-
-#ifdef ESP8266
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#endif /* ESP8266 */
-
-#ifdef ESP32
-#include "WiFi.h"
-#include <HTTPClient.h>
-#endif /* ESP32 */
 
 #include "ledstrip.h"
 
@@ -19,19 +13,10 @@ public:
     ~CLEDService(){};
 
 public:
-    WiFiServer m_Server;
-    String m_Header;
-
+    String apply(String ledString);
+    String get();
     LedStrip *m_LedStrip;
-    void beginServer();
-    int listen();
-    String getHomepage();
-    String getHTTPOK();
-    String getHTTPNotOK();
-    void showError();
-
-private:
-    unsigned long m_CurrentTime;
-    unsigned long m_PreviousTime;
-    unsigned long m_TimeoutTime;
+    
 };
+
+#endif
