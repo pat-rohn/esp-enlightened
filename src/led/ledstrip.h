@@ -41,9 +41,8 @@ public:
         off = 1,
         campfire = 2,
         colorful = 3,
-        autochange = 4,
+        sunrise = 4,
         pulse = 5,
-        sunrise = 6,
     };
 
 private:
@@ -95,7 +94,7 @@ public:
     LedStrip(uint8_t pin, int nrOfPixels);
     void beginPixels();
     void apply();
-    void changeColor(bool autoChange = true);
+    void applyColor(bool autoChange = true);
     void fancy();
     void showError();
     int runModeAction();
@@ -123,7 +122,7 @@ public:
     LEDModes m_LEDMode = LEDModes::on;
     double m_Factor;
     unsigned long m_SunriseStartTime;
-    unsigned long m_SunriseMaxTime;
+    unsigned long m_SunriseEndTime;
     PulseMode m_PulseMode;
 
 private:
