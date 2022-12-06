@@ -1,10 +1,12 @@
 #include "timehelper.h"
 #include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 WiFiUDP ntpUDP;
 
-CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP)), m_IsTimeInitialized(false)
+CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP)),
+                             m_IsTimeInitialized(false)
 {
     // initTime();
     // timeClient.begin();
@@ -12,13 +14,20 @@ CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP)), m_IsTimeInitialize
     Serial.print("CTimeHelper");
 }
 
+bool CTimeHelper::isTimeSet()
+{
+    return m_TimeClient.isTimeSet();
+}
+
 bool CTimeHelper::initTime()
 {
     m_TimeClient.setUpdateInterval(120 * 1000);
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    unsigned long endTime = millis() + 10000;
+    unsigned long endTime = millis() + 5000;
     Serial.println("Synchronization...");
     m_TimeClient.begin();
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 0);
+    tzset();
     while (millis() < endTime)
     {
         Serial.print(" .. ");
@@ -39,9 +48,9 @@ bool CTimeHelper::initTime()
                     break;
                 }
             }
+            auto time = getHoursAndMinutes();
+            Serial.printf("Time is: %ld:%ld\n", time.first, time.second);
 
-            Serial.println("Time in ms: ");
-            Serial.println(now);
             return true;
         }
         delay(600);
@@ -93,14 +102,12 @@ String CTimeHelper::fillUpZeros(int number)
 std::pair<long, long> CTimeHelper::getHoursAndMinutes()
 {
     time_t now;
-    char hours[32];
-    char minutes[32];
     struct tm timeinfo;
     time(&now);
 
     localtime_r(&now, &timeinfo);
-    //Serial.printf("Time: %d:%d", timeinfo.tm_hour + 1, timeinfo.tm_min);
-    return std::pair<int, int>(timeinfo.tm_hour + 1, timeinfo.tm_min); // todo: timezone
+    // Serial.printf("Time: %d:%d", timeinfo.tm_hour + 1, timeinfo.tm_min);
+    return std::pair<int, int>(timeinfo.tm_hour, timeinfo.tm_min); // todo: timezone
 }
 
 int CTimeHelper::getWeekDay()

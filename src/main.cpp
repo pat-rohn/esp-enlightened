@@ -146,6 +146,7 @@ void configureDevice()
   delete ledStrip;
   delete ledService;
   delete sunriseAlarm;
+  
   timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
@@ -372,6 +373,18 @@ void loop()
     Serial.println(configman::readConfigAsString());
     config = configman::readConfig();
     return;
+  }
+
+  if (!isAccessPoint || !config.IsOfflineMode)
+  {
+    if (!timeHelper->isTimeSet())
+    {
+      if (!timeHelper->initTime())
+      {
+        Serial.println("Time not yet initialized.");
+        return;
+      }
+    }
   }
 
   if (config.AlarmSettings.IsActivated)

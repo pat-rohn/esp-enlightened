@@ -9,6 +9,8 @@ class CTimeHelper
 
 public:
     CTimeHelper();
+    virtual ~CTimeHelper(){};
+    bool isTimeSet();
     bool initTime();
     String getTimestamp();
 

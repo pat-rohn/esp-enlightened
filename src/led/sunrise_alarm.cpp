@@ -45,7 +45,7 @@ bool CSunriseAlarm::run()
             m_AlarmEndTime = millis() + m_Settings.SunriseLightTime * 60 * 1000;
             m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
             m_LedStrip->m_SunriseStartTime = m_AlarmStartTime;
-            m_LedStrip->m_SunriseMaxTime = m_Settings.SunriseLightTime * 60 * 1000 / 2;
+            m_LedStrip->m_SunriseEndTime = m_Settings.SunriseLightTime * 60 * 1000 / 2;
             m_LedStrip->runModeAction();
             return true;
         }
