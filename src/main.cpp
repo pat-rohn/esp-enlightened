@@ -25,6 +25,7 @@ uint8_t kLEDOFF = 0x1;
 
 #include "sensors/sensors.h"
 #include "led/leds_service.h"
+#include "led/led_inputs.h"
 #include "webpage.h"
 #include "led/sunrise_alarm.h"
 
@@ -120,17 +121,13 @@ void startLedControl()
   {
     Serial.println("startLedControl");
     ledStrip->beginPixels();
-    if (hasSensors && !config.AlarmSettings.IsActivated)
-    {
-      Serial.println("Pulse Mode");
-      ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
-    }
-    else if (config.AlarmSettings.IsActivated)
+    if (config.AlarmSettings.IsActivated)
     {
       Serial.println("Is Alarm Clock");
       ledStrip->m_LEDMode = LedStrip::LEDModes::off;
-      ledStrip->apply();
+      ledStrip->applyModeAndColor();
     }
+    led_inputs::start(ledStrip, config.Button1, config.Button2);
   }
 }
 
@@ -146,7 +143,7 @@ void configureDevice()
   delete ledStrip;
   delete ledService;
   delete sunriseAlarm;
-  
+
   timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
@@ -161,37 +158,37 @@ void configureDevice()
 }
 
 unsigned long lastColorChange = 0;
-const long kColorUpdateInterval = 120000;
 double co2TestVal = 400;
 double tempTestVal = 15;
 
 void colorUpdate(const std::map<String, sensor::SensorData> &values)
 {
-  if (ledStrip->m_LEDMode == LedStrip::LEDModes::pulse &&
-      millis() > lastColorChange + kColorUpdateInterval)
+  if (ledStrip->m_LEDMode != LedStrip::LEDModes::pulse)
   {
-    lastColorChange = millis();
-    // Serial.print("co2TestVal: ");
-    // Serial.println(co2TestVal);
-    // setCO2Color(co2TestVal);
-    // co2TestVal += 100;
-    // tempTestVal += 1.0;
-    // setTemperatureColor(tempTestVal);
-    // return;
+    Serial.printf("Changed to pulse mode. Mode was %d\n", int(ledStrip->m_LEDMode));
+    ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
+  }
 
-    if (values.empty())
-    {
-      Serial.println("No Sensors");
-      return;
-    }
-    if (values.count("CO2") && values.at("CO2").isValid)
-    {
-      ledStrip->setCO2Color(values.at("CO2").value);
-    }
-    else if (values.count("Temperature"))
-    {
-      ledStrip->setTemperatureColor(values.at("Temperature").value);
-    }
+  // Serial.print("co2TestVal: ");
+  // Serial.println(co2TestVal);
+  // setCO2Color(co2TestVal);
+  // co2TestVal += 100;
+  // tempTestVal += 1.0;
+  // setTemperatureColor(tempTestVal);
+  // return;
+
+  if (values.empty())
+  {
+    Serial.println("No Sensors");
+    return;
+  }
+  if (values.count("CO2") && values.at("CO2").isValid)
+  {
+    ledStrip->setCO2Color(values.at("CO2").value);
+  }
+  else if (values.count("Temperature"))
+  {
+    ledStrip->setTemperatureColor(values.at("Temperature").value);
   }
 }
 
@@ -310,6 +307,7 @@ void setup()
   if (config.FindSensors && sensor::sensorsInit())
   {
     hasSensors = true;
+    ledStrip->m_LEDMode = LedStrip::LEDModes::on;
   }
 
   if (hasSensors)
@@ -403,8 +401,5 @@ void loop()
     measureAndSendSensorData();
     // Serial.printf("Heap %d\n", ESP.getFreeHeap());
   }
-  else
-  {
-    loopTime = ledStrip->runModeAction();
-  }
+  loopTime = ledStrip->runModeAction();
 }

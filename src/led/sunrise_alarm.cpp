@@ -43,6 +43,7 @@ bool CSunriseAlarm::run()
             m_IsAlarmActive = true;
             m_AlarmStartTime = millis();
             m_AlarmEndTime = millis() + m_Settings.SunriseLightTime * 60 * 1000;
+            m_LedStrip->m_Factor = 0.0;
             m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
             m_LedStrip->m_SunriseStartTime = m_AlarmStartTime;
             m_LedStrip->m_SunriseEndTime = m_Settings.SunriseLightTime * 60 * 1000 / 2;
@@ -58,7 +59,7 @@ bool CSunriseAlarm::run()
             m_IsAlarmActive = false;
             m_LedStrip->m_LEDMode = LedStrip::LEDModes::off;
 
-            m_LedStrip->apply();
+            m_LedStrip->applyModeAndColor();
             return false;
         }
 

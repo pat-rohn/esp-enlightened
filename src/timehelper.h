@@ -21,5 +21,4 @@ public:
 
 private:
     NTPClient m_TimeClient;
-    bool m_IsTimeInitialized;
 };

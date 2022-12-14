@@ -32,13 +32,6 @@ String CLEDService::apply(String ledString)
   {
     int mode = doc["Mode"];
     m_LedStrip->m_LEDMode = LedStrip::LEDModes(mode);
-    if (m_LedStrip->m_LEDMode == LedStrip::LEDModes::pulse)
-    {
-      m_LedStrip->m_PulseMode.LowerLimit = 0.15;
-      m_LedStrip->m_PulseMode.UpperLimit = 0.5;
-      m_LedStrip->m_PulseMode.StepSize = 0.002;
-      m_LedStrip->m_PulseMode.UpdateInterval = 40;
-    }
     double factor = doc["Brightness"];
     m_LedStrip->m_Factor = factor / 100.0;
     int factorRed = doc["Red"];
@@ -46,7 +39,7 @@ String CLEDService::apply(String ledString)
     int factorBlue = doc["Blue"];
     String message = doc["Message"];
     m_LedStrip->setColor(factorRed, factorGreen, factorBlue);
-    m_LedStrip->apply();
+    m_LedStrip->applyModeAndColor(); 
     std::stringstream str;
     std::array<uint8_t, 3> color = m_LedStrip->getColor();
     str << R"({"Red":)" << int(color[0])
@@ -63,7 +56,7 @@ String CLEDService::apply(String ledString)
 
 String CLEDService::get()
 {
-  Serial.println("LED:Service -> GET api");
+  Serial.println("LEDs-Service: GET");
   std::stringstream str;
   std::array<uint8_t, 3> color = m_LedStrip->getColor();
   str << R"({"Red":)" << int(color[0])

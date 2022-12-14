@@ -5,8 +5,7 @@
 
 WiFiUDP ntpUDP;
 
-CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP)),
-                             m_IsTimeInitialized(false)
+CTimeHelper::CTimeHelper() : m_TimeClient(NTPClient(ntpUDP))
 {
     // initTime();
     // timeClient.begin();
@@ -49,7 +48,7 @@ bool CTimeHelper::initTime()
                 }
             }
             auto time = getHoursAndMinutes();
-            Serial.printf("Time is: %ld:%ld\n", time.first, time.second);
+            Serial.printf("Local time is: %ld:%ld\n", time.first, time.second);
 
             return true;
         }
@@ -62,18 +61,13 @@ bool CTimeHelper::initTime()
 
 String CTimeHelper::getTimestamp()
 {
-    if (!m_IsTimeInitialized)
-    {
-        m_IsTimeInitialized = initTime();
-        return getTimestamp();
-    }
+    m_TimeClient.update();
     time_t now;
     char strftime_buf[64];
     struct tm timeinfo;
 
     time(&now);
-
-    localtime_r(&now, &timeinfo);
+    gmtime_r(&now, &timeinfo);
     unsigned long millisec = millis();
     strftime(strftime_buf, sizeof(strftime_buf), "%Y-%m-%dT%H:%M:%S.", &timeinfo);
     String timestamp = strftime_buf;
@@ -83,8 +77,8 @@ String CTimeHelper::getTimestamp()
     timestamp += buf;
     timestamp += "Z";
 
-    // Serial.print("Time:");
-    // Serial.println(timestamp);
+    //Serial.printf("UTC time is: %s\n", timestamp.c_str());
+   
     return timestamp;
 }
 
