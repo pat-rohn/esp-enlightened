@@ -182,6 +182,8 @@ namespace configman
         doc["WindSensorPin"] = config->WindSensorPin;
         doc["RainfallSensorPin"] = config->RainfallSensorPin;
         doc["LEDPin"] = config->LEDPin;
+        doc["Button1"] = config->Button1;
+        doc["Button2"] = config->Button2;
         doc["NumberOfLEDs"] = config->NumberOfLEDs;
         doc["FindSensors"] = config->FindSensors;
         doc["IsOfflineMode"] = config->IsOfflineMode;
@@ -269,6 +271,23 @@ namespace configman
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
         res.second.LEDPin = doc["LEDPin"];
+        if (!doc.containsKey("Button1"))
+        {
+            res.second.Button1 = doc["Button1"];
+        }
+        else
+        {
+            res.second.Button1 = -1;
+        }
+        if (!doc.containsKey("Button2"))
+        {
+            res.second.Button2 = doc["Button2"];
+        }
+        else
+        {
+            res.second.Button2 = -1;
+        }
+
         res.second.NumberOfLEDs = doc["NumberOfLEDs"];
         res.second.FindSensors = doc["FindSensors"];
         res.second.IsOfflineMode = doc["IsOfflineMode"];
@@ -303,7 +322,7 @@ namespace configman
         res.IsActivated = doc["IsActivated"];
         if (res.IsActivated)
         {
-            Serial.print("\n Sunrise is acrivated ");
+            Serial.print("\n Sunrise is activated ");
         }
         for (int weekDayN = weekday_t::Monday; weekDayN <= weekday_t::Sunday; weekDayN++)
         {

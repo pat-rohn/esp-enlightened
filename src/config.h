@@ -82,6 +82,8 @@ namespace configman
         int WindSensorPin;
         int RainfallSensorPin;
         int LEDPin;
+        int Button1;
+        int Button2;
         bool ShowWebpage;
         SunriseSettings AlarmSettings;
 
@@ -97,6 +99,8 @@ namespace configman
                           WindSensorPin(-1),
                           RainfallSensorPin(-1),
                           LEDPin(-1),
+                          Button1(-1),
+                          Button2(-1),
                           ShowWebpage(true),
                           AlarmSettings()
         {

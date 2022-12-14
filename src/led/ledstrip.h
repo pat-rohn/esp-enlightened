@@ -93,16 +93,16 @@ private:
 public:
     LedStrip(uint8_t pin, int nrOfPixels);
     void beginPixels();
-    void apply();
-    void applyColor(bool autoChange = true);
+    void applyModeAndColor();
+    void applyColorSmoothly(bool allAtOnce);
     void fancy();
     void showError();
     int runModeAction();
 
+    void applyColorImmediate();
     void setColor(uint8_t red, uint8_t green, uint8_t blue);
     std::array<uint8_t, 3> getColor();
 
-    void setAlarm(unsigned long time);
 
     // Sensor Coloring
     void setCO2Color(double co2Val);
