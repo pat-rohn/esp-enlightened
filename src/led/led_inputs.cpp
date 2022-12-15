@@ -31,9 +31,10 @@ namespace led_inputs
         {
             Serial.println("Turn on (default)");
             leds->m_LEDMode = LedStrip::LEDModes::on;
+            leds->m_Factor=0.4;
             leds->setColor(100, 75, 35);
 
-            leds->applyColorImmediate();
+            leds->applyModeAndColor();
         }
         else
         {
@@ -41,7 +42,7 @@ namespace led_inputs
             {
                 Serial.println("Turn off");
                 leds->m_LEDMode = LedStrip::LEDModes::off;
-                leds->applyColorImmediate();
+                leds->applyModeAndColor();
             }
             else
             {
