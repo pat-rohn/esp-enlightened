@@ -41,9 +41,8 @@ public:
         off = 1,
         campfire = 2,
         colorful = 3,
-        autochange = 4,
+        sunrise = 4,
         pulse = 5,
-        sunrise = 6,
     };
 
 private:
@@ -94,16 +93,20 @@ private:
 public:
     LedStrip(uint8_t pin, int nrOfPixels);
     void beginPixels();
-    void apply();
-    void changeColor(bool autoChange = true);
+    void applyModeAndColor();
+    void applyColorSmoothly(bool allAtOnce);
     void fancy();
     void showError();
-    void runModeAction();
+    int runModeAction();
 
-    void setColor(double red, double green, double blue);
+    void applyColorImmediate();
+    void setColor(uint8_t red, uint8_t green, uint8_t blue);
     std::array<uint8_t, 3> getColor();
 
-    void setAlarm(unsigned long time);
+
+    // Sensor Coloring
+    void setCO2Color(double co2Val);
+    void setTemperatureColor(double temperature);
 
 private:
     void updateLEDs(bool doImmediate = false);
@@ -118,19 +121,21 @@ public:
     LEDColor m_LedColor = LEDColor::white;
     LEDModes m_LEDMode = LEDModes::on;
     double m_Factor;
+    unsigned long m_SunriseStartTime;
+    unsigned long m_SunriseEndTime;
+    PulseMode m_PulseMode;
 
 private:
     unsigned long m_NextLEDActionTime;
     FlameMode m_FlameMode;
     ColorfulMode m_ColorfulMode;
-    PulseMode m_PulseMode;
     std::array<uint8_t, 3> m_CurrentColor;
+    std::array<uint8_t, 3> m_OldCurrentColor;
     int m_NrOfPixels;
     bool m_UseAllLEDs;
     PixelColors m_PixelColors;
 
-    unsigned long m_AlarmTime;
-    double m_LastAlarmFactor;
+
 };
 
 #endif
