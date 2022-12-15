@@ -1,53 +1,73 @@
 #include "ledstrip.h"
 
 LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_GRB + NEO_KHZ800),
+                                                  m_PulseMode(),
                                                   m_FlameMode(),
                                                   m_ColorfulMode(),
-                                                  m_PulseMode(),
                                                   m_PixelColors(nrOfPixels)
 {
     m_NextLEDActionTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 70, 35};
+    m_OldCurrentColor = std::array<uint8_t, 3>{100, 70, 35};
     m_Factor = 0.35;
     m_LEDMode = LEDModes::on;
     m_LedColor = LEDColor::white;
     m_NrOfPixels = nrOfPixels;
     m_UseAllLEDs = true;
-    m_LastAlarmFactor = 0;
+    Serial.printf("LedStrip with pin %d (%d)\n", pin, nrOfPixels);
 }
 
 void LedStrip::beginPixels()
 {
-    Serial.println("beginPixels.");
+    Serial.printf("beginPixels (%d)\n", m_NrOfPixels);
     m_Pixels.begin();
+
+    fancy();
 }
 
-void LedStrip::apply()
+void LedStrip::applyModeAndColor()
 {
-    if (m_LEDMode == LEDModes::autochange)
+    switch (m_LEDMode)
     {
-        changeColor(true);
-    }
-    else
+    case LEDModes::on:
     {
-        m_LedColor = LEDColor::white;
-
-        if (m_LEDMode != LEDModes::on)
-        {
-            Serial.println("Turn Leds Off.");
-            m_Pixels.clear();
-            m_Pixels.show();
-            return;
-        }
+        applyColorSmoothly(true);
+        break;
     }
-
-    updateLEDs(true);
+    case LEDModes::off:
+    {
+        Serial.println("switch LEDs Off.");
+        m_Pixels.clear();
+        m_Pixels.show();
+        break;
+    }
+    case LEDModes::sunrise:
+        Serial.println("Started sunrise.");
+        m_SunriseStartTime = millis();
+        m_SunriseEndTime = m_SunriseStartTime + 1000 * 60 * 1;
+        m_Factor = 0;
+        break;
+    case LEDModes::pulse:
+    {
+        m_PulseMode.LowerLimit = 0.15;
+        m_PulseMode.UpperLimit = 0.5;
+        m_PulseMode.StepSize = 0.002;
+        m_PulseMode.UpdateInterval = 40;
+        break;
+    }
+    case LEDModes::campfire:
+    {
+        break;
+    }
+    case LEDModes::colorful:
+    {
+        break;
+    }
+    }
 }
 
-void LedStrip::updateLEDs(bool doImmediate)
+void LedStrip::updateLEDs(bool allAtOnce)
 {
-
-    m_Pixels.clear();
     for (int i = 0; i < m_NrOfPixels; i++)
     {
         if (!m_UseAllLEDs && i % 2 == 0)
@@ -62,71 +82,48 @@ void LedStrip::updateLEDs(bool doImmediate)
                                        m_CurrentColor[1] * m_Factor,
                                        m_CurrentColor[2] * m_Factor));
         }
-        if (!doImmediate)
+        if (!allAtOnce)
         {
             m_Pixels.show();
             delay(25);
-            Serial.print(" .");
         }
     }
-    if (doImmediate)
+    if (allAtOnce)
     {
-        m_Pixels.show();
+        if (m_OldCurrentColor[0] == int(double(m_CurrentColor[0]) * m_Factor) &&
+            m_OldCurrentColor[1] == int(double(m_CurrentColor[1]) * m_Factor) &&
+            m_OldCurrentColor[2] == int(double(m_CurrentColor[2]) * m_Factor))
+        {
+            // skip sending when nothing changed
+            // Serial.printf("skip show (%d,%d,%d)", m_OldCurrentColor[0], m_OldCurrentColor[1], m_OldCurrentColor[2]);
+            // Serial.printf("-> (%d,%d,%d)", m_CurrentColor[0]*m_Factor, m_CurrentColor[1]*m_Factor, m_CurrentColor[2]*m_Factor);
+        }
+        else
+        {
+            for (uint8_t i = 0; i < m_CurrentColor.size(); i++)
+            {
+                m_OldCurrentColor.at(i) = m_CurrentColor.at(i) * m_Factor;
+            }
+            m_Pixels.show();
+        }
     }
 }
 
-void LedStrip::changeColor(bool autoChange)
+void LedStrip::applyColorSmoothly(bool allAtOnce)
 {
     double currentFactor = m_Factor;
-    int delayTime = 20;
-    for (double f = currentFactor; f > 0.1; f = f - 0.02)
-    {
-        m_Factor = f;
-        updateLEDs(true);
-        delay(delayTime);
-    }
-    Serial.print("color:");
-    Serial.println((int)m_LedColor);
-    int nextColor = (int)m_LedColor + 1;
-    if (nextColor > 3)
-    {
-        nextColor = 0;
-    }
-    m_LedColor = LEDColor(nextColor);
-    switch (m_LedColor)
-    {
-    case LEDColor::red:
-        m_CurrentColor[0] = 100;
-        m_CurrentColor[1] = 0;
-        m_CurrentColor[2] = 0;
-        break;
-    case LEDColor::green:
-        m_CurrentColor[0] = 0;
-        m_CurrentColor[1] = 100;
-        m_CurrentColor[2] = 0;
-        break;
-    case LEDColor::blue:
+    m_Factor = 0.1;
 
-        m_CurrentColor[0] = 0;
-        m_CurrentColor[1] = 0;
-        m_CurrentColor[2] = 100;
-        break;
-    case LEDColor::white:
-        m_CurrentColor[0] = 100;
-        m_CurrentColor[1] = 100;
-        m_CurrentColor[2] = 100;
-        break;
-    default:
-        break;
-    }
     for (double f = 0; f < currentFactor; f = f + 0.02)
     {
         m_Factor = f;
-        updateLEDs(true);
-        delay(delayTime);
+        updateLEDs(allAtOnce);
+        delay(50);
     }
 
     m_Factor = currentFactor;
+
+    updateLEDs(allAtOnce);
 }
 
 void LedStrip::fancy()
@@ -161,7 +158,7 @@ void LedStrip::pulseMode()
             if (m_Factor > m_PulseMode.UpperLimit)
             {
                 m_PulseMode.IsIncreasing = false;
-                // Serial.println("Go down");
+                Serial.println("Decrease");
             }
         }
         else
@@ -170,7 +167,7 @@ void LedStrip::pulseMode()
             if (m_Factor < m_PulseMode.LowerLimit)
             {
                 m_PulseMode.IsIncreasing = true;
-                // Serial.println("Go up");
+                Serial.println("Increase");
             }
         }
 
@@ -181,30 +178,19 @@ void LedStrip::pulseMode()
 void LedStrip::sunriseMode()
 {
     unsigned long currentTime = millis();
-    if (currentTime > m_PulseMode.NextUpdateTime)
+    long timeDiff = currentTime - m_SunriseStartTime;
+    double timeFactor = (float(timeDiff) / float(m_SunriseEndTime)) + 0.05;
+    if (timeFactor > 1.2)
     {
-        m_PulseMode.NextUpdateTime = currentTime + m_PulseMode.UpdateInterval;
-        if (m_PulseMode.IsIncreasing)
-        {
-            m_Factor += m_PulseMode.StepSize;
-            if (m_Factor > m_PulseMode.UpperLimit)
-            {
-                m_PulseMode.IsIncreasing = false;
-                // Serial.println("Go down");
-            }
-        }
-        else
-        {
-            m_Factor -= m_PulseMode.StepSize;
-            if (m_Factor < m_PulseMode.LowerLimit)
-            {
-                m_PulseMode.IsIncreasing = true;
-                // Serial.println("Go up");
-            }
-        }
-
-        updateLEDs(true);
+        timeFactor = 1.2;
     }
+    m_CurrentColor[0] = 100;
+    m_CurrentColor[1] = 10 + timeFactor * 35;
+    m_CurrentColor[2] = 0 + timeFactor / 1.5 * 15;
+    m_Factor = timeFactor;
+    // Serial.printf("Sunrise: %f (%ld/%ld) (%d %d %d)\n", m_Factor, timeDiff, m_SunriseEndTime,m_CurrentColor[0],m_CurrentColor[1],m_CurrentColor[2]);
+
+    updateLEDs(true);
 }
 
 void LedStrip::showError()
@@ -216,23 +202,28 @@ void LedStrip::showError()
     updateLEDs();
 }
 
-void LedStrip::runModeAction()
+int LedStrip::runModeAction()
 {
     switch (m_LEDMode)
     {
     case LEDModes::colorful:
         colorfulMode();
+        return 50;
         break;
     case LEDModes::campfire:
         campfireMode();
+        return 10;
         break;
     case LEDModes::pulse:
         pulseMode();
+        return 10;
         break;
     case LEDModes::sunrise:
-        pulseMode();
+        sunriseMode();
+        return 100;
         break;
     default:
+        return 500;
         break;
     }
 }
@@ -354,22 +345,18 @@ void LedStrip::campfireMode()
     showPixels();
 }
 
-void LedStrip::setColor(double red, double green, double blue)
+void LedStrip::applyColorImmediate()
 {
-    Serial.print("red: ");
-    Serial.println(red);
-    Serial.print("green: ");
-    Serial.println(green);
-    Serial.print("blue: ");
-    Serial.println(blue);
-    m_CurrentColor[0] = red;
-    m_CurrentColor[1] = green;
-    m_CurrentColor[2] = blue;
-    for (int i = 0; i < m_NrOfPixels; i++)
-    {
-        m_Pixels.setPixelColor(i, m_Pixels.Color(m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]));
-    }
-    m_Pixels.show();
+    updateLEDs(true);
+}
+
+void LedStrip::setColor(uint8_t red, uint8_t green, uint8_t blue)
+{
+    m_CurrentColor.at(0) = red;
+    m_CurrentColor.at(1) = green;
+    m_CurrentColor.at(2) = blue;
+    Serial.printf("\nColors Values (%d) - red: %d, green: %d, blue: %d\n",
+                  m_NrOfPixels, m_CurrentColor.at(0), m_CurrentColor.at(1), m_CurrentColor.at(2));
 }
 
 std::array<uint8_t, 3> LedStrip::getColor()
@@ -384,4 +371,73 @@ void LedStrip::showPixels()
         m_Pixels.setPixelColor(i, m_Pixels.Color(m_PixelColors.pRed[i], m_PixelColors.pGreen[i], m_PixelColors.pBlue[i]));
     }
     m_Pixels.show();
+}
+
+void LedStrip::setCO2Color(double co2Val)
+{
+    // good: 0-800 (white to yellow)
+    // medium: 800-1000 (yellow to red)
+    // bad:1000:1800 (red to dark)
+    double blue = (1.0 - (co2Val - 400) / 400) * 100.0;
+    if (blue > 100.0)
+    {
+        blue = 100;
+    }
+    if (blue < 0)
+    {
+        blue = 0;
+    }
+    double green = (1.0 - (co2Val - 800) / 600) * 100.0;
+    if (green > 100.0)
+    {
+        green = 100;
+    }
+    if (green < 0)
+    {
+        green = 0;
+    }
+    double red = (1.0 - (co2Val - 1400) / 1000) * 100.0;
+    if (red > 100.0)
+    {
+        red = 100;
+    }
+    if (red < 0)
+    {
+        red = 0;
+    }
+    setColor(red, green, blue);
+    applyColorImmediate();
+}
+
+void LedStrip::setTemperatureColor(double temperature)
+{
+    double blue = (1.0 - (temperature - 15) / 5) * 100.0;
+    if (blue > 100.0)
+    {
+        blue = 100;
+    }
+    if (blue < 0)
+    {
+        blue = 0;
+    }
+    double green = (1.0 - (temperature - 20) / 5) * 100.0;
+    if (green > 100.0)
+    {
+        green = 100;
+    }
+    if (green < 0)
+    {
+        green = 0;
+    }
+    double red = (1.0 - (temperature - 25) / 5) * 100.0;
+    if (red > 100.0)
+    {
+        red = 100;
+    }
+    if (red < 0)
+    {
+        red = 0;
+    }
+    setColor(red, green, blue);
+    applyColorImmediate();
 }

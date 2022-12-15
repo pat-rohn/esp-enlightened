@@ -1,20 +1,41 @@
 
 
 #include "config.h"
-#include <ArduinoJson.h>
-#include <sstream>
 
 namespace configman
 {
 
     void begin()
     {
+        Serial.println("LittleFS.begin()");
+#ifdef ESP8266
         if (!LittleFS.begin())
         {
-            Serial.println("An Error has occurred while mounting LittleFS");
-            return;
+            Serial.println("Failed to mount LittleFS");
         }
-        Serial.println("LittleFS succesfully mounted");
+        else
+        {
+            Serial.println("LittleFS succesfully mounted");
+        }
+#endif
+#ifdef ESP32
+        if (!LittleFS.begin(false))
+        {
+            Serial.println("Failed to mount LittleFS");
+            if (!LittleFS.begin(true))
+            {
+                Serial.println("Failed to format LittleFS");
+            }
+            else
+            {
+                Serial.println("LittleFS formatted successfully");
+            }
+        }
+        else
+        {
+            Serial.println("LittleFS succesfully mounted");
+        }
+#endif
     }
 
     Configuration readConfig()
@@ -46,25 +67,58 @@ namespace configman
         return res.second;
     }
 
+    String readConfigAsString()
+    {
+        Serial.println("readConfigAsString");
+        auto configStr = readFileLFS(kPathToConfig);
+        auto res = deserializeConfig(configStr.c_str());
+        if (configStr.isEmpty() || !res.first)
+        {
+            Configuration defaultConf = Configuration();
+            Serial.print("Invalid config. write default.");
+            if (!saveConfig(&defaultConf))
+            {
+                Serial.print("Failed to write default.");
+                return "{}";
+            }
+            delay(1000);
+            return readConfigAsString();
+        }
+        DynamicJsonDocument doc(4096);
+        DeserializationError err = deserializeJson(doc, configStr.c_str());
+        if (err.code() != DeserializationError::Code::Ok)
+        {
+            return String(err.code());
+        }
+
+        char buffer[2000];
+
+        serializeJsonPretty(doc, buffer);
+
+        return String(buffer);
+    }
+
+    bool saveConfig(const Configuration *config)
+    {
+        String confStr = serializeConfig(config);
+        return writeFileLFS(kPathToConfig, confStr.c_str());
+    }
+
     void writeConfig(const char *configStr)
     {
+        Serial.println("Write config.");
         auto res = deserializeConfig(configStr);
         if (!res.first)
         {
             Serial.print("Invalid config.");
             return;
         }
-        if (!writeFileLFS(kPathToConfig, configStr))
+        Configuration c = res.second;
+        auto config = serializeConfig(&c);
+        if (!writeFileLFS(kPathToConfig, config.c_str()))
         {
             Serial.print("Failed to write config.");
         }
-    }
-
-    bool saveConfig(const Configuration *config)
-    {
-        String confStr = serializeConfig(config);
-        Serial.print(confStr);
-        return writeFileLFS(kPathToConfig, confStr.c_str());
     }
 
     String readFile(fs::FS &fs, const char *path)
@@ -118,7 +172,8 @@ namespace configman
 
     String serializeConfig(const Configuration *config)
     {
-        DynamicJsonDocument doc(4096);
+        DynamicJsonDocument doc(8000);
+        doc["IsConfigured"] = config->IsConfigured;
         doc["ServerAddress"] = config->ServerAddress;
         doc["SensorID"] = config->SensorID;
         doc["WiFiName"] = config->WiFiName;
@@ -127,28 +182,84 @@ namespace configman
         doc["WindSensorPin"] = config->WindSensorPin;
         doc["RainfallSensorPin"] = config->RainfallSensorPin;
         doc["LEDPin"] = config->LEDPin;
+        doc["Button1"] = config->Button1;
+        doc["Button2"] = config->Button2;
         doc["NumberOfLEDs"] = config->NumberOfLEDs;
         doc["FindSensors"] = config->FindSensors;
         doc["IsOfflineMode"] = config->IsOfflineMode;
         doc["ShowWebpage"] = config->ShowWebpage;
-        doc["IsConfigured"] = config->IsConfigured;
+
+        doc["SunriseSettings"] = serializeSunrise(&config->AlarmSettings);
 
         char buffer[2000];
-
         serializeJsonPretty(doc, buffer);
 
         return String(buffer);
     }
 
+    DynamicJsonDocument serializeSunrise(const SunriseSettings *config)
+    {
+        DynamicJsonDocument doc(450);
+        for (int weekDayN = weekday_t::Monday; weekDayN <= weekday_t::Sunday; weekDayN++)
+        {
+            doc["IsActivated"] = config->IsActivated;
+            doc["SunriseLightTime"] = config->SunriseLightTime;
+            weekday_t weekDay = static_cast<weekday_t>(weekDayN);
+            switch (weekDay)
+            {
+            case weekday_t::Monday:
+                doc["Monday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Monday));
+                break;
+            case weekday_t::Tuesday:
+                doc["Tuesday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Tuesday));
+                break;
+            case weekday_t::Wednesday:
+                doc["Wednesday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Wednesday));
+                break;
+            case weekday_t::Thursday:
+                doc["Thursday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Thursday));
+                break;
+            case weekday_t::Friday:
+                doc["Friday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Friday));
+                break;
+            case weekday_t::Saturday:
+                doc["Saturday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Saturday));
+                break;
+            case weekday_t::Sunday:
+                doc["Sunday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Sunday));
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        return doc;
+    }
+
+    DynamicJsonDocument serializeDaySettings(const AlarmWeekday *config)
+    {
+        DynamicJsonDocument doc(60);
+        doc["AlarmTime"] = std::to_string(config->AlarmTime.Hours) + ":" + std::to_string(config->AlarmTime.Minutes);
+        doc["IsActive"] = config->IsActive;
+
+        return doc;
+    }
+
     std::pair<bool, Configuration> deserializeConfig(const char *configStr)
     {
-        std::pair<bool, Configuration> res = std::pair(false, Configuration());
+        std::pair<bool, Configuration> res = std::pair<bool, Configuration>(false, Configuration());
         DynamicJsonDocument doc(4096);
         DeserializationError err = deserializeJson(doc, configStr);
         if (err.code() != DeserializationError::Code::Ok)
         {
             Serial.printf("Deserializing failed %d\n", err.code());
             Serial.print(configStr);
+            return res;
+        }
+        if (!doc.containsKey("IsConfigured"))
+        {
+            Serial.printf("No valid config %s\n", configStr);
             return res;
         }
         res.second.IsConfigured = doc["IsConfigured"];
@@ -160,30 +271,138 @@ namespace configman
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
         res.second.LEDPin = doc["LEDPin"];
+        JsonVariant button1 = doc["Button1"];
+        if (button1.isNull()) {
+            Serial.println("Button configs do not exist (yet?)");
+            res.second.Button1 = -1;
+            res.second.Button2 = -1;
+        }else{
+            res.second.Button1 = doc["Button1"];
+            res.second.Button2 = doc["Button2"];
+        }
+
         res.second.NumberOfLEDs = doc["NumberOfLEDs"];
         res.second.FindSensors = doc["FindSensors"];
         res.second.IsOfflineMode = doc["IsOfflineMode"];
         res.second.ShowWebpage = doc["ShowWebpage"];
+
+        if (doc.containsKey("SunriseSettings"))
+        {
+            auto resSunrise = deserializeSunrise(doc["SunriseSettings"]);
+            res.second.AlarmSettings = resSunrise;
+        }
+        else
+        {
+            Serial.println("Warning: Alarm clock does not exist");
+            res.second.AlarmSettings = SunriseSettings();
+            if (saveConfig(&res.second))
+            {
+                String configStr = readFileLFS(kPathToConfig);
+                ::delay(100);
+                return deserializeConfig(configStr.c_str());
+            }
+        }
+
         res.first = true;
         return res;
     }
 
-    String readConfigAsString()
+    SunriseSettings deserializeSunrise(const DynamicJsonDocument &doc)
     {
-        auto configStr = readFileLFS(kPathToConfig);
-        DynamicJsonDocument doc(4096);
-        DeserializationError err = deserializeJson(doc, configStr.c_str());
-        if (err.code() != DeserializationError::Code::Ok)
+        SunriseSettings res = SunriseSettings();
+
+        res.SunriseLightTime = doc["SunriseLightTime"];
+        res.IsActivated = doc["IsActivated"];
+        if (res.IsActivated)
         {
-            return String(err.code());
+            Serial.print("\n Sunrise is activated ");
+        }
+        for (int weekDayN = weekday_t::Monday; weekDayN <= weekday_t::Sunday; weekDayN++)
+        {
+            weekday_t weekDay = static_cast<weekday_t>(weekDayN);
+
+            switch (weekDay)
+            {
+            case weekday_t::Monday:
+                if (!doc.containsKey("Monday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Monday] = deserializeDaySetting(doc["Monday"]);
+                break;
+            case weekday_t::Tuesday:
+                if (!doc.containsKey("Tuesday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Tuesday] = deserializeDaySetting(doc["Tuesday"]);
+                break;
+            case weekday_t::Wednesday:
+                if (!doc.containsKey("Wednesday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Wednesday] = deserializeDaySetting(doc["Wednesday"]);
+                break;
+            case weekday_t::Thursday:
+                if (!doc.containsKey("Thursday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Thursday] = deserializeDaySetting(doc["Thursday"]);
+                break;
+            case weekday_t::Friday:
+                if (!doc.containsKey("Friday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Friday] = deserializeDaySetting(doc["Friday"]);
+                break;
+            case weekday_t::Saturday:
+                if (!doc.containsKey("Saturday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Saturday] = deserializeDaySetting(doc["Saturday"]);
+                break;
+            case weekday_t::Sunday:
+                if (!doc.containsKey("Sunday"))
+                {
+                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
+                }
+                res.DaySettings[weekday_t::Sunday] = deserializeDaySetting(doc["Sunday"]);
+                break;
+
+            default:
+                break;
+            }
         }
 
-        char buffer[2000];
+        return res;
+    }
 
-        serializeJsonPretty(doc, buffer);
+    AlarmWeekday deserializeDaySetting(const DynamicJsonDocument &doc)
+    {
+        AlarmWeekday daySetting = AlarmWeekday();
 
-        String pretty = buffer;
-        Serial.println(pretty);
-        return buffer;
+        daySetting.IsActive = doc["IsActive"];
+
+        String alarmTime = doc["AlarmTime"].as<String>();
+        int index = alarmTime.lastIndexOf(':');
+        int length = alarmTime.length();
+        if (length < 2)
+        {
+            Serial.printf("Invalid alarm time %s\n", alarmTime.c_str());
+            daySetting.AlarmTime = configman::Time();
+        }
+        else
+        {
+            String minutes = alarmTime.substring(index + 1, length);
+            String hours = alarmTime.substring(0, index);
+
+            daySetting.AlarmTime = Time(hours.toInt(), minutes.toInt());
+        }
+
+        return daySetting;
     }
 }

@@ -9,14 +9,16 @@ class CTimeHelper
 
 public:
     CTimeHelper();
+    virtual ~CTimeHelper(){};
+    bool isTimeSet();
     bool initTime();
     String getTimestamp();
 
     String fillUpZeros(int number);
 
-    std::pair<long, long> getHourseAndMinutes();
+    std::pair<long, long> getHoursAndMinutes();
+    int getWeekDay();
 
 private:
     NTPClient m_TimeClient;
-    bool m_IsTimeInitialized;
 };
