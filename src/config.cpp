@@ -286,9 +286,10 @@ namespace configman
         res.second.IsOfflineMode = doc["IsOfflineMode"];
         res.second.ShowWebpage = doc["ShowWebpage"];
 
-        if (doc.containsKey("SunriseSettings"))
+        JsonVariant sunriseSettings = doc["SunriseSettings"];
+        if (!sunriseSettings.isNull())
         {
-            auto resSunrise = deserializeSunrise(doc["SunriseSettings"]);
+            auto resSunrise = deserializeSunrise(sunriseSettings);
             res.second.AlarmSettings = resSunrise;
         }
         else
