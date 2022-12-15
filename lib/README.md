@@ -16,9 +16,10 @@ git clone https://github.com/adafruit/Adafruit_BMP280_Library.git
 git clone https://github.com/bblanchon/ArduinoJson.git
 git clone https://github.com/arduino-libraries/NTPClient.git
 mkdir NTPClient/src
-mv ./NTPClient/NTPClient.* src 
+mv ./NTPClient/NTPClient.* ./NTPClient/src 
 git clone  https://github.com/plerup/espsoftwareserial
 git clone https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library.git SCD30
 git clone https://github.com/knolleary/pubsubclient.git
+git clone https://github.com/me-no-dev/ESPAsyncWebServer.git 
 
 ```
