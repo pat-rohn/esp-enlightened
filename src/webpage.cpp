@@ -19,10 +19,19 @@ namespace webpage
     <title>IoT Multi Device Configuration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script>
-        function submitMessage() {
-            alert("Saved value to Device and reboot");
-            setTimeout(function () { document.location.reload(false); }, 500);
+        function submitConfig() {
+          console.log("submit config")
+          alert("Save config to Device");
+          setTimeout(function () { document.location.reload(false); }, 500);
         }
+        function restart() {
+          console.log("restart device")
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/restart", true);
+          xhr.send();
+          xhr.abort();
+          setTimeout(function () { document.location.reload(false); }, 2000);
+      }
     </script>
 </head>
 
@@ -34,8 +43,11 @@ namespace webpage
         <br>
         <textarea disabled cols="80" rows="22">%devconfig%</textarea>
         <br>
-        <textarea id="configuration" name="configuration" cols="80" rows="22"></textarea>
-        <input type="submit" value="Submit" onclick="submitMessage()">
+        <textarea id="configuration" name="configuration" cols="80" rows="22"></textarea> 
+        <br>
+        <input type="submit" value="Submit" onclick="submitConfig()">
+         <br>
+        <input type="submit" value="Restart" onclick="restart()">
     </form>
     <br>
 
@@ -148,20 +160,30 @@ namespace webpage
                 response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                 request->send(response); });
 
-    // HTML (WebPage)
     m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-                { request->send_P(200, "text/html", index_html, processor); });
+                { 
+                  Serial.println("get web page");
+                  request->send_P(200, "text/html", index_html, processor);
+                });
+
+    // Restart
+    m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  Serial.println("restart");
+                  ESP.restart(); 
+                });
 
     // Send a GET request to <ESP_IP>/get?configuration=<inputMessage>
     m_Server.on("/get", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
+
+    Serial.println("get config");
     String inputMessage;
       // GET inputString value on <ESP_IP>/get?configuration=<inputMessage>
     if (request->hasParam("configuration")) {
       inputMessage = request->getParam("configuration")->value();
       configman::writeConfig(inputMessage.c_str());
-      ESP.restart();
-
+      Serial.println("Config written");
     } else{
       inputMessage = "Unknown param";
     }

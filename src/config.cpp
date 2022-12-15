@@ -271,21 +271,14 @@ namespace configman
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
         res.second.LEDPin = doc["LEDPin"];
-        if (!doc.containsKey("Button1"))
-        {
-            res.second.Button1 = doc["Button1"];
-        }
-        else
-        {
+        JsonVariant button1 = doc["Button1"];
+        if (button1.isNull()) {
+            Serial.println("Button configs do not exist (yet?)");
             res.second.Button1 = -1;
-        }
-        if (!doc.containsKey("Button2"))
-        {
-            res.second.Button2 = doc["Button2"];
-        }
-        else
-        {
             res.second.Button2 = -1;
+        }else{
+            res.second.Button1 = doc["Button1"];
+            res.second.Button2 = doc["Button2"];
         }
 
         res.second.NumberOfLEDs = doc["NumberOfLEDs"];
