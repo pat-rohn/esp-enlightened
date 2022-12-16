@@ -117,18 +117,19 @@ void createAccesPoint()
 
 void startLedControl()
 {
-  if (config.NumberOfLEDs > 0)
+  if (config.NumberOfLEDs <= 0)
   {
-    Serial.println("startLedControl");
-    ledStrip->beginPixels();
-    if (config.AlarmSettings.IsActivated)
-    {
-      Serial.println("Is Alarm Clock");
-      ledStrip->m_LEDMode = LedStrip::LEDModes::off;
-      ledStrip->applyModeAndColor();
-    }
-    led_inputs::start(ledStrip, config.Button1, config.Button2);
+    return;
   }
+  Serial.println("startLedControl");
+  ledStrip->beginPixels();
+  if (config.AlarmSettings.IsActivated)
+  {
+    Serial.println("Is Alarm Clock");
+    ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+    ledStrip->applyModeAndColor();
+  }
+  led_inputs::start(ledStrip, config.Button1, config.Button2);
 }
 
 void configureDevice()
@@ -208,6 +209,10 @@ void triggerEvents(const std::map<String, sensor::SensorData> &values)
 
 void measureAndSendSensorData()
 {
+  if (!hasSensors || isAccessPoint || config.IsOfflineMode)
+  {
+    return;
+  }
   if (millis() > lastUpdate + deviceConfig.Interval * 1000)
   {
     lastUpdate = millis();
@@ -385,21 +390,7 @@ void loop()
     }
   }
 
-  if (config.AlarmSettings.IsActivated)
-  {
-    if (sunriseAlarm->run())
-    {
-      loopTime = 50;
-    }
-    else
-    {
-      loopTime = 500;
-    }
-  }
-  else if (hasSensors && !isAccessPoint && !config.IsOfflineMode)
-  { // should have connection to timeseries server
-    measureAndSendSensorData();
-    // Serial.printf("Heap %d\n", ESP.getFreeHeap());
-  }
+  sunriseAlarm->run();
+  measureAndSendSensorData();
   loopTime = ledStrip->runModeAction();
 }

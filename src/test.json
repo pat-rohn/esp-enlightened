@@ -1,2 +1,0 @@
-{"Tags" : ["huzzah", "test"], "Data" : [{"Name" : "Temperature" , "Value" : 23.000000},{"Name" : "Humidity" , "Value" : 36.400002}]}
-{"Tags" : ["huzzah", "test"], "Data" : [{"Name" : "TemperatureHuzzah" , "Value" : -147.899994},{"Name" : "HumidityHuzzah" , "Value" : 113016.578125},{"Name" : "PressureHuzzah" , "Value" : nan},{"Name" : "SignalHuzzah" , "Value" : -66.000000}]}
