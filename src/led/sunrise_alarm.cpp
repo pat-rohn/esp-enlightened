@@ -26,6 +26,10 @@ void CSunriseAlarm::applySettings(const configman::SunriseSettings &settings)
 
 bool CSunriseAlarm::run()
 {
+    if (!m_Settings.IsActivated)
+    {
+        return false;
+    }
     configman::weekday_t weekday = static_cast<configman::weekday_t>(m_TimeHelper->getWeekDay());
     if (!m_Settings.DaySettings.at(weekday).IsActive)
     {

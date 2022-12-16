@@ -49,7 +49,7 @@ void LedStrip::applyModeAndColor()
         break;
     case LEDModes::pulse:
     {
-        m_PulseMode.LowerLimit = 0.15;
+        m_PulseMode.LowerLimit = 0.05;
         m_PulseMode.UpperLimit = 0.5;
         m_PulseMode.StepSize = 0.002;
         m_PulseMode.UpdateInterval = 40;
@@ -406,7 +406,6 @@ void LedStrip::setCO2Color(double co2Val)
         red = 0;
     }
     setColor(red, green, blue);
-    applyColorImmediate();
 }
 
 void LedStrip::setTemperatureColor(double temperature)
@@ -439,5 +438,4 @@ void LedStrip::setTemperatureColor(double temperature)
         red = 0;
     }
     setColor(red, green, blue);
-    applyColorImmediate();
 }
