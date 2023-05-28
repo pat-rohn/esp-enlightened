@@ -85,18 +85,17 @@ namespace timeseries
     {
 
     public:
-        CTimeseries(String timeseriesAddress, CTimeHelper *timehelper)
-        {
-            m_ServerAddress = timeseriesAddress;
-            m_TimeHelper = timehelper;
-        };
+        CTimeseries(const String &timeseriesAddress, CTimeHelper *timehelper);
         virtual ~CTimeseries(){};
 
     public:
         virtual Device init(const DeviceDesc &deviceDesc);
-        Device deserializeDevice(const String & deviceJson);
-        virtual void addValue(const String &name, const double &value) = 0;
-        virtual bool sendData() = 0;
+        Device deserializeDevice(const String &deviceJson);
+        virtual void newValue(const String &name, const double &value) = 0;
+        virtual bool sendData() { return true; };
+
+    protected:
+        String splitAddress(String serverAddressWithPort, int index);
 
     protected:
         String m_ServerAddress;

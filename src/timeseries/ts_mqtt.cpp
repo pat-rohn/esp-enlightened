@@ -6,99 +6,48 @@
 #include <Ticker.h>
 
 using namespace timeseries;
-namespace tsmqtt
+namespace ts_mqtt
 {
 
-    CTimeseriesMqtt::CTimeseriesMqtt(String timeseriesAddress, CTimeHelper *timehelper)
-        : CTimeseries(timeseriesAddress, timehelper)
+    WiFiClient wifiClient;
+    MqttClient *mqttClient;
 
+    CTimeseriesMQTT::CTimeseriesMQTT(const String &timeseriesAddress, CTimeHelper *timehelper) : CTimeseries(timeseriesAddress, timehelper)
     {
-
-        IPAddress ip;
-        ip.fromString(timeseriesAddress.c_str());
-        m_WifiClient = WiFiClient();
-        m_MQTTClient = PubSubClient(ip, 1883, callback, m_WifiClient);
-        m_ServerAddress += timeseriesAddress;
+        m_Host = splitAddress(timeseriesAddress, 0);
+        Serial.printf("MQTT address: %s\n", m_Host.c_str());
+        mqttClient = new MqttClient(wifiClient);
     }
 
-    Device CTimeseriesMqtt::init(const DeviceDesc &deviceDesc)
+    void CTimeseriesMQTT::newValue(const String &name, const double &value)
     {
-        return CTimeseries::init(deviceDesc);
-    };
-
-    void CTimeseriesMqtt::addValue(const String &name, const double &value)
-    {
-        if (m_Data.find(name) == m_Data.end())
+        Serial.printf("MQTT add value: %s\n", name.c_str());
+        if (!mqttClient->connected())
         {
-            m_Data.insert(std::pair<String, CTimeseriesData>(name, CTimeseriesData(name)));
-        }
-        m_Data.at(name).addValue(value, m_TimeHelper->getTimestamp());
-    }
-
-    bool CTimeseriesMqtt::sendData()
-    {
-        if (!WiFi.isConnected())
-        {
-            Serial.println("No WiFi");
-            // return false;
-        }
-
-        for (auto const &ts : m_Data)
-        {
-            DynamicJsonDocument doc(10000); // uses heap because it's too much data for stack
-            JsonObject tsEntry = doc.createNestedObject();
-            JsonArray tsValuesTS = tsEntry.createNestedArray("Timestamps");
-            JsonArray tsValuesV = tsEntry.createNestedArray("Values");
-            for (auto val : ts.second.m_DataSeries)
+            if (!mqttClient->connect(m_Host.c_str(), 1883))
             {
-                tsValuesTS.add(val.Timestamp);
-                if (val.Value < 0.00001)
-                {
-                    tsValuesV.add(String(val.Value, 8));
-                }
-                else if (val.Value < 0.001)
-                {
-                    tsValuesV.add(String(val.Value, 5));
-                }
-                else
-                {
-                    tsValuesV.add(String(val.Value, 4));
-                }
-            }
-
-            // TODO: Publish
-        }
-        m_Data.clear();
-        return true;
-    }
-
-    bool CTimeseriesMqtt::reconnect()
-    {
-        Serial.println("Connecting to MQTT...");
-
-        if (!m_MQTTClient.connected())
-        {
-            Serial.println("Connecting to MQTT Broker...");
-            while (!m_MQTTClient.connected())
-            {
-                Serial.println("Reconnecting to MQTT Broker..");
-                String clientId = "ESP8266Client-";
-                clientId += String(random(0xffff), HEX);
-
-                if (m_MQTTClient.connect(clientId.c_str()))
-                {
-                    Serial.println("Connected.");
-                    // subscribe to topic
-                    return true;
-                }
+                Serial.print("MQTT connection failed! Error code = ");
+                Serial.println(mqttClient->connectError());
             }
         }
-        return false;
+        String timeseriesValue = "";
+        if (value < 0.00001)
+        {
+            timeseriesValue += String(value, 8);
+        }
+        else if (value < 0.001)
+        {
+            timeseriesValue += String(value, 5);
+        }
+        else
+        {
+            timeseriesValue += String(value, 4);
+        }
+        mqttClient->beginMessage(name);
+        mqttClient->print(value);
+        mqttClient->endMessage();
+        Serial.printf("%s %s\n", name.c_str(), timeseriesValue.c_str());
     }
 
-    void callback(char *topic, byte *payload, unsigned int length)
-    {
-        Serial.println("Callback");
-        Serial.println((char)payload[0]);
-    }
+
 }

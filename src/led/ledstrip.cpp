@@ -9,6 +9,7 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
     m_NextLEDActionTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 70, 35};
     m_OldCurrentColor = std::array<uint8_t, 3>{100, 70, 35};
+    m_SunriseDuration = 2 * 60;
     m_Factor = 0.35;
     m_LEDMode = LEDModes::on;
     m_LedColor = LEDColor::white;
@@ -21,17 +22,18 @@ void LedStrip::beginPixels()
 {
     Serial.printf("beginPixels (%d)\n", m_NrOfPixels);
     m_Pixels.begin();
-
+    m_Pixels.updateLength(m_NrOfPixels);
     fancy();
 }
 
 void LedStrip::applyModeAndColor()
 {
+    Serial.printf("Apply mode: %d\n", int(m_LEDMode));
     switch (m_LEDMode)
     {
     case LEDModes::on:
     {
-        applyColorSmoothly(true);
+        applyColorSmoothly();
         break;
     }
     case LEDModes::off:
@@ -39,12 +41,11 @@ void LedStrip::applyModeAndColor()
         Serial.println("switch LEDs Off.");
         m_Pixels.clear();
         m_Pixels.show();
+        m_Pixels.updateLength(m_NrOfPixels);
         break;
     }
     case LEDModes::sunrise:
         Serial.println("Started sunrise.");
-        m_SunriseStartTime = millis();
-        m_SunriseEndTime = m_SunriseStartTime + 1000 * 60 * 1;
         m_Factor = 0;
         break;
     case LEDModes::pulse:
@@ -63,10 +64,13 @@ void LedStrip::applyModeAndColor()
     {
         break;
     }
+    default:
+        Serial.printf("unkown mode: %d\n", int(m_LEDMode));
+        break;
     }
 }
 
-void LedStrip::updateLEDs(bool allAtOnce)
+void LedStrip::updateLEDs(bool allAtOnce /* false */)
 {
     for (int i = 0; i < m_NrOfPixels; i++)
     {
@@ -76,11 +80,11 @@ void LedStrip::updateLEDs(bool allAtOnce)
         }
         else
         {
-            m_Pixels.setPixelColor(i,
+             m_Pixels.setPixelColor(i,
                                    m_Pixels.Color(
-                                       m_CurrentColor[0] * m_Factor,
-                                       m_CurrentColor[1] * m_Factor,
-                                       m_CurrentColor[2] * m_Factor));
+                                       m_CurrentColor.at(0) * m_Factor,
+                                       m_CurrentColor.at(1) * m_Factor,
+                                       m_CurrentColor.at(2) * m_Factor));
         }
         if (!allAtOnce)
         {
@@ -90,26 +94,28 @@ void LedStrip::updateLEDs(bool allAtOnce)
     }
     if (allAtOnce)
     {
-        if (m_OldCurrentColor[0] == int(double(m_CurrentColor[0]) * m_Factor) &&
-            m_OldCurrentColor[1] == int(double(m_CurrentColor[1]) * m_Factor) &&
-            m_OldCurrentColor[2] == int(double(m_CurrentColor[2]) * m_Factor))
+        if (m_OldCurrentColor.at(0) == int(double(m_CurrentColor.at(0)) * m_Factor) &&
+            m_OldCurrentColor.at(1) == int(double(m_CurrentColor.at(1)) * m_Factor) &&
+            m_OldCurrentColor.at(2) == int(double(m_CurrentColor.at(2)) * m_Factor))
         {
             // skip sending when nothing changed
-            // Serial.printf("skip show (%d,%d,%d)", m_OldCurrentColor[0], m_OldCurrentColor[1], m_OldCurrentColor[2]);
+            // Serial.printf("skip show (%d,%d,%d)", m_OldCurrentColor.at(0), m_OldCurrentColor.at(1), m_OldCurrentColor.at(2));
             // Serial.printf("-> (%d,%d,%d)", m_CurrentColor[0]*m_Factor, m_CurrentColor[1]*m_Factor, m_CurrentColor[2]*m_Factor);
         }
         else
         {
-            for (uint8_t i = 0; i < m_CurrentColor.size(); i++)
-            {
-                m_OldCurrentColor.at(i) = m_CurrentColor.at(i) * m_Factor;
-            }
+            //Serial.printf("show: %d", int(m_CurrentColor.size()));
+            m_OldCurrentColor.at(0) = m_CurrentColor.at(0);
+            m_OldCurrentColor.at(1) = m_CurrentColor.at(1);
+            m_OldCurrentColor.at(2) = m_CurrentColor.at(2);
+
             m_Pixels.show();
+            //Serial.printf("boom: %d\n", int(m_LEDMode));
         }
     }
 }
 
-void LedStrip::applyColorSmoothly(bool allAtOnce)
+void LedStrip::applyColorSmoothly()
 {
     double currentFactor = m_Factor;
     m_Factor = 0.1;
@@ -117,13 +123,13 @@ void LedStrip::applyColorSmoothly(bool allAtOnce)
     for (double f = 0; f < currentFactor; f = f + 0.02)
     {
         m_Factor = f;
-        updateLEDs(allAtOnce);
+        updateLEDs(true);
         delay(50);
     }
 
     m_Factor = currentFactor;
 
-    updateLEDs(allAtOnce);
+    updateLEDs(true);
 }
 
 void LedStrip::fancy()
@@ -178,17 +184,23 @@ void LedStrip::pulseMode()
 void LedStrip::sunriseMode()
 {
     unsigned long currentTime = millis();
-    long timeDiff = currentTime - m_SunriseStartTime;
-    double timeFactor = (float(timeDiff) / float(m_SunriseEndTime)) + 0.05;
+    double timeDiff = float(currentTime - m_SunriseStartTime) / 1000.0;
+    double timeFactor = (timeDiff / m_SunriseDuration) + 0.05;
     if (timeFactor > 1.2)
     {
         timeFactor = 1.2;
     }
+    int blue = timeFactor * 13 - 5;
+    if (blue < 0)
+    {
+        blue = 0;
+    }
     m_CurrentColor[0] = 100;
     m_CurrentColor[1] = 10 + timeFactor * 35;
-    m_CurrentColor[2] = 0 + timeFactor / 1.5 * 15;
+    m_CurrentColor[2] = blue;
     m_Factor = timeFactor;
-    // Serial.printf("Sunrise: %f (%ld/%ld) (%d %d %d)\n", m_Factor, timeDiff, m_SunriseEndTime,m_CurrentColor[0],m_CurrentColor[1],m_CurrentColor[2]);
+    Serial.printf("Sunrise: %f (%f/%f) (%d %d %d)\n", m_Factor, timeDiff,
+                  m_SunriseDuration, m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]);
 
     updateLEDs(true);
 }
@@ -222,6 +234,8 @@ int LedStrip::runModeAction()
         sunriseMode();
         return 100;
         break;
+    case LEDModes::on:
+    case LEDModes::off:
     default:
         return 500;
         break;

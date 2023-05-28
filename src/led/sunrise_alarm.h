@@ -19,11 +19,14 @@ namespace sunrise
         bool run();
 
     private:
+        void startSunrise();
+        void stopSunrise();
+
+    private:
         LedStrip *m_LedStrip;
         CTimeHelper *m_TimeHelper;
         configman::SunriseSettings m_Settings;
         bool m_IsAlarmActive;
-        unsigned long m_AlarmStartTime;
         unsigned long m_AlarmEndTime;
     };
 
