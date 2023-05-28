@@ -94,7 +94,7 @@ public:
     LedStrip(uint8_t pin, int nrOfPixels);
     void beginPixels();
     void applyModeAndColor();
-    void applyColorSmoothly(bool allAtOnce);
+    void applyColorSmoothly();
     void fancy();
     void showError();
     int runModeAction();
@@ -118,11 +118,11 @@ private:
 
 public:
     Adafruit_NeoPixel m_Pixels;
-    LEDColor m_LedColor = LEDColor::white;
-    LEDModes m_LEDMode = LEDModes::on;
+    LEDColor m_LedColor;
+    LEDModes m_LEDMode;
     double m_Factor;
     unsigned long m_SunriseStartTime;
-    unsigned long m_SunriseEndTime;
+    double m_SunriseDuration;
     PulseMode m_PulseMode;
 
 private:

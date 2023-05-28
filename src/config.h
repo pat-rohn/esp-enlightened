@@ -85,6 +85,8 @@ namespace configman
         int Button1;
         int Button2;
         bool ShowWebpage;
+        bool UseMQTT;
+        String TopicMQTT;
         SunriseSettings AlarmSettings;
 
         Configuration() : IsConfigured(false),
@@ -102,6 +104,8 @@ namespace configman
                           Button1(-1),
                           Button2(-1),
                           ShowWebpage(true),
+                          UseMQTT(false),
+                          TopicMQTT(""),
                           AlarmSettings()
         {
         }

@@ -18,18 +18,12 @@ using namespace timeseries;
 
 namespace ts_http
 {
-    CTimeseriesHttp::CTimeseriesHttp(String timeseriesAddress, CTimeHelper *timehelper)
+    CTimeseriesHttp::CTimeseriesHttp(const String &timeseriesAddress, CTimeHelper *timehelper)
         : CTimeseries(timeseriesAddress, timehelper)
     {
     }
 
-    Device CTimeseriesHttp::init(const DeviceDesc &deviceDesc)
-    {
-        Serial.println("HTTP: INIT");
-        return CTimeseries::init(deviceDesc);
-    };
-
-    void CTimeseriesHttp::addValue(const String &name, const double &value)
+    void CTimeseriesHttp::newValue(const String &name, const double &value)
     {
         if (m_Data.find(name) == m_Data.end())
         {
@@ -80,7 +74,7 @@ namespace ts_http
     {
         WiFiClient client = WiFiClient();
         HTTPClient http;
-        String serverPath = "http://" + m_ServerAddress + url;
+        String serverPath = m_ServerAddress + url;
         Serial.println(serverPath);
 
         http.begin(client, serverPath.c_str());

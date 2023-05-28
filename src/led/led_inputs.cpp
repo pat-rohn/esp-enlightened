@@ -1,9 +1,4 @@
 #include "led_inputs.h"
-/*
-
-
-
-*/
 
 namespace led_inputs
 {

@@ -29,8 +29,7 @@ namespace webpage
           var xhr = new XMLHttpRequest();
           xhr.open("GET", "/restart", true);
           xhr.send();
-          xhr.abort();
-          setTimeout(function () { document.location.reload(false); }, 2000);
+          setTimeout(function () { document.location.reload(false); }, 15000);
       }
     </script>
 </head>
@@ -98,11 +97,11 @@ namespace webpage
                     AsyncWebParameter *p = request->getParam(i);
                     if (p->isPost())
                     {
-                      Serial.printf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
+                      Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
                       input = p->value();
                     }
                   }
-                  Serial.printf("Input is: %s", input.c_str());
+                  Serial.printf("Input is: %s\n", input.c_str());
                   String answer = m_LedService->apply(input);
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
                   response->addHeader("Content-type", "text/json");
@@ -132,11 +131,11 @@ namespace webpage
                     AsyncWebParameter *p = request->getParam(i);
                       if (p->isPost())
                     {
-                        Serial.printf("_POST[%s]: %s", p->name().c_str(), p->value().c_str());
+                        Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
                         input = p->value();
                     }
                   }
-                  Serial.printf("Input is: %s", input.c_str());
+                  Serial.printf("Input is: %s\n", input.c_str());
                   configman::writeConfig(input.c_str());
                   
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/json", input);
