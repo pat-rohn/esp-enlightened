@@ -85,6 +85,9 @@ namespace configman
         int Button1;
         int Button2;
         bool ShowWebpage;
+        bool UseMQTT;
+        String MQTTTopic;
+        int MQTTPort;
         SunriseSettings AlarmSettings;
 
         Configuration() : IsConfigured(false),
@@ -102,6 +105,9 @@ namespace configman
                           Button1(-1),
                           Button2(-1),
                           ShowWebpage(true),
+                          UseMQTT(false),
+                          MQTTTopic(""),
+                          MQTTPort(1883),
                           AlarmSettings()
         {
         }

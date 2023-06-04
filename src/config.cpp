@@ -188,6 +188,9 @@ namespace configman
         doc["FindSensors"] = config->FindSensors;
         doc["IsOfflineMode"] = config->IsOfflineMode;
         doc["ShowWebpage"] = config->ShowWebpage;
+        doc["UseMQTT"] = config->UseMQTT;
+        doc["MQTTTopic"] = config->MQTTTopic;
+        doc["MQTTPort"] = config->MQTTPort;
 
         doc["SunriseSettings"] = serializeSunrise(&config->AlarmSettings);
 
@@ -272,11 +275,14 @@ namespace configman
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
         res.second.LEDPin = doc["LEDPin"];
         JsonVariant button1 = doc["Button1"];
-        if (button1.isNull()) {
+        if (button1.isNull())
+        {
             Serial.println("Button configs do not exist (yet?)");
             res.second.Button1 = -1;
             res.second.Button2 = -1;
-        }else{
+        }
+        else
+        {
             res.second.Button1 = doc["Button1"];
             res.second.Button2 = doc["Button2"];
         }
@@ -286,6 +292,21 @@ namespace configman
         res.second.IsOfflineMode = doc["IsOfflineMode"];
         res.second.ShowWebpage = doc["ShowWebpage"];
 
+        JsonVariant UseMQTT = doc["UseMQTT"];
+        if (UseMQTT.isNull())
+        {
+            Serial.println("UseMQTT did not exist");
+            res.second.UseMQTT = false;
+            res.second.MQTTPort = 1883;
+            res.second.MQTTTopic = "/myplace/myroom/";
+        }
+        else
+        {
+            res.second.UseMQTT = doc["UseMQTT"];
+            res.second.MQTTPort = doc["MQTTPort"];;
+            res.second.MQTTTopic = doc["MQTTTopic"].as<String>();;
+        }
+        
         JsonVariant sunriseSettings = doc["SunriseSettings"];
         if (!sunriseSettings.isNull())
         {

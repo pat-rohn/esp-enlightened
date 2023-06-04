@@ -51,7 +51,7 @@ bool isAccessPoint = false;
 const char *ssidAP = "AI-Caramba";
 const char *passwordAP = "ki-caramba";
 
-timeseries::Device deviceConfig = timeseries::Device("", 60.0, 3);
+timeseries::Device deviceConfig = timeseries::Device("", 10.0, 3);
 std::map<String, float> sensorOffsets;
 
 unsigned long lastUpdate = millis();
@@ -76,7 +76,6 @@ bool tryConnect(std::string ssid, std::string password)
     {
       nextWifiLoopTime = millis() + 1000;
       digitalWrite(LED_BUILTIN, counter % 2 == 0 ? kLEDON : kLEDOFF);
-      Serial.print(".");
       delay(400);
       counter++;
       if (counter >= 15)
@@ -136,23 +135,31 @@ void configureDevice()
 {
   Serial.println("configureDevice.");
   config = configman::readConfig();
-  if (config.AlarmSettings.IsActivated)
-  {
-    Serial.println("Sunrise Activated");
-  }
   delete timeSeries;
   delete ledStrip;
   delete ledService;
   delete sunriseAlarm;
+  if (config.UseMQTT)
+  {
+    ts_mqtt::MQTTProperties properties;
+    properties.Host = config.ServerAddress;
+    properties.Port = config.MQTTPort;
+    properties.Topic = config.MQTTTopic;
+    timeSeries = new ts_mqtt::CTimeseriesMQTT(properties, timeHelper);
+  }
+  else
+  {
+    timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
+  }
 
-  timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
   ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
-  sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
-
-  startLedControl();
-
-  sunriseAlarm->applySettings(config.AlarmSettings);
+  if (config.AlarmSettings.IsActivated)
+  {
+    Serial.println("Sunrise Activated");
+    sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
+    sunriseAlarm->applySettings(config.AlarmSettings);
+  }
 
   webPage = new webpage::CWebPage();
   webPage->setLEDService(ledService);
@@ -172,10 +179,10 @@ void colorUpdate(const std::map<String, sensor::SensorData> &values)
 
   // Serial.print("co2TestVal: ");
   // Serial.println(co2TestVal);
-  // setCO2Color(co2TestVal);
+  // ledStrip->setCO2Color(co2TestVal);
   // co2TestVal += 100;
   // tempTestVal += 1.0;
-  // setTemperatureColor(tempTestVal);
+  // ledStrip->setTemperatureColor(tempTestVal);
   // return;
 
   if (values.empty())
@@ -209,51 +216,41 @@ void triggerEvents(const std::map<String, sensor::SensorData> &values)
 
 void measureAndSendSensorData()
 {
-  if (!hasSensors || isAccessPoint || config.IsOfflineMode)
+  if (millis() < lastUpdate + deviceConfig.Interval * 1000)
   {
     return;
   }
-  if (millis() > lastUpdate + deviceConfig.Interval * 1000)
+
+  lastUpdate = millis();
+  auto values = sensor::getValues();
+
+  if (config.NumberOfLEDs > 0 && !config.AlarmSettings.IsActivated)
   {
-    lastUpdate = millis();
-    auto values = sensor::getValues();
+    colorUpdate(values);
+  }
 
-    if (config.NumberOfLEDs > 0 && !config.AlarmSettings.IsActivated)
+  std::vector<String> valueNames;
+  std::vector<float> tsValues;
+  std::map<String, sensor::SensorData>::iterator it;
+  if (values.empty())
+  {
+    Serial.println("No Values");
+  }
+  for (it = values.begin(); it != values.end(); it++)
+  {
+    if (it->second.isValid)
     {
-      colorUpdate(values);
+      String name = config.SensorID;
+      String valueName = name + it->second.name;
+      timeSeries->newValue(valueName, it->second.value + sensorOffsets[valueName]);
     }
+  }
 
-    std::vector<String> valueNames;
-    std::vector<float> tsValues;
-    std::map<String, sensor::SensorData>::iterator it;
-    if (values.empty())
-    {
-      Serial.println("No Values");
-    }
-    for (it = values.begin(); it != values.end(); it++)
-    {
-      if (it->second.isValid)
-      {
-        String name = config.SensorID;
-        String valueName = name + it->second.name;
-
-        timeSeries->addValue(valueName, it->second.value + sensorOffsets[valueName]);
-      }
-    }
-    valueCounter++;
-    if (valueCounter >= deviceConfig.Buffer)
-    {
-      if (WiFi.status() != WL_CONNECTED)
-      {
-        if (!tryConnect(config.WiFiName.c_str(), config.WiFiPassword.c_str()))
-        {
-          Serial.println("No WiFi Connection");
-          return;
-        }
-      }
-      timeSeries->sendData();
-      valueCounter = 0;
-    }
+  valueCounter++;
+  if (valueCounter >= deviceConfig.Buffer)
+  {
+    timeSeries->sendData();
+    valueCounter = 0;
   }
 }
 
@@ -277,6 +274,8 @@ void setup()
   {
     Serial.println("overwrite showing webpage");
     config = configman::readConfig();
+    config.WiFiName = String("SSIDName");
+    config.WiFiPassword = String("***");
     config.IsConfigured = false;
     config.ShowWebpage = true;
     configman::saveConfig(&config);
@@ -286,8 +285,6 @@ void setup()
   {
     config = configman::readConfig();
   }
-
-  configureDevice();
 
   if (!config.IsOfflineMode)
   {
@@ -308,11 +305,13 @@ void setup()
     createAccesPoint();
   }
 
+  configureDevice();
+  startLedControl();
+
   pinMode(LED_BUILTIN, OUTPUT);
   if (config.FindSensors && sensor::sensorsInit())
   {
     hasSensors = true;
-    ledStrip->m_LEDMode = LedStrip::LEDModes::on;
   }
 
   if (hasSensors)
@@ -324,8 +323,10 @@ void setup()
 #ifdef ESP32
     desc += "ESP32;";
 #endif
-    if (config.IsConfigured)
+
+    if (config.IsConfigured && !config.UseMQTT)
     {
+      Serial.println("Device Information:");
       desc += sensor::getDescription();
       timeseries::DeviceDesc deviceDesc(config.SensorID, desc);
       deviceDesc.Sensors = sensor::getValueNames();
@@ -371,15 +372,22 @@ void loop()
       configureDevice();
     }
     nextLoopTime = millis() + 30000;
-    Serial.print("Connected to device and change configuration: ");
+    Serial.print("Connected to device and changed configuration: ");
     Serial.println(WiFi.localIP());
     Serial.println(configman::readConfigAsString());
     config = configman::readConfig();
     return;
   }
-
-  if (!isAccessPoint || !config.IsOfflineMode)
+  if (!isAccessPoint && !config.IsOfflineMode)
   {
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      if (!tryConnect(config.WiFiName.c_str(), config.WiFiPassword.c_str()))
+      {
+        Serial.println("No WiFi Connection");
+        return;
+      }
+    }
     if (!timeHelper->isTimeSet())
     {
       if (!timeHelper->initTime())
@@ -390,7 +398,15 @@ void loop()
     }
   }
 
-  sunriseAlarm->run();
   measureAndSendSensorData();
-  loopTime = ledStrip->runModeAction();
+
+  if (config.AlarmSettings.IsActivated)
+  {
+    sunriseAlarm->run();
+    // Serial.println(ESP.getFreeHeap());
+  }
+  else
+  {
+    loopTime = ledStrip->runModeAction();
+  }
 }
