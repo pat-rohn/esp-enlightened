@@ -47,18 +47,8 @@ namespace ts_http
             for (auto val : ts.second.m_DataSeries)
             {
                 tsValuesTS.add(val.Timestamp);
-                if (val.Value < 0.00001)
-                {
-                    tsValuesV.add(String(val.Value, 8));
-                }
-                else if (val.Value < 0.001)
-                {
-                    tsValuesV.add(String(val.Value, 5));
-                }
-                else
-                {
-                    tsValuesV.add(String(val.Value, 4));
-                }
+                String strVal = convertValue(val.Value);
+                tsValuesV.add(strVal);
             }
         }
         Serial.println(doc.as<String>());

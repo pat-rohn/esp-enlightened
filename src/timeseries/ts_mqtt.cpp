@@ -12,9 +12,12 @@ namespace ts_mqtt
     WiFiClient wifiClient;
     MqttClient *mqttClient;
 
-    CTimeseriesMQTT::CTimeseriesMQTT(const String &timeseriesAddress, CTimeHelper *timehelper) : CTimeseries(timeseriesAddress, timehelper)
+    CTimeseriesMQTT::CTimeseriesMQTT(
+        MQTTProperties &properties,
+        CTimeHelper *timehelper) : CTimeseries(properties.Host, timehelper),
+                                   m_Topic(properties.Topic)
     {
-        m_Host = splitAddress(timeseriesAddress, 0);
+        m_Host = splitAddress(properties.Host, 0);
         Serial.printf("MQTT address: %s\n", m_Host.c_str());
         mqttClient = new MqttClient(wifiClient);
     }
@@ -22,6 +25,7 @@ namespace ts_mqtt
     void CTimeseriesMQTT::newValue(const String &name, const double &value)
     {
         Serial.printf("MQTT add value: %s\n", name.c_str());
+        String topic = m_Topic + name + "/data";
         if (!mqttClient->connected())
         {
             if (!mqttClient->connect(m_Host.c_str(), 1883))
@@ -30,24 +34,11 @@ namespace ts_mqtt
                 Serial.println(mqttClient->connectError());
             }
         }
-        String timeseriesValue = "";
-        if (value < 0.00001)
-        {
-            timeseriesValue += String(value, 8);
-        }
-        else if (value < 0.001)
-        {
-            timeseriesValue += String(value, 5);
-        }
-        else
-        {
-            timeseriesValue += String(value, 4);
-        }
-        mqttClient->beginMessage(name);
-        mqttClient->print(value);
+        String val = convertValue(value);
+        mqttClient->beginMessage(topic);
+        mqttClient->print(val);
         mqttClient->endMessage();
-        Serial.printf("%s %s\n", name.c_str(), timeseriesValue.c_str());
+        Serial.printf("%s %s\n", topic.c_str(), val.c_str());
     }
-
 
 }

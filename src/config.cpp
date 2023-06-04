@@ -189,7 +189,8 @@ namespace configman
         doc["IsOfflineMode"] = config->IsOfflineMode;
         doc["ShowWebpage"] = config->ShowWebpage;
         doc["UseMQTT"] = config->UseMQTT;
-        doc["TopicMQTT"] = config->TopicMQTT;
+        doc["MQTTTopic"] = config->MQTTTopic;
+        doc["MQTTPort"] = config->MQTTPort;
 
         doc["SunriseSettings"] = serializeSunrise(&config->AlarmSettings);
 
@@ -296,12 +297,14 @@ namespace configman
         {
             Serial.println("UseMQTT did not exist");
             res.second.UseMQTT = false;
-            res.second.TopicMQTT = "/myplace/myroom/";
+            res.second.MQTTPort = 1883;
+            res.second.MQTTTopic = "/myplace/myroom/";
         }
         else
         {
             res.second.UseMQTT = doc["UseMQTT"];
-            res.second.TopicMQTT = doc["TopicMQTT"].as<String>();;
+            res.second.MQTTPort = doc["MQTTPort"];;
+            res.second.MQTTTopic = doc["MQTTTopic"].as<String>();;
         }
         
         JsonVariant sunriseSettings = doc["SunriseSettings"];

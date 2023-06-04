@@ -141,7 +141,11 @@ void configureDevice()
   delete sunriseAlarm;
   if (config.UseMQTT)
   {
-    timeSeries = new ts_mqtt::CTimeseriesMQTT(config.ServerAddress, timeHelper);
+    ts_mqtt::MQTTProperties properties;
+    properties.Host = config.ServerAddress;
+    properties.Port = config.MQTTPort;
+    properties.Topic = config.MQTTTopic;
+    timeSeries = new ts_mqtt::CTimeseriesMQTT(properties, timeHelper);
   }
   else
   {
@@ -238,25 +242,15 @@ void measureAndSendSensorData()
     {
       String name = config.SensorID;
       String valueName = name + it->second.name;
-      if (config.UseMQTT)
-      {
-        String topic = config.TopicMQTT + valueName + "/data";
-        timeSeries->newValue(topic, it->second.value + sensorOffsets[valueName]);
-      }
-      else
-      {
-        timeSeries->newValue(name, it->second.value + sensorOffsets[valueName]);
-      }
+      timeSeries->newValue(valueName, it->second.value + sensorOffsets[valueName]);
     }
   }
-  if (!config.UseMQTT)
+
+  valueCounter++;
+  if (valueCounter >= deviceConfig.Buffer)
   {
-    valueCounter++;
-    if (valueCounter >= deviceConfig.Buffer)
-    {
-      timeSeries->sendData();
-      valueCounter = 0;
-    }
+    timeSeries->sendData();
+    valueCounter = 0;
   }
 }
 
