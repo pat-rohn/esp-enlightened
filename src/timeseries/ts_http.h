@@ -15,11 +15,10 @@ namespace ts_http
     {
 
     public:
-        CTimeseriesHttp(String timeseriesAddress, CTimeHelper *timehelper);
+        CTimeseriesHttp(const String& timeseriesAddress, CTimeHelper *timehelper);
         virtual ~CTimeseriesHttp(){};
 
-        Device init(const DeviceDesc &deviceDesc) override;
-        void addValue(const String &name, const double &value) override;
+        void newValue(const String &name, const double &value) override;
         bool sendData() override;
 
     private:

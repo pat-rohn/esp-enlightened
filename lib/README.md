@@ -1,6 +1,6 @@
 
 
-```
+```bash
 cd ./lib/
 git clone https://github.com/adafruit/Adafruit_CCS811.git
 git clone https://github.com/WifWaf/MH-Z19.git
@@ -19,7 +19,7 @@ mkdir NTPClient/src
 mv ./NTPClient/NTPClient.* ./NTPClient/src 
 git clone  https://github.com/plerup/espsoftwareserial
 git clone https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library.git SCD30
-git clone https://github.com/knolleary/pubsubclient.git
 git clone https://github.com/me-no-dev/ESPAsyncWebServer.git 
+git clone https://github.com/arduino-libraries/ArduinoMqttClient
 
 ```

@@ -15,35 +15,32 @@
 
 #include "timeseries/timeseries.h"
 #include "timehelper.h"
+#include "ArduinoMqttClient.h"
 #include <map>
-
-#include <PubSubClient.h>
 
 using namespace timeseries;
 
-namespace tsmqtt
+namespace ts_mqtt
 {
-    class CTimeseriesMqtt : public CTimeseries
+    struct MQTTProperties{
+        String Host;
+        String Topic;
+        String Port;
+    };
+
+    class CTimeseriesMQTT : public CTimeseries
     {
 
     public:
-        CTimeseriesMqtt(String timeseriesAddress, CTimeHelper *timehelper);
-        virtual ~CTimeseriesMqtt(){};
+        CTimeseriesMQTT(MQTTProperties &properties, CTimeHelper *timehelper);
+        virtual ~CTimeseriesMQTT(){};
 
-        Device init(const DeviceDesc &deviceDesc) override;
-        void addValue(const String &name, const double &value) override;
-        bool sendData() override;
+        void newValue(const String &name, const double &value);
 
     private:
-        bool postData();
-        bool reconnect();
-
-    private:
-        WiFiClient m_WifiClient;
-        PubSubClient m_MQTTClient;
+        String m_Host;
+        String m_Topic;
     };
-
-    void callback(char *topic, byte *payload, unsigned int length);
 
 }
 #endif

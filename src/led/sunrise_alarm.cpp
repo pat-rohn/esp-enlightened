@@ -6,7 +6,6 @@ CSunriseAlarm::CSunriseAlarm(LedStrip *ledStrip, CTimeHelper *timelper) : m_LedS
                                                                           m_TimeHelper(timelper)
 {
     m_Settings = configman::SunriseSettings();
-    m_AlarmStartTime = millis();
     m_AlarmEndTime = millis();
     m_IsAlarmActive = false;
 }
@@ -26,49 +25,56 @@ void CSunriseAlarm::applySettings(const configman::SunriseSettings &settings)
 
 bool CSunriseAlarm::run()
 {
-    if (!m_Settings.IsActivated)
-    {
-        return false;
-    }
     configman::weekday_t weekday = static_cast<configman::weekday_t>(m_TimeHelper->getWeekDay());
     if (!m_Settings.DaySettings.at(weekday).IsActive)
     {
         return false;
     }
     auto currentTime = m_TimeHelper->getHoursAndMinutes();
+
     auto alarmTime = m_Settings.DaySettings.at(weekday).AlarmTime;
-    if ((alarmTime.Hours == currentTime.first &&
-         alarmTime.Minutes == currentTime.second)) // ||  true  test alarm
+    if ((!m_IsAlarmActive && (alarmTime.Hours == currentTime.first &&
+                              alarmTime.Minutes == currentTime.second))) // ||  !m_IsAlarmActive  test alarm
     {
-        if (!m_IsAlarmActive)
-        {
-            Serial.printf("Activate Sunrise: %ld:%ld (%f)\n",
-                          currentTime.first, currentTime.second, m_Settings.SunriseLightTime);
-            m_IsAlarmActive = true;
-            m_AlarmStartTime = millis();
-            m_AlarmEndTime = millis() + m_Settings.SunriseLightTime * 60 * 1000;
-            m_LedStrip->m_Factor = 0.0;
-            m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
-            m_LedStrip->m_SunriseStartTime = m_AlarmStartTime;
-            m_LedStrip->m_SunriseEndTime = m_Settings.SunriseLightTime * 60 * 1000 / 2;
-            m_LedStrip->runModeAction();
-            return true;
-        }
+
+        Serial.printf("Activate Sunrise: %ld:%ld (%f)\n",
+                      currentTime.first, currentTime.second, m_Settings.SunriseLightTime);
+        startSunrise();
+        return true;
+    }
+    if (m_IsAlarmActive && millis() > m_AlarmEndTime)
+    {
+        Serial.printf("Stop Sunrise: %ld:%ld ", currentTime.first, currentTime.second);
+        stopSunrise();
+        return false;
     }
     if (m_IsAlarmActive)
     {
-        if (millis() > m_AlarmEndTime)
-        {
-            Serial.printf("Turn off Sunrise: %ld:%ld ", currentTime.first, currentTime.second);
-            m_IsAlarmActive = false;
-            m_LedStrip->m_LEDMode = LedStrip::LEDModes::off;
-
-            m_LedStrip->applyModeAndColor();
-            return false;
-        }
-
+        Serial.printf("Alarm active for %f s\n", double(millis() -  m_LedStrip->m_SunriseStartTime)/1000.0);
         m_LedStrip->runModeAction();
         return true;
     }
+
     return false;
+}
+
+void CSunriseAlarm::startSunrise()
+{
+    m_IsAlarmActive = true;
+    m_AlarmEndTime = millis() + m_Settings.SunriseLightTime * 60 * 1000;
+    m_LedStrip->m_Factor = 0.0;
+    m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
+    m_LedStrip->m_SunriseStartTime = millis();
+    Serial.printf("Alarm start/end: %ld/%ld", m_LedStrip->m_SunriseStartTime, m_AlarmEndTime);
+    m_LedStrip->m_SunriseDuration = m_Settings.SunriseLightTime * 60 / 2;
+    m_LedStrip->applyModeAndColor();
+    m_LedStrip->runModeAction();
+}
+
+void CSunriseAlarm::stopSunrise()
+{
+    m_IsAlarmActive = false;
+    m_LedStrip->m_LEDMode = LedStrip::LEDModes::off;
+
+    m_LedStrip->applyModeAndColor();
 }
