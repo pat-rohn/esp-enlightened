@@ -19,7 +19,7 @@ namespace timeseries
     {
         Serial.printf("Timeseries Server: %s\n", timeseriesAddress.c_str());
         m_TimeHelper = timehelper;
-        
+
         String serverPath = "http://" + timeseriesAddress;
         m_ServerAddress = serverPath;
     };
@@ -37,10 +37,10 @@ namespace timeseries
         {
             Device_Sensors.add(deviceDesc.Name + s);
         }
-        
+
         WiFiClient client = WiFiClient();
         HTTPClient http;
-        
+
         String initURL = m_ServerAddress + "/init-device";
         Serial.printf("Init server: %s\n", initURL.c_str());
 
@@ -123,5 +123,23 @@ namespace timeseries
             }
         }
         return found > index ? serverAddressWithPort.substring(strIndex[0], strIndex[1]) : "";
+    }
+
+    String CTimeseries::convertValue(double value)
+    {
+        String timeseriesValue = "";
+        if (value < 0.00001)
+        {
+            timeseriesValue += String(value, 8);
+        }
+        else if (value < 0.001)
+        {
+            timeseriesValue += String(value, 5);
+        }
+        else
+        {
+            timeseriesValue += String(value, 4);
+        }
+        return timeseriesValue;
     }
 }

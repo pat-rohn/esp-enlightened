@@ -96,6 +96,7 @@ namespace timeseries
 
     protected:
         String splitAddress(String serverAddressWithPort, int index);
+        String convertValue(double value);
 
     protected:
         String m_ServerAddress;
