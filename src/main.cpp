@@ -260,13 +260,10 @@ void setup()
   Serial.println("setup");
   configman::begin();
 
-  delay(200);
   if (false)
   {
     Serial.println("Overwrite config to reconfigure (Reset)");
     config = configman::Configuration();
-    config.WiFiName = String("SSIDName");
-    config.WiFiPassword = String("***");
     configman::saveConfig(&config);
     delay(200);
   }
@@ -274,7 +271,7 @@ void setup()
   {
     Serial.println("overwrite showing webpage");
     config = configman::readConfig();
-    config.WiFiName = String("SSIDName");
+    config.WiFiName = String("***");
     config.WiFiPassword = String("***");
     config.IsConfigured = false;
     config.ShowWebpage = true;
@@ -397,8 +394,10 @@ void loop()
       }
     }
   }
-
-  measureAndSendSensorData();
+  if (hasSensors)
+  {
+     measureAndSendSensorData();
+  }
 
   if (config.AlarmSettings.IsActivated)
   {

@@ -188,7 +188,10 @@ namespace webpage
     }
     Serial.println(inputMessage);
     request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); });
-    m_Server.onNotFound(notFound);
+    m_Server.onNotFound([](AsyncWebServerRequest * req)
+    {
+      req->send(404);
+    });
     m_Server.begin();
   }
 

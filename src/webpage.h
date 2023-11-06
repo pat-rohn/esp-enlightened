@@ -40,11 +40,6 @@ namespace webpage
     public:
         void beginServer();
      
-        static void notFound(AsyncWebServerRequest *request)
-        {
-            request->send(404, "text/plain", "Not found");
-        }
-
     public:
         static void setLEDService(CLEDService *ledService);
 

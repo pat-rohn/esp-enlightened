@@ -10,11 +10,11 @@ namespace led_inputs
         Serial.printf("Button 1: %d  -  Button 2: %d \n", pin1, pin2);
         if (pin1 > 0)
         {
-            attachInterrupt(digitalPinToInterrupt(pin1), detectsChangeButton1, RISING);
+            attachInterrupt(digitalPinToInterrupt(pin1), detectsChangeButton1, FALLING);
         }
         if (pin2 > 0)
         {
-            attachInterrupt(digitalPinToInterrupt(pin2), detectsChangeButton1, RISING);
+            attachInterrupt(digitalPinToInterrupt(pin2), detectsChangeButton1, FALLING);
         }
     }
 
@@ -26,14 +26,14 @@ namespace led_inputs
         {
             Serial.println("Turn on (default)");
             leds->m_LEDMode = LedStrip::LEDModes::on;
-            leds->m_Factor=0.4;
+            leds->m_Factor=0.35;
             leds->setColor(100, 75, 35);
 
             leds->applyModeAndColor();
         }
         else
         {
-            if (leds->m_Factor >= 1.0)
+            if (leds->m_Factor >= 1.85)
             {
                 Serial.println("Turn off");
                 leds->m_LEDMode = LedStrip::LEDModes::off;
@@ -41,7 +41,7 @@ namespace led_inputs
             }
             else
             {
-                leds->m_Factor += 0.3;
+                leds->m_Factor += 0.5;
                 Serial.printf("Brighter :%f\n", leds->m_Factor);
                 leds->applyColorImmediate();
             }
