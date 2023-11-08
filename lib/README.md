@@ -21,5 +21,6 @@ git clone  https://github.com/plerup/espsoftwareserial
 git clone https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library.git SCD30
 git clone https://github.com/me-no-dev/ESPAsyncWebServer.git 
 git clone https://github.com/arduino-libraries/ArduinoMqttClient
+git clone https://github.com/knolleary/pubsubclient.git 
 
 ```
