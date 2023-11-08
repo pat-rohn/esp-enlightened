@@ -5,11 +5,13 @@
 #include <ArduinoJson.h>
 #include <array>
 #include "config.h"
+#include "timehelper.h"
 
 namespace webpage
 {
 
   CLEDService *m_LedService;
+  CTimeHelper *m_TimeHelper;
 
   const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
@@ -63,6 +65,12 @@ namespace webpage
   void CWebPage::setLEDService(CLEDService *ledService)
   {
     m_LedService = ledService;
+  }
+
+  void CWebPage::setTimeHelper(CTimeHelper *timeHelper)
+  {
+    m_TimeHelper = timeHelper;
+    Serial.println("Set Time Helper");
   }
 
   void CWebPage::beginServer()
@@ -154,6 +162,26 @@ namespace webpage
                 String answer = configman::readConfigAsString();
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
                 response->addHeader("Content-type", "text/json");
+                response->addHeader("Access-Control-Allow-Origin", "*");
+                response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                request->send(response); });
+
+    // Time Get
+    m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
+                  response->addHeader("Content-type", "text/plain");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+    m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
+                { 
+                String answer = m_TimeHelper->getTimestamp();
+                Serial.println("get time " + answer);
+                AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
+                response->addHeader("Content-type", "text/plain");
                 response->addHeader("Access-Control-Allow-Origin", "*");
                 response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                 response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");

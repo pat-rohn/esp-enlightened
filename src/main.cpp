@@ -163,6 +163,7 @@ void configureDevice()
 
   webPage = new webpage::CWebPage();
   webPage->setLEDService(ledService);
+  webPage->setTimeHelper(timeHelper);
 }
 
 unsigned long lastColorChange = 0;

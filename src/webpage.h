@@ -42,6 +42,7 @@ namespace webpage
      
     public:
         static void setLEDService(CLEDService *ledService);
+        static void setTimeHelper(CTimeHelper *timeHelper);
 
         static String processor(const String &var);
     };

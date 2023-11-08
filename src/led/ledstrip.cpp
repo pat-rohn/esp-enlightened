@@ -199,8 +199,8 @@ void LedStrip::sunriseMode()
     m_CurrentColor[1] = 10 + timeFactor * 35;
     m_CurrentColor[2] = blue;
     m_Factor = timeFactor;
-    Serial.printf("Sunrise: %f (%f/%f) (%d %d %d)\n", m_Factor, timeDiff,
-                  m_SunriseDuration, m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]);
+    //Serial.printf("Sunrise: %f (%f/%f) (%d %d %d)\n", m_Factor, timeDiff,
+    //              m_SunriseDuration, m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]);
 
     updateLEDs(true);
 }
