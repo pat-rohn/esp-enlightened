@@ -158,14 +158,15 @@ namespace webpage
     // Config Get
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
-                  
-                String answer = configman::readConfigAsString();
-                AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
-                response->addHeader("Content-type", "text/json");
-                response->addHeader("Access-Control-Allow-Origin", "*");
-                response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                request->send(response); });
+                  Serial.println("get /api/config");
+                  auto config =  configman::getConfig();
+                  String answer = configman::serializeConfig(&config);
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
 
     // Time Get
     m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
@@ -204,18 +205,19 @@ namespace webpage
     m_Server.on("/get", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
 
-    Serial.println("get config");
-    String inputMessage;
-      // GET inputString value on <ESP_IP>/get?configuration=<inputMessage>
-    if (request->hasParam("configuration")) {
-      inputMessage = request->getParam("configuration")->value();
-      configman::writeConfig(inputMessage.c_str());
-      Serial.println("Config written");
-    } else{
-      inputMessage = "Unknown param";
-    }
-    Serial.println(inputMessage);
-    request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); });
+        Serial.println("get config");
+        String inputMessage;
+          // GET inputString value on <ESP_IP>/get?configuration=<inputMessage>
+        if (request->hasParam("configuration")) {
+          inputMessage = request->getParam("configuration")->value();
+          configman::writeConfig(inputMessage.c_str());
+          Serial.println("Config written");
+        } else{
+          inputMessage = "Unknown param";
+        }
+        Serial.println(inputMessage);
+        request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); 
+        });
     m_Server.onNotFound([](AsyncWebServerRequest * req)
     {
       req->send(404);
@@ -228,8 +230,9 @@ namespace webpage
     Serial.println(var);
     if (var == "devconfig")
     {
-      Serial.println("read from configuration");
-      return configman::readConfigAsString();
+      Serial.println("get configuration");
+      auto config = configman::getConfig();
+      return configman::serializeConfig(&config);
     }
     else
     {

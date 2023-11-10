@@ -29,7 +29,6 @@ uint8_t kLEDOFF = 0x1;
 #include "webpage.h"
 #include "led/sunrise_alarm.h"
 
-configman::Configuration config = configman::Configuration();
 CTimeHelper *timeHelper = new CTimeHelper();
 
 timeseries::CTimeseries *timeSeries;
@@ -75,7 +74,10 @@ bool tryConnect(std::string ssid, std::string password)
     if (millis() > nextWifiLoopTime)
     {
       nextWifiLoopTime = millis() + 1000;
-      digitalWrite(LED_BUILTIN, counter % 2 == 0 ? kLEDON : kLEDOFF);
+      if (configman::getConfig().Button1 < 0)
+      {
+        digitalWrite(LED_BUILTIN, counter % 2 == 0 ? kLEDON : kLEDOFF);
+      }
       delay(400);
       counter++;
       if (counter >= 15)
@@ -86,7 +88,10 @@ bool tryConnect(std::string ssid, std::string password)
   }
   Serial.print("\nConnected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
-  digitalWrite(LED_BUILTIN, kLEDOFF);
+  if (configman::getConfig().Button1 < 0)
+  {
+    digitalWrite(LED_BUILTIN, kLEDOFF);
+  }
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   return true;
@@ -116,49 +121,48 @@ void createAccesPoint()
 
 void startLedControl()
 {
-  if (config.NumberOfLEDs <= 0)
+  if (configman::getConfig().NumberOfLEDs <= 0)
   {
     return;
   }
   Serial.println("startLedControl");
   ledStrip->beginPixels();
-  if (config.AlarmSettings.IsActivated)
+  if (configman::getConfig().AlarmSettings.IsActivated)
   {
     Serial.println("Is Alarm Clock");
     ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     ledStrip->applyModeAndColor();
   }
-  led_inputs::start(ledStrip, config.Button1, config.Button2);
+  led_inputs::start(ledStrip, configman::getConfig().Button1, configman::getConfig().Button2);
 }
 
 void configureDevice()
 {
   Serial.println("configureDevice.");
-  config = configman::readConfig();
   delete timeSeries;
   delete ledStrip;
   delete ledService;
   delete sunriseAlarm;
-  if (config.UseMQTT)
+  if (configman::getConfig().UseMQTT)
   {
     ts_mqtt::MQTTProperties properties;
-    properties.Host = config.ServerAddress;
-    properties.Port = config.MQTTPort;
-    properties.Topic = config.MQTTTopic;
+    properties.Host = configman::getConfig().ServerAddress;
+    properties.Port = configman::getConfig().MQTTPort;
+    properties.Topic = configman::getConfig().MQTTTopic;
     timeSeries = new ts_mqtt::CTimeseriesMQTT(properties, timeHelper);
   }
   else
   {
-    timeSeries = new ts_http::CTimeseriesHttp(config.ServerAddress, timeHelper);
+    timeSeries = new ts_http::CTimeseriesHttp(configman::getConfig().ServerAddress, timeHelper);
   }
 
-  ledStrip = new LedStrip(config.LEDPin, config.NumberOfLEDs);
+  ledStrip = new LedStrip(configman::getConfig().LEDPin, configman::getConfig().NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
-  if (config.AlarmSettings.IsActivated)
+  if (configman::getConfig().AlarmSettings.IsActivated)
   {
     Serial.println("Sunrise Activated");
     sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
-    sunriseAlarm->applySettings(config.AlarmSettings);
+    sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
   }
 
   webPage = new webpage::CWebPage();
@@ -225,7 +229,7 @@ void measureAndSendSensorData()
   lastUpdate = millis();
   auto values = sensor::getValues();
 
-  if (config.NumberOfLEDs > 0 && !config.AlarmSettings.IsActivated)
+  if (configman::getConfig().NumberOfLEDs > 0 && !configman::getConfig().AlarmSettings.IsActivated)
   {
     colorUpdate(values);
   }
@@ -241,7 +245,7 @@ void measureAndSendSensorData()
   {
     if (it->second.isValid)
     {
-      String name = config.SensorID;
+      String name = configman::getConfig().SensorID;
       String valueName = name + it->second.name;
       timeSeries->newValue(valueName, it->second.value + sensorOffsets[valueName]);
     }
@@ -264,14 +268,14 @@ void setup()
   if (false)
   {
     Serial.println("Overwrite config to reconfigure (Reset)");
-    config = configman::Configuration();
+    auto config = configman::Configuration();
     configman::saveConfig(&config);
     delay(200);
   }
   else if (false)
   {
     Serial.println("overwrite showing webpage");
-    config = configman::readConfig();
+    auto config = configman::readConfig();
     config.WiFiName = String("***");
     config.WiFiPassword = String("***");
     config.IsConfigured = false;
@@ -281,15 +285,15 @@ void setup()
   }
   else
   {
-    config = configman::readConfig();
+    auto config = configman::readConfig();
   }
 
-  if (!config.IsOfflineMode)
+  if (!configman::getConfig().IsOfflineMode)
   {
     WiFi.disconnect();
-    while (!tryConnect(config.WiFiName.c_str(), config.WiFiPassword.c_str()))
+    while (!tryConnect(configman::getConfig().WiFiName.c_str(), configman::getConfig().WiFiPassword.c_str()))
     {
-      if (!config.IsConfigured)
+      if (!configman::getConfig().IsConfigured)
       {
         createAccesPoint();
         Serial.println("Created access point");
@@ -307,7 +311,7 @@ void setup()
   startLedControl();
 
   pinMode(LED_BUILTIN, OUTPUT);
-  if (config.FindSensors && sensor::sensorsInit())
+  if (configman::getConfig().FindSensors && sensor::sensorsInit())
   {
     hasSensors = true;
   }
@@ -322,11 +326,11 @@ void setup()
     desc += "ESP32;";
 #endif
 
-    if (config.IsConfigured && !config.UseMQTT)
+    if (configman::getConfig().IsConfigured && !configman::getConfig().UseMQTT)
     {
       Serial.println("Device Information:");
       desc += sensor::getDescription();
-      timeseries::DeviceDesc deviceDesc(config.SensorID, desc);
+      timeseries::DeviceDesc deviceDesc(configman::getConfig().SensorID, desc);
       deviceDesc.Sensors = sensor::getValueNames();
       auto device = timeSeries->init(deviceDesc);
 
@@ -342,7 +346,7 @@ void setup()
 
     lastUpdate = millis() - deviceConfig.Interval;
   }
-  if (config.ShowWebpage || !config.IsConfigured)
+  if (configman::getConfig().ShowWebpage || !configman::getConfig().IsConfigured)
   {
     webPage->beginServer();
   }
@@ -362,25 +366,24 @@ void loop()
     return;
   }
   nextLoopTime = millis() + loopTime;
-  if (!config.IsConfigured)
+  if (!configman::getConfig().IsConfigured)
   {
-    config = configman::readConfig();
-    if (config.IsConfigured)
+    if (configman::getConfig().IsConfigured)
     {
       configureDevice();
     }
     nextLoopTime = millis() + 30000;
     Serial.print("Connected to device and changed configuration: ");
     Serial.println(WiFi.localIP());
-    Serial.println(configman::readConfigAsString());
-    config = configman::readConfig();
+    auto config = configman::getConfig();
+    Serial.println(configman::serializeConfig(&config));
     return;
   }
-  if (!isAccessPoint && !config.IsOfflineMode)
+  if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
   {
     if (WiFi.status() != WL_CONNECTED)
     {
-      if (!tryConnect(config.WiFiName.c_str(), config.WiFiPassword.c_str()))
+      if (!tryConnect(configman::getConfig().WiFiName.c_str(), configman::getConfig().WiFiPassword.c_str()))
       {
         Serial.println("No WiFi Connection");
         return;
@@ -397,10 +400,10 @@ void loop()
   }
   if (hasSensors)
   {
-     measureAndSendSensorData();
+    measureAndSendSensorData();
   }
 
-  if (config.AlarmSettings.IsActivated)
+  if (configman::getConfig().AlarmSettings.IsActivated)
   {
     sunriseAlarm->run();
     // Serial.println(ESP.getFreeHeap());
