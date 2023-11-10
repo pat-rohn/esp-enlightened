@@ -179,7 +179,10 @@ namespace webpage
                   request->send(response); });
     m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
-                String answer = m_TimeHelper->getTimestamp();
+                auto hoursAndMinutes = m_TimeHelper->getHoursAndMinutes();
+                int weekday = m_TimeHelper->getWeekDay();
+                String answer = String(hoursAndMinutes.first) + ":" + String(hoursAndMinutes.second) 
+                  + " (weekday " + String(weekday) + ")";
                 Serial.println("get time " + answer);
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
                 response->addHeader("Content-type", "text/plain");
