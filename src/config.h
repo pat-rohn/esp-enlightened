@@ -66,6 +66,7 @@ namespace configman
                 DaySettings[static_cast<weekday_t>(weekDay)] = AlarmWeekday();
             }
         }
+        SunriseSettings(const SunriseSettings * settings);
     };
 
     struct Configuration
@@ -90,30 +91,15 @@ namespace configman
         int MQTTPort;
         SunriseSettings AlarmSettings;
 
-        Configuration() : IsConfigured(false),
-                          ServerAddress("192.168.1.200:3004"),
-                          WiFiName("WiFiName"),
-                          WiFiPassword("WifiPW"),
-                          FindSensors(true),
-                          IsOfflineMode(false),
-                          SensorID("Test1"),
-                          NumberOfLEDs(-1),
-                          DhtPin(-1),
-                          WindSensorPin(-1),
-                          RainfallSensorPin(-1),
-                          LEDPin(-1),
-                          Button1(-1),
-                          Button2(-1),
-                          ShowWebpage(true),
-                          UseMQTT(false),
-                          MQTTTopic(""),
-                          MQTTPort(1883),
-                          AlarmSettings()
-        {
-        }
+        Configuration();
+        Configuration(const Configuration *c);
     };
 
     void begin();
+
+    Configuration getConfig();
+    void setConfig(Configuration config);
+
     Configuration readConfig();
     String readConfigAsString();
     bool saveConfig(const Configuration *config);

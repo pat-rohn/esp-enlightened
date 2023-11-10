@@ -4,6 +4,59 @@
 
 namespace configman
 {
+    Configuration config = Configuration();
+
+    SunriseSettings::SunriseSettings(const SunriseSettings *s) : IsActivated(s->IsActivated),
+                                                                 SunriseLightTime(s->SunriseLightTime)
+    {
+        DaySettings = std::map<weekday_t, AlarmWeekday>{};
+        for (int weekDay = weekday_t::Monday; weekDay <= weekday_t::Sunday; weekDay++)
+        {
+            DaySettings[static_cast<weekday_t>(weekDay)] = AlarmWeekday();
+            DaySettings[static_cast<weekday_t>(weekDay)].AlarmTime = s->DaySettings.at(static_cast<weekday_t>(weekDay)).AlarmTime;
+            DaySettings[static_cast<weekday_t>(weekDay)].IsActive = s->DaySettings.at(static_cast<weekday_t>(weekDay)).IsActive;
+        }
+    }
+
+    Configuration::Configuration(const Configuration *c) : IsConfigured(c->IsConfigured),
+                                                           ServerAddress(c->ServerAddress),
+                                                           WiFiName(c->WiFiName),
+                                                           WiFiPassword(c->WiFiPassword),
+                                                           FindSensors(c->FindSensors),
+                                                           IsOfflineMode(c->IsOfflineMode),
+                                                           SensorID(c->SensorID),
+                                                           NumberOfLEDs(c->NumberOfLEDs),
+                                                           DhtPin(c->DhtPin),
+                                                           WindSensorPin(c->WindSensorPin),
+                                                           RainfallSensorPin(c->RainfallSensorPin),
+                                                           LEDPin(c->LEDPin),
+                                                           Button1(c->Button1),
+                                                           Button2(c->Button2),
+                                                           ShowWebpage(c->ShowWebpage),
+                                                           UseMQTT(c->UseMQTT),
+                                                           MQTTTopic(c->MQTTTopic),
+                                                           MQTTPort(c->MQTTPort),
+                                                           AlarmSettings(SunriseSettings(c->AlarmSettings))
+    {
+    }
+    Configuration::Configuration() : WiFiPassword("WifiPW"),
+                                     FindSensors(true),
+                                     IsOfflineMode(false),
+                                     SensorID("Test1"),
+                                     NumberOfLEDs(-1),
+                                     DhtPin(-1),
+                                     WindSensorPin(-1),
+                                     RainfallSensorPin(-1),
+                                     LEDPin(-1),
+                                     Button1(-1),
+                                     Button2(-1),
+                                     ShowWebpage(true),
+                                     UseMQTT(false),
+                                     MQTTTopic(""),
+                                     MQTTPort(1883),
+                                     AlarmSettings()
+    {
+    }
 
     void begin()
     {
@@ -38,6 +91,15 @@ namespace configman
 #endif
     }
 
+    Configuration getConfig()
+    {
+        return config;
+    }
+    void setConfig(Configuration config)
+    {
+        config = config;
+    }
+
     Configuration readConfig()
     {
         String configStr = readFileLFS(kPathToConfig);
@@ -64,7 +126,8 @@ namespace configman
                 return Configuration();
             }
         }
-        return res.second;
+        config = res.second;
+        return getConfig();
     }
 
     String readConfigAsString()
@@ -98,9 +161,10 @@ namespace configman
         return String(buffer);
     }
 
-    bool saveConfig(const Configuration *config)
+    bool saveConfig(const Configuration *c)
     {
-        String confStr = serializeConfig(config);
+        config = Configuration(c);
+        String confStr = serializeConfig(c);
         return writeFileLFS(kPathToConfig, confStr.c_str());
     }
 
@@ -303,10 +367,10 @@ namespace configman
         else
         {
             res.second.UseMQTT = doc["UseMQTT"];
-            res.second.MQTTPort = doc["MQTTPort"];;
-            res.second.MQTTTopic = doc["MQTTTopic"].as<String>();;
+            res.second.MQTTPort = doc["MQTTPort"];
+            res.second.MQTTTopic = doc["MQTTTopic"].as<String>();
         }
-        
+
         JsonVariant sunriseSettings = doc["SunriseSettings"];
         if (!sunriseSettings.isNull())
         {
