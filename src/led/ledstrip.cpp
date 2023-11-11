@@ -18,12 +18,15 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
     Serial.printf("LedStrip with pin %d (%d)\n", pin, nrOfPixels);
 }
 
-void LedStrip::beginPixels()
+void LedStrip::beginPixels(bool doFancyStartup)
 {
     Serial.printf("beginPixels (%d)\n", m_NrOfPixels);
     m_Pixels.begin();
     m_Pixels.updateLength(m_NrOfPixels);
-    fancy();
+    if (doFancyStartup)
+    {
+        fancy();
+    }
 }
 
 void LedStrip::applyModeAndColor()
@@ -80,7 +83,7 @@ void LedStrip::updateLEDs(bool allAtOnce /* false */)
         }
         else
         {
-             m_Pixels.setPixelColor(i,
+            m_Pixels.setPixelColor(i,
                                    m_Pixels.Color(
                                        m_CurrentColor.at(0) * m_Factor,
                                        m_CurrentColor.at(1) * m_Factor,
@@ -104,13 +107,13 @@ void LedStrip::updateLEDs(bool allAtOnce /* false */)
         }
         else
         {
-            //Serial.printf("show: %d", int(m_CurrentColor.size()));
+            // Serial.printf("show: %d", int(m_CurrentColor.size()));
             m_OldCurrentColor.at(0) = m_CurrentColor.at(0);
             m_OldCurrentColor.at(1) = m_CurrentColor.at(1);
             m_OldCurrentColor.at(2) = m_CurrentColor.at(2);
 
             m_Pixels.show();
-            //Serial.printf("boom: %d\n", int(m_LEDMode));
+            // Serial.printf("boom: %d\n", int(m_LEDMode));
         }
     }
 }
@@ -199,8 +202,8 @@ void LedStrip::sunriseMode()
     m_CurrentColor[1] = 10 + timeFactor * 35;
     m_CurrentColor[2] = blue;
     m_Factor = timeFactor;
-    //Serial.printf("Sunrise: %f (%f/%f) (%d %d %d)\n", m_Factor, timeDiff,
-    //              m_SunriseDuration, m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]);
+    // Serial.printf("Sunrise: %f (%f/%f) (%d %d %d)\n", m_Factor, timeDiff,
+    //               m_SunriseDuration, m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]);
 
     updateLEDs(true);
 }
