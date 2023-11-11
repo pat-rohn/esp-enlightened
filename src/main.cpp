@@ -126,12 +126,10 @@ void startLedControl()
     return;
   }
   Serial.println("startLedControl");
-  ledStrip->beginPixels();
+  ledStrip->beginPixels(!configman::getConfig().AlarmSettings.IsActivated);
   if (configman::getConfig().AlarmSettings.IsActivated)
   {
     Serial.println("Is Alarm Clock");
-    ledStrip->m_LEDMode = LedStrip::LEDModes::off;
-    ledStrip->applyModeAndColor();
   }
   led_inputs::start(ledStrip, configman::getConfig().Button1, configman::getConfig().Button2);
 }
@@ -285,7 +283,7 @@ void setup()
   }
   else
   {
-    auto config = configman::readConfig();
+    configman::readConfig();
   }
 
   if (!configman::getConfig().IsOfflineMode)
@@ -352,6 +350,11 @@ void setup()
   }
 
   digitalWrite(LED_BUILTIN, kLEDOFF);
+  if (configman::getConfig().NumberOfLEDs > 0)
+  {
+    ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+    ledStrip->applyModeAndColor();
+  }
   Serial.println("Succesfully set up");
 }
 

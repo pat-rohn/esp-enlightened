@@ -92,7 +92,7 @@ private:
 
 public:
     LedStrip(uint8_t pin, int nrOfPixels);
-    void beginPixels();
+    void beginPixels(bool doFancyStartup);
     void applyModeAndColor();
     void applyColorSmoothly();
     void fancy();
