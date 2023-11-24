@@ -39,7 +39,8 @@ namespace configman
                                                            AlarmSettings(SunriseSettings(c->AlarmSettings))
     {
     }
-    Configuration::Configuration() : WiFiPassword("WifiPW"),
+    Configuration::Configuration() : IsConfigured(false),
+                                     WiFiPassword("WifiPW"),
                                      FindSensors(true),
                                      IsOfflineMode(false),
                                      SensorID("Test1"),

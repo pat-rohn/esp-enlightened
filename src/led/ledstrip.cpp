@@ -36,7 +36,7 @@ void LedStrip::applyModeAndColor()
     {
     case LEDModes::on:
     {
-        applyColorSmoothly();
+        applyColorImmediate();
         break;
     }
     case LEDModes::off:
