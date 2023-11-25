@@ -73,7 +73,7 @@ void LedStrip::applyModeAndColor()
     }
 }
 
-void LedStrip::updateLEDs(bool allAtOnce /* false */)
+void LedStrip::updateLEDs(bool allAtOnce, bool ignoreOnNothingChanged /*false*/)
 {
     for (int i = 0; i < m_NrOfPixels; i++)
     {
@@ -101,6 +101,10 @@ void LedStrip::updateLEDs(bool allAtOnce /* false */)
             m_OldCurrentColor.at(1) == int(double(m_CurrentColor.at(1)) * m_Factor) &&
             m_OldCurrentColor.at(2) == int(double(m_CurrentColor.at(2)) * m_Factor))
         {
+            if (!ignoreOnNothingChanged)
+            {
+                m_Pixels.show();
+            }
             // skip sending when nothing changed
             // Serial.printf("skip show (%d,%d,%d)", m_OldCurrentColor.at(0), m_OldCurrentColor.at(1), m_OldCurrentColor.at(2));
             // Serial.printf("-> (%d,%d,%d)", m_CurrentColor[0]*m_Factor, m_CurrentColor[1]*m_Factor, m_CurrentColor[2]*m_Factor);
@@ -113,7 +117,6 @@ void LedStrip::updateLEDs(bool allAtOnce /* false */)
             m_OldCurrentColor.at(2) = m_CurrentColor.at(2);
 
             m_Pixels.show();
-            // Serial.printf("boom: %d\n", int(m_LEDMode));
         }
     }
 }
@@ -126,7 +129,7 @@ void LedStrip::applyColorSmoothly()
     for (double f = 0; f < currentFactor; f = f + 0.02)
     {
         m_Factor = f;
-        updateLEDs(true);
+        updateLEDs(true, true);
         delay(50);
     }
 
@@ -142,13 +145,13 @@ void LedStrip::fancy()
     for (double f = currentFactor; f > 0.1; f = f - 0.01)
     {
         m_Factor = f;
-        updateLEDs(true);
+        updateLEDs(true, true);
         delay(20);
     }
     for (double f = 0; f < currentFactor; f = f + 0.01)
     {
         m_Factor = f;
-        updateLEDs(true);
+        updateLEDs(true, true);
         delay(20);
     }
 
@@ -180,7 +183,7 @@ void LedStrip::pulseMode()
             }
         }
 
-        updateLEDs(true);
+        updateLEDs(true, true);
     }
 }
 
@@ -205,16 +208,16 @@ void LedStrip::sunriseMode()
     // Serial.printf("Sunrise: %f (%f/%f) (%d %d %d)\n", m_Factor, timeDiff,
     //               m_SunriseDuration, m_CurrentColor[0], m_CurrentColor[1], m_CurrentColor[2]);
 
-    updateLEDs(true);
+    updateLEDs(true, true);
 }
 
 void LedStrip::showError()
 {
     m_LedColor = LEDColor::red;
-    updateLEDs();
+    updateLEDs(false);
     delay(5000);
     m_LedColor = LEDColor::white;
-    updateLEDs();
+    updateLEDs(false);
 }
 
 int LedStrip::runModeAction()
