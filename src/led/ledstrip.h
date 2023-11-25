@@ -109,7 +109,7 @@ public:
     void setTemperatureColor(double temperature);
 
 private:
-    void updateLEDs(bool doImmediate = false);
+    void updateLEDs(bool doImmediate, bool ignoreOnNothingChanged = false);
     void colorfulMode();
     void campfireMode();
     void pulseMode();
