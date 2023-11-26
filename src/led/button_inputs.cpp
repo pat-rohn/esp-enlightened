@@ -3,9 +3,13 @@
 namespace button_inputs
 {
     LedStrip *leds;
-    void start(LedStrip *ledstr, int pin1, int pin2)
+    sunrise::CSunriseAlarm *sunriseAlarm;
+    unsigned long buttonTime1 = millis();
+
+    void start(LedStrip *ledstr, sunrise::CSunriseAlarm *sunrise, int pin1, int pin2)
     {
         leds = ledstr;
+        sunriseAlarm = sunrise;
 
         Serial.printf("Button 1: %d  -  Button 2: %d \n", pin1, pin2);
         if (pin1 > 0)
@@ -21,6 +25,19 @@ namespace button_inputs
     IRAM_ATTR void detectsChangeButton1()
     {
         Serial.println("Button 1 pressed");
+        if (millis() < buttonTime1 + 200)
+        {
+            Serial.println("Prevent double press.");
+            return;
+        }
+        buttonTime1 = millis();
+
+        if (sunriseAlarm != nullptr && sunriseAlarm->run())
+        {
+            Serial.println("interrupt sunrise");
+            sunriseAlarm->interruptAlarm();
+            return;
+        }
         LedStrip::LEDModes mode = leds->m_LEDMode;
         if (mode == LedStrip::LEDModes::off)
         {
@@ -33,7 +50,7 @@ namespace button_inputs
         }
         else
         {
-            if (leds->m_Factor >= 1.85)
+            if (leds->m_Factor >= 1.95)
             {
                 Serial.println("Turn off");
                 leds->m_LEDMode = LedStrip::LEDModes::off;
@@ -41,7 +58,7 @@ namespace button_inputs
             }
             else
             {
-                leds->m_Factor += 0.5;
+                leds->m_Factor += 0.8;
                 Serial.printf("Brighter :%f\n", leds->m_Factor);
                 leds->applyColorImmediate();
             }

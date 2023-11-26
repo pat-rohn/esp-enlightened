@@ -50,12 +50,17 @@ bool CSunriseAlarm::run()
     }
     if (m_IsAlarmActive)
     {
-        Serial.printf("Alarm active for %f s\n", double(millis() -  m_LedStrip->m_SunriseStartTime)/1000.0);
+        Serial.printf("Alarm active for %f s\n", double(millis() - m_LedStrip->m_SunriseStartTime) / 1000.0);
         m_LedStrip->runModeAction();
         return true;
     }
 
     return false;
+}
+
+void CSunriseAlarm::interruptAlarm()
+{
+    m_AlarmEndTime = millis();
 }
 
 void CSunriseAlarm::startSunrise()

@@ -131,7 +131,6 @@ void startLedControl()
   {
     Serial.println("Is Alarm Clock");
   }
-  button_inputs::start(ledStrip, configman::getConfig().Button1, configman::getConfig().Button2);
 }
 
 void configureDevice()
@@ -162,7 +161,7 @@ void configureDevice()
     sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
     sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
   }
-
+  button_inputs::start(ledStrip, sunriseAlarm, configman::getConfig().Button1, configman::getConfig().Button2);
   webPage = new webpage::CWebPage();
   webPage->setLEDService(ledService);
   webPage->setTimeHelper(timeHelper);
