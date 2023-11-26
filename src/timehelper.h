@@ -1,4 +1,6 @@
-#pragma once
+#ifndef TIMEHELPER_H
+#define TIMEHELPER_H
+
 #include <Arduino.h>
 
 #include <NTPClient.h>
@@ -22,3 +24,5 @@ public:
 private:
     NTPClient m_TimeClient;
 };
+
+#endif

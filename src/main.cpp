@@ -25,7 +25,7 @@ uint8_t kLEDOFF = 0x1;
 
 #include "sensors/sensors.h"
 #include "led/leds_service.h"
-#include "led/led_inputs.h"
+#include "led/button_inputs.h"
 #include "webpage.h"
 #include "led/sunrise_alarm.h"
 
