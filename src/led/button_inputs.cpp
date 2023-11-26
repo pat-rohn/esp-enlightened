@@ -1,6 +1,6 @@
-#include "led_inputs.h"
+#include "button_inputs.h"
 
-namespace led_inputs
+namespace button_inputs
 {
     LedStrip *leds;
     void start(LedStrip *ledstr, int pin1, int pin2)
@@ -14,7 +14,7 @@ namespace led_inputs
         }
         if (pin2 > 0)
         {
-            attachInterrupt(digitalPinToInterrupt(pin2), detectsChangeButton1, FALLING);
+            attachInterrupt(digitalPinToInterrupt(pin2), detectsChangeButton2, FALLING);
         }
     }
 
@@ -26,7 +26,7 @@ namespace led_inputs
         {
             Serial.println("Turn on (default)");
             leds->m_LEDMode = LedStrip::LEDModes::on;
-            leds->m_Factor=0.35;
+            leds->m_Factor = 0.35;
             leds->setColor(100, 75, 35);
 
             leds->applyModeAndColor();
