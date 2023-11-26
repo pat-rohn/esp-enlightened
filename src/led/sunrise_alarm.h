@@ -17,6 +17,7 @@ namespace sunrise
 
         void applySettings(const configman::SunriseSettings &settings);
         bool run();
+        void interruptAlarm();
 
     private:
         void startSunrise();
