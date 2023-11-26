@@ -131,7 +131,7 @@ void startLedControl()
   {
     Serial.println("Is Alarm Clock");
   }
-  led_inputs::start(ledStrip, configman::getConfig().Button1, configman::getConfig().Button2);
+  button_inputs::start(ledStrip, configman::getConfig().Button1, configman::getConfig().Button2);
 }
 
 void configureDevice()
