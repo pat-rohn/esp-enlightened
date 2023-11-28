@@ -38,7 +38,6 @@ namespace sensor
     void findAndInitMHZ19();
     std::map<String, SensorData> getValues();
     std::array<SensorData, 3> getBME280();
-    std::array<SensorData, 3> getCjmcu();
     std::array<SensorData, 3> getDHT22();
     std::array<SensorData, 3> getEnv();
     std::array<SensorData, 3> getMHZ19();

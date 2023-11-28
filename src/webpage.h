@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "timehelper.h"
 #include "led/leds_service.h"
+#include <ESPAsyncWebServer.h>
 
 #ifdef ESP32
 #include <WiFi.h>
@@ -15,7 +16,6 @@
 #include <ESPAsyncTCP.h>
 #endif
 
-#include <ESPAsyncWebServer.h>
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>

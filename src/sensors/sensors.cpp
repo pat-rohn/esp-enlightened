@@ -6,11 +6,10 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <Adafruit_BME280.h>
-#include "Adafruit_CCS811.h"
+#include <Adafruit_BMP280.h>
 #include <set>
 //#include "Adafruit_SGP30.h"
 //#include <WEMOS_SHT3X.h>
-#include <Adafruit_BMP280.h>
 #include <MHZ19.h>
 #include <SparkFun_SCD30_Arduino_Library.h>
 #include "config.h"
@@ -39,7 +38,6 @@ namespace sensor
 
     Adafruit_BME280 bme; // I2C
 
-    Adafruit_CCS811 ccs;
     TwoWire MyWire = Wire;
     SCD30 airSensor;
 
@@ -182,16 +180,6 @@ namespace sensor
                 }
             }
         }
-        if (m_SensorTypes.find(SensorType::cjmcu) != m_SensorTypes.end())
-        {
-            for (const auto &val : getCjmcu())
-            {
-                if (val.isValid)
-                {
-                    res[val.name] = val;
-                }
-            }
-        }
         if (m_SensorTypes.find(SensorType::bme280) != m_SensorTypes.end())
         {
             for (const auto &val : getBME280())
@@ -326,53 +314,6 @@ namespace sensor
         sensorData[2].unit = "%";
         sensorData[2].name = "Humidity";
 
-        return sensorData;
-    }
-
-    std::array<SensorData, 3> getCjmcu()
-    {
-        std::array<SensorData, 3> sensorData;
-        sensorData.fill(SensorData());
-
-        if (ccs.available())
-        {
-            while (!ccs.available())
-            {
-                delay(100);
-            }
-            auto res = ccs.readData();
-            for (int i = 0; i < 5; i++)
-            {
-                if (res == 0)
-                {
-                    break;
-                }
-                res = ccs.readData();
-                delay(300);
-            }
-            if (!res)
-            {
-                sensorData[0].isValid = true;
-                sensorData[0].value = ccs.geteCO2();
-                sensorData[0].unit = "ppm";
-                sensorData[0].name = "CO2";
-
-                sensorData[1].isValid = true;
-                sensorData[1].value = ccs.getTVOC();
-                sensorData[1].unit = "ppb";
-                sensorData[1].name = "TVOC";
-
-                Serial.print("CO2: ");
-                Serial.println(sensorData[0].value);
-                Serial.print("TVOC: ");
-                Serial.println(sensorData[1].value);
-            }
-            else
-            {
-                Serial.println("cjmcu ERROR");
-                return sensorData;
-            }
-        }
         return sensorData;
     }
 
@@ -619,31 +560,6 @@ namespace sensor
                 m_ValueNames.emplace_back("Temperature");
                 m_ValueNames.emplace_back("Humidity");
             }
-        }
-        else if (address == 0x5A)
-        {
-            Serial.println("Init Sensor cjmcu");
-            if (!ccs.begin())
-            {
-                Serial.println("Failed to start sensor! Please check your wiring.");
-                return;
-            }
-
-            Serial.println("cjmcu: wait till available");
-            // calibrate temperature sensor
-            while (!ccs.available())
-            {
-                delay(10);
-            }
-            Serial.println("cjmcu: Calc temperature");
-            float cTemp = ccs.calculateTemperature();
-            ccs.setTempOffset(cTemp - 25.0);
-            getCjmcu();
-            Serial.println("cjmcu: Add to sensors");
-            m_SensorTypes.insert(SensorType::cjmcu);
-            m_ValueNames.emplace_back("CO2");
-            m_ValueNames.emplace_back("TVOC");
-            m_Description = m_Description + "CJMCU;";
         }
         else if (address == 0x44)
         {
