@@ -10,6 +10,7 @@ This project is using Platform IO. To build project, first run commands describe
 ## Configure Device
 - Access point will be created and device will have IP 192.168.4.1
 - Connect to http://192.168.4.1 and change configuration to your needs (JSON)
+- To stay connected (on Android) configure static IP (e.g. 192.168.4.5/16) and use DNS1 0.0.0.0
 - Device will reboot
 
 ## Example Wemos with DHT22
@@ -19,3 +20,4 @@ This project is using Platform IO. To build project, first run commands describe
 - https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
 - https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
 - https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts
+- https://github.com/WeActStudio/WeActStudio.ESP32C3CoreBoard/blob/master/Hardware/WeAct-ESP32C3CoreBoard_V10_SchDoc.pdf

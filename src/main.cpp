@@ -272,7 +272,7 @@ void setup()
     auto config = configman::readConfig();
     config.WiFiName = String("Enlightened");
     config.WiFiPassword = String("enlighten-me");
-    config.IsOfflineMode = false; // if false it creates access-point
+    config.IsOfflineMode = true; // if false it creates access-point
     config.IsConfigured = false;
     config.ShowWebpage = true;
     configman::saveConfig(&config);
@@ -341,10 +341,8 @@ void setup()
 
     lastUpdate = millis() - deviceConfig.Interval;
   }
-  if (configman::getConfig().ShowWebpage || !configman::getConfig().IsConfigured)
-  {
-    webPage->beginServer();
-  }
+
+  webPage->beginServer();
 
   digitalWrite(LED_BUILTIN, kLEDOFF);
   if (configman::getConfig().NumberOfLEDs > 0)
@@ -368,15 +366,27 @@ void loop()
   nextLoopTime = millis() + loopTime;
   if (!configman::getConfig().IsConfigured)
   {
-    if (configman::getConfig().IsConfigured)
+    nextLoopTime = millis() + 15000;
+    Serial.println("Device not configured yet...");
+    if (isAccessPoint)
     {
-      configureDevice();
+      Serial.print("Connect to access point and configure device:\nWiFiName: ");
+      Serial.print(configman::getConfig().WiFiName);
+      Serial.print("\nWiFiPassword: ");
+      Serial.println(configman::getConfig().WiFiPassword);
+
+    Serial.print("\nSubnet: 16");
+    //Serial.println(WiFi.subnetCIDR());
+    Serial.print("\ngatewayIP: ");
+    Serial.println(WiFi.gatewayIP().toString());
+    Serial.print("\nTo stay connected configure static IP (e.g. 192.168.4.5) and use DNS1 0.0.0.0 ");
+    Serial.println(WiFi.gatewayIP().toString());
     }
-    nextLoopTime = millis() + 30000;
-    Serial.print("Connected to device and changed configuration: ");
+    Serial.print("\nIP Address: ");
     Serial.println(WiFi.localIP());
     auto config = configman::getConfig();
     Serial.println(configman::serializeConfig(&config));
+    Serial.println("--------------------------------");
     return;
   }
   if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
