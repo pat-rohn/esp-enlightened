@@ -40,7 +40,9 @@ namespace configman
     {
     }
     Configuration::Configuration() : IsConfigured(false),
-                                     WiFiPassword("WifiPW"),
+                                     ServerAddress(""),
+                                     WiFiName("Enlighted"),
+                                     WiFiPassword("enlighten-me"),
                                      FindSensors(true),
                                      IsOfflineMode(false),
                                      SensorID("Test1"),

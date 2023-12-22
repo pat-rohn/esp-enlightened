@@ -47,9 +47,6 @@ IPAddress gateway(192, 168, 4, 1);
 
 bool isAccessPoint = false;
 
-const char *ssidAP = "AI-Caramba";
-const char *passwordAP = "ki-caramba";
-
 timeseries::Device deviceConfig = timeseries::Device("", 10.0, 3);
 std::map<String, float> sensorOffsets;
 
@@ -112,7 +109,7 @@ void createAccesPoint()
   {
     Serial.print("mode failed.");
   }
-  if (!WiFi.softAP(ssidAP, passwordAP))
+  if (!WiFi.softAP(configman::getConfig().WiFiName, configman::getConfig().WiFiPassword))
   {
     Serial.print("softAP failed.");
     setup();
@@ -271,10 +268,11 @@ void setup()
   }
   else if (false)
   {
-    Serial.println("overwrite showing webpage");
+    Serial.println("reset WiFi");
     auto config = configman::readConfig();
-    config.WiFiName = String("***");
-    config.WiFiPassword = String("***");
+    config.WiFiName = String("Enlightened");
+    config.WiFiPassword = String("enlighten-me");
+    config.IsOfflineMode = false; // if false it creates access-point
     config.IsConfigured = false;
     config.ShowWebpage = true;
     configman::saveConfig(&config);
