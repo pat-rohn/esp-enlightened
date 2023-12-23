@@ -31,7 +31,7 @@ void LedStrip::beginPixels(bool doFancyStartup)
 
 void LedStrip::applyModeAndColor()
 {
-    Serial.printf("Apply mode: %d\n", int(m_LEDMode));
+    Serial.printf("Apply mode: %d (%f)\n", int(m_LEDMode), m_Factor);
     switch (m_LEDMode)
     {
     case LEDModes::on:

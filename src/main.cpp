@@ -7,16 +7,19 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
+uint8_t kLEDON = 0x0;
+uint8_t kLEDOFF = 0x1;
+
 #endif /* ESP8266 */
 
 #ifdef ESP32
 #include "WiFi.h"
 #include <HTTPClient.h>
 
-#endif /* ESP32 */
+uint8_t kLEDON = 0x1;
+uint8_t kLEDOFF = 0x0;
 
-uint8_t kLEDON = 0x0;
-uint8_t kLEDOFF = 0x1;
+#endif /* ESP32 */
 
 #include "timeseries/ts_http.h"
 #include "timeseries/ts_mqtt.h"
@@ -158,7 +161,9 @@ void configureDevice()
     sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
     sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
   }
-  button_inputs::start(ledStrip, sunriseAlarm, configman::getConfig().Button1, configman::getConfig().Button2);
+  button_inputs::button1.pin = configman::getConfig().Button1;
+  button_inputs::button2.pin = configman::getConfig().Button2;
+  button_inputs::start();
   webPage = new webpage::CWebPage();
   webPage->setLEDService(ledService);
   webPage->setTimeHelper(timeHelper);
@@ -353,16 +358,78 @@ void setup()
   Serial.println("Succesfully set up");
 }
 
+void handleButton1()
+{
+  Serial.println("Button 1 pressed");
+  if (sunriseAlarm != nullptr && sunriseAlarm->run())
+  {
+    Serial.println("interrupt sunrise");
+    sunriseAlarm->interruptAlarm();
+    return;
+  }
+  LedStrip::LEDModes mode = ledStrip->m_LEDMode;
+  if (mode == LedStrip::LEDModes::off)
+  {
+    Serial.println("Turn on (default)");
+    ledStrip->m_LEDMode = LedStrip::LEDModes::on;
+    ledStrip->m_Factor = 0.35;
+    ledStrip->setColor(100, 75, 35);
+
+    ledStrip->applyModeAndColor();
+  }
+  else
+  {
+    if (ledStrip->m_Factor >= 1.95)
+    {
+      Serial.println("Turn off");
+      ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+      ledStrip->applyModeAndColor();
+    }
+    else
+    {
+      ledStrip->m_Factor += 0.8;
+      Serial.printf("Brighter :%f\n", ledStrip->m_Factor);
+      ledStrip->applyColorImmediate();
+    }
+  }
+}
+void handleButton2()
+{
+  Serial.println("Button 2 pressed");
+}
+
+void handleButtons()
+{
+  if (button_inputs::button1.pressed)
+  {
+    handleButton1();
+    button_inputs::button1.pressed = false;
+  }
+  if (button_inputs::button2.pressed)
+  {
+    handleButton2();
+    button_inputs::button2.pressed = false;
+  }
+}
+
 unsigned long nextLoopTime = millis();
 
 unsigned long loopTime = 500;
 
 void loop()
 {
+#ifdef ESP32
+  // if button is pressed, the watchdog seems not to be triggered in the empty loop anymore.
+  // maybe the related to this? https://github.com/espressif/arduino-esp32/issues/2493
+  vTaskDelay(pdMS_TO_TICKS(1));
+#endif
+  handleButtons();
+
   if (millis() < nextLoopTime)
   {
     return;
   }
+
   nextLoopTime = millis() + loopTime;
   if (!configman::getConfig().IsConfigured)
   {
@@ -375,12 +442,12 @@ void loop()
       Serial.print("\nWiFiPassword: ");
       Serial.println(configman::getConfig().WiFiPassword);
 
-    Serial.print("\nSubnet: 16");
-    //Serial.println(WiFi.subnetCIDR());
-    Serial.print("\ngatewayIP: ");
-    Serial.println(WiFi.gatewayIP().toString());
-    Serial.print("\nTo stay connected configure static IP (e.g. 192.168.4.5) and use DNS1 0.0.0.0 ");
-    Serial.println(WiFi.gatewayIP().toString());
+      Serial.print("\nSubnet: 16");
+      // Serial.println(WiFi.subnetCIDR());
+      Serial.print("\ngatewayIP: ");
+      Serial.println(WiFi.gatewayIP().toString());
+      Serial.print("\nTo stay connected configure static IP (e.g. 192.168.4.5) and use DNS1 0.0.0.0 ");
+      Serial.println(WiFi.gatewayIP().toString());
     }
     Serial.print("\nIP Address: ");
     Serial.println(WiFi.localIP());
