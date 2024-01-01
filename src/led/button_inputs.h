@@ -40,12 +40,12 @@ namespace button_inputs
         Serial.printf("Button 1: %d  -  Button 2: %d \n", button1.pin, button2.pin);
         if (button1.pin > 0)
         {
-            pinMode(button1.pin, INPUT_PULLDOWN);
+            pinMode(button1.pin, INPUT);
             attachInterrupt(digitalPinToInterrupt(button1.pin), button1Pressed, FALLING);
         }
         if (button2.pin > 0)
         {
-            pinMode(button2.pin, INPUT_PULLDOWN);
+            pinMode(button2.pin, INPUT);
             attachInterrupt(digitalPinToInterrupt(button2.pin), button2Pressed, FALLING);
         }
     }
