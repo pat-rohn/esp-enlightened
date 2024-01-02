@@ -25,7 +25,8 @@ bool CTimeHelper::initTime()
     unsigned long endTime = millis() + 5000;
     Serial.println("Synchronization...");
     m_TimeClient.begin();
-    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 0);
+    // https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
     tzset();
     while (millis() < endTime)
     {
