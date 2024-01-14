@@ -2,6 +2,7 @@
 #include <array>
 #include <map>
 #include "events.h"
+#include "ArduinoMqttClient.h"
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -31,6 +32,7 @@ uint8_t kLEDOFF = 0x0;
 #include "led/button_inputs.h"
 #include "webpage.h"
 #include "led/sunrise_alarm.h"
+#include "mqtt_events.h"
 
 CTimeHelper *timeHelper = new CTimeHelper();
 
@@ -39,6 +41,9 @@ LedStrip *ledStrip;
 CLEDService *ledService;
 webpage::CWebPage *webPage;
 sunrise::CSunriseAlarm *sunriseAlarm;
+
+WiFiClient wifiClient;
+MqttClient *mqttClient;
 
 bool hasSensors = false;
 
@@ -133,20 +138,55 @@ void startLedControl()
   }
 }
 
+void connectToMqtt()
+{
+  if (mqttClient == nullptr)
+  {
+    Serial.println("no mqtt client!.");
+    return;
+  }
+  if (configman::getConfig().UseMQTT && !mqttClient->connected())
+  {
+    if (!WiFi.isConnected())
+    {
+      Serial.println("MQTT: No WiFi");
+      return;
+    }
+    if (!mqttClient->connected())
+    {
+      String broker = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
+
+      Serial.printf("MQTT: Try connecting to %s:%d\n", broker.c_str(), configman::getConfig().MQTTPort);
+      if (!mqttClient->connect(broker.c_str(), configman::getConfig().MQTTPort))
+      {
+        Serial.print("MQTT connection failed! Error code = ");
+        Serial.println(mqttClient->connectError());
+      }
+      else
+      {
+        Serial.printf("MQTT: Connected to %s:%d", broker.c_str(), configman::getConfig().MQTTPort);
+      }
+    }
+  }
+}
+
 void configureDevice()
 {
-  Serial.println("configureDevice.");
+  Serial.println("configureDevice");
   delete timeSeries;
   delete ledStrip;
   delete ledService;
   delete sunriseAlarm;
+  delete mqttClient;
   if (configman::getConfig().UseMQTT)
   {
-    ts_mqtt::MQTTProperties properties;
-    properties.Host = configman::getConfig().ServerAddress;
-    properties.Port = configman::getConfig().MQTTPort;
-    properties.Topic = configman::getConfig().MQTTTopic;
-    timeSeries = new ts_mqtt::CTimeseriesMQTT(properties, timeHelper);
+    String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
+
+    mqttClient = new MqttClient(wifiClient);
+    connectToMqtt();
+    mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
+
+    timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, server, timeHelper, mqttClient);
   }
   else
   {
@@ -277,7 +317,7 @@ void setup()
     auto config = configman::readConfig();
     config.WiFiName = String("Enlightened");
     config.WiFiPassword = String("enlighten-me");
-    config.IsOfflineMode = true; // if false it creates access-point
+    config.IsOfflineMode = false; // if true it creates access-point
     config.IsConfigured = false;
     config.ShowWebpage = true;
     configman::saveConfig(&config);
@@ -396,6 +436,7 @@ void handleButton1()
 void handleButton2()
 {
   Serial.println("Button 2 pressed");
+  CallEvent();
 }
 
 void handleButtons()
@@ -412,6 +453,30 @@ void handleButtons()
   }
 }
 
+void handleMQTT(){
+if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
+  {
+    if (ledStrip->m_LEDMode == LedStrip::LEDModes::on)
+    {
+      Serial.println("Turn on (default)");
+      ledStrip->m_LEDMode = LedStrip::LEDModes::on;
+      ledStrip->m_Factor = 0.35;
+      ledStrip->setColor(100, 75, 35);
+
+      ledStrip->applyModeAndColor();
+    }
+    else
+    {
+      if (ledStrip->m_Factor >= 1.95)
+      {
+        Serial.println("Turn off");
+        ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+        ledStrip->applyModeAndColor();
+      }
+    }
+  }
+}
+
 unsigned long nextLoopTime = millis();
 
 unsigned long loopTime = 500;
@@ -424,6 +489,7 @@ void loop()
   vTaskDelay(pdMS_TO_TICKS(1));
 #endif
   handleButtons();
+  handleMQTT();
 
   if (millis() < nextLoopTime)
   {
@@ -465,6 +531,10 @@ void loop()
         Serial.println("No WiFi Connection");
         return;
       }
+      if (configman::getConfig().UseMQTT)
+      {
+        connectToMqtt();
+      }
     }
     if (!timeHelper->isTimeSet())
     {
@@ -475,6 +545,7 @@ void loop()
       }
     }
   }
+
   if (hasSensors)
   {
     measureAndSendSensorData();
