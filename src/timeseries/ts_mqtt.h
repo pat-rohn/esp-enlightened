@@ -22,17 +22,12 @@ using namespace timeseries;
 
 namespace ts_mqtt
 {
-    struct MQTTProperties{
-        String Host;
-        String Topic;
-        String Port;
-    };
-
     class CTimeseriesMQTT : public CTimeseries
     {
 
     public:
-        CTimeseriesMQTT(MQTTProperties &properties, CTimeHelper *timehelper);
+        CTimeseriesMQTT(const String &topic, const String &server,
+                        CTimeHelper *timehelper, MqttClient *client);
         virtual ~CTimeseriesMQTT(){};
 
         void newValue(const String &name, const double &value);

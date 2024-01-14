@@ -95,7 +95,6 @@ namespace timeseries
         virtual bool sendData() { return true; };
 
     protected:
-        String splitAddress(String serverAddressWithPort, int index);
         String convertValue(double value);
 
     protected:
@@ -103,6 +102,8 @@ namespace timeseries
         std::map<String, CTimeseriesData> m_Data;
         CTimeHelper *m_TimeHelper;
     };
+
+    const String splitAddress(const String & serverAddressWithPort, int index);
 }
 
 #endif

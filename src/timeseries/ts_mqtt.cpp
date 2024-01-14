@@ -9,17 +9,16 @@ using namespace timeseries;
 namespace ts_mqtt
 {
 
-    WiFiClient wifiClient;
     MqttClient *mqttClient;
 
     CTimeseriesMQTT::CTimeseriesMQTT(
-        MQTTProperties &properties,
-        CTimeHelper *timehelper) : CTimeseries(properties.Host, timehelper),
-                                   m_Topic(properties.Topic)
+        const String &topic,
+        const String &server,
+        CTimeHelper *timehelper,
+        MqttClient *client) : CTimeseries(server, timehelper),
+                              m_Topic(topic)
     {
-        m_Host = splitAddress(properties.Host, 0);
-        Serial.printf("MQTT address: %s\n", m_Host.c_str());
-        mqttClient = new MqttClient(wifiClient);
+        mqttClient = client;
     }
 
     void CTimeseriesMQTT::newValue(const String &name, const double &value)
@@ -28,11 +27,8 @@ namespace ts_mqtt
         String topic = m_Topic + name + "/data";
         if (!mqttClient->connected())
         {
-            if (!mqttClient->connect(m_Host.c_str(), 1883))
-            {
-                Serial.print("MQTT connection failed! Error code = ");
-                Serial.println(mqttClient->connectError());
-            }
+            Serial.println("MQTT: Not connected");
+            return;
         }
         String val = convertValue(value);
         mqttClient->beginMessage(topic);

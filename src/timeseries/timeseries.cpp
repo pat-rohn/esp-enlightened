@@ -104,7 +104,25 @@ namespace timeseries
         return device;
     }
 
-    String CTimeseries::splitAddress(String serverAddressWithPort, int index)
+    String CTimeseries::convertValue(double value)
+    {
+        String timeseriesValue = "";
+        if (value < 0.00001)
+        {
+            timeseriesValue += String(value, 8);
+        }
+        else if (value < 0.001)
+        {
+            timeseriesValue += String(value, 5);
+        }
+        else
+        {
+            timeseriesValue += String(value, 4);
+        }
+        return timeseriesValue;
+    }
+
+    const String splitAddress(const String & serverAddressWithPort, int index)
     {
         int found = 0;
         int strIndex[] = {0, -1};
@@ -125,21 +143,4 @@ namespace timeseries
         return found > index ? serverAddressWithPort.substring(strIndex[0], strIndex[1]) : "";
     }
 
-    String CTimeseries::convertValue(double value)
-    {
-        String timeseriesValue = "";
-        if (value < 0.00001)
-        {
-            timeseriesValue += String(value, 8);
-        }
-        else if (value < 0.001)
-        {
-            timeseriesValue += String(value, 5);
-        }
-        else
-        {
-            timeseriesValue += String(value, 4);
-        }
-        return timeseriesValue;
-    }
 }
