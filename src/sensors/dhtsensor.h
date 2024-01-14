@@ -14,13 +14,12 @@ public:
     DHTSensor(uint8_t sensorPin)
     {
         pinMode(sensorPin, INPUT);
-        Serial.print("Pin Nr:");
-        Serial.println(sensorPin);
+        Serial.printf("Pin Nr: %d\n", sensorPin);
         m_Dht = new DHT(sensorPin, DHTTYPE);
     }
     ~DHTSensor()
     {
-        m_Dht = nullptr;
+        delete m_Dht;
     }
 
 public:
@@ -38,14 +37,14 @@ public:
             Serial.println(t);
             if (!isnan(h) || !isnan(t))
             {
-                Serial.println("Has DHT Sensor");
+                Serial.println("DHT: Received DHT value");
                 return true;
             }
             delay(250);
         }
 
-        Serial.println("No DHT Sensor");
-        return false;
+        Serial.println("DHT: No response received");
+        return true;
     }
 
     std::pair<float, float> read()
