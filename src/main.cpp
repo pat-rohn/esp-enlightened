@@ -178,14 +178,14 @@ void configureDevice()
   delete ledService;
   delete sunriseAlarm;
   delete mqttClient;
+  mqttClient = new MqttClient(wifiClient);
+
+  String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
+  connectToMqtt();
+  mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
+
   if (configman::getConfig().UseMQTT)
   {
-    String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
-
-    mqttClient = new MqttClient(wifiClient);
-    connectToMqtt();
-    mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
-
     timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, server, timeHelper, mqttClient);
   }
   else
@@ -394,6 +394,8 @@ void setup()
   {
     ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     ledStrip->applyModeAndColor();
+
+    mqtt_events::sendStateTopic(ledStrip->getColor(), ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
   }
   Serial.println("Succesfully set up");
 }
@@ -432,7 +434,9 @@ void handleButton1()
       ledStrip->applyColorImmediate();
     }
   }
+  mqtt_events::sendStateTopic(ledStrip->getColor(), ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
 }
+
 void handleButton2()
 {
   Serial.println("Button 2 pressed");
@@ -453,27 +457,24 @@ void handleButtons()
   }
 }
 
-void handleMQTT(){
-if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
+void handleMQTT()
+{
+  if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
   {
-    if (ledStrip->m_LEDMode == LedStrip::LEDModes::on)
+    std::array<uint8_t, 3> c = mqtt_events::getRGB();
+    uint8_t maxColor = 190;
+    ledStrip->setColor(min(c[0],maxColor),min(c[1],maxColor), min(c[2],maxColor));
+    if (mqtt_events::getIsOn())
     {
-      Serial.println("Turn on (default)");
       ledStrip->m_LEDMode = LedStrip::LEDModes::on;
-      ledStrip->m_Factor = 0.35;
-      ledStrip->setColor(100, 75, 35);
-
-      ledStrip->applyModeAndColor();
     }
     else
     {
-      if (ledStrip->m_Factor >= 1.95)
-      {
-        Serial.println("Turn off");
-        ledStrip->m_LEDMode = LedStrip::LEDModes::off;
-        ledStrip->applyModeAndColor();
-      }
+      ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     }
+    ledStrip->m_Factor = mqtt_events::getBrightness()/100.0;
+    ledStrip->applyModeAndColor();
+    mqtt_events::sendStateTopic(c, ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
   }
 }
 
