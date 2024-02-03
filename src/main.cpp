@@ -393,7 +393,9 @@ void setup()
   if (configman::getConfig().NumberOfLEDs > 0)
   {
     ledStrip->m_LEDMode = LedStrip::LEDModes::off;
+    ledStrip->m_Factor = 0.5;
     ledStrip->applyModeAndColor();
+    ledStrip->setColor(128, 96, 45); // Adjust here depending on the LEDs
 
     mqtt_events::sendStateTopic(ledStrip->getColor(), ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
   }
@@ -414,14 +416,14 @@ void handleButton1()
   {
     Serial.println("Turn on (default)");
     ledStrip->m_LEDMode = LedStrip::LEDModes::on;
-    ledStrip->m_Factor = 0.35;
-    ledStrip->setColor(100, 75, 35);
+    ledStrip->m_Factor = 0.08;
+    ledStrip->setColor(128, 96, 45); // Adjust here depending on the LEDs
 
     ledStrip->applyModeAndColor();
   }
   else
   {
-    if (ledStrip->m_Factor >= 1.95)
+    if (ledStrip->m_Factor >= 1.0)
     {
       Serial.println("Turn off");
       ledStrip->m_LEDMode = LedStrip::LEDModes::off;
@@ -429,7 +431,7 @@ void handleButton1()
     }
     else
     {
-      ledStrip->m_Factor += 0.8;
+      ledStrip->m_Factor += 0.46;
       Serial.printf("Brighter :%f\n", ledStrip->m_Factor);
       ledStrip->applyColorImmediate();
     }
@@ -462,7 +464,7 @@ void handleMQTT()
   if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
   {
     std::array<uint8_t, 3> c = mqtt_events::getRGB();
-    uint8_t maxColor = 190;
+    uint8_t maxColor = 128; 
     ledStrip->setColor(min(c[0],maxColor),min(c[1],maxColor), min(c[2],maxColor));
     if (mqtt_events::getIsOn())
     {
