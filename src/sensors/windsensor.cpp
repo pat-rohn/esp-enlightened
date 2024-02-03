@@ -14,6 +14,7 @@ namespace windsensor
 
     unsigned long lastPeakTime = 0;
     unsigned long lastPeakClickCount = 0;
+    unsigned long lastClickTime = 0;
     double peakSpeed = 0;
 
     double getValue()
@@ -47,11 +48,17 @@ namespace windsensor
         Serial.print(" ");
         Serial.print(clickCounter);
         Serial.print("; ");
+        unsigned long now = millis();
+        if (now - lastClickTime < 50)
+        {
+            Serial.print(" . "); // skip
+        }
+        lastClickTime = now;
         clickCounter++;
         if (clickCounter % 3 == 0)
         {
             double diff = (clickCounter - lastPeakClickCount) * getFactor();
-            double diffTime = (millis() - lastPeakTime) / 1000.0;
+            double diffTime = (now - lastPeakTime) / 1000.0;
             double currentSpeed = diff / diffTime;
             if (peakSpeed < currentSpeed)
             {
@@ -60,7 +67,7 @@ namespace windsensor
                 peakSpeed = currentSpeed;
             }
             lastPeakClickCount = getClicks();
-            lastPeakTime = millis();
+            lastPeakTime = now;
         }
     }
 
