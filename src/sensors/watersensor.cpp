@@ -11,6 +11,7 @@ namespace watersensor
     int clickCounter = 0;
     int lastTime = millis();
     int lastClickCount = 0;
+    unsigned long lastClickTime = millis();
 
     double getValue()
     {
@@ -31,6 +32,12 @@ namespace watersensor
 
     IRAM_ATTR void detectsChange()
     {
+        unsigned long now = millis();
+        if (lastClickTime < now - 100)
+        { // unprell
+            return;
+        }
+        lastClickTime = now;
         Serial.print("Counter;Vol:  ");
         Serial.print(clickCounter);
         Serial.print("; ");
