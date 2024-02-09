@@ -150,7 +150,7 @@ namespace configman
             delay(1000);
             return readConfigAsString();
         }
-        DynamicJsonDocument doc(4096);
+        JsonDocument doc;
         DeserializationError err = deserializeJson(doc, configStr.c_str());
         if (err.code() != DeserializationError::Code::Ok)
         {
@@ -239,7 +239,7 @@ namespace configman
 
     String serializeConfig(const Configuration *config)
     {
-        DynamicJsonDocument doc(8000);
+        JsonDocument doc;
         doc["IsConfigured"] = config->IsConfigured;
         doc["ServerAddress"] = config->ServerAddress;
         doc["SensorID"] = config->SensorID;
@@ -267,9 +267,9 @@ namespace configman
         return String(buffer);
     }
 
-    DynamicJsonDocument serializeSunrise(const SunriseSettings *config)
+    JsonDocument serializeSunrise(const SunriseSettings *config)
     {
-        DynamicJsonDocument doc(450);
+        JsonDocument doc;
         for (int weekDayN = weekday_t::Monday; weekDayN <= weekday_t::Sunday; weekDayN++)
         {
             doc["IsActivated"] = config->IsActivated;
@@ -307,9 +307,9 @@ namespace configman
         return doc;
     }
 
-    DynamicJsonDocument serializeDaySettings(const AlarmWeekday *config)
+    JsonDocument serializeDaySettings(const AlarmWeekday *config)
     {
-        DynamicJsonDocument doc(60);
+        JsonDocument doc;
         doc["AlarmTime"] = std::to_string(config->AlarmTime.Hours) + ":" + std::to_string(config->AlarmTime.Minutes);
         doc["IsActive"] = config->IsActive;
 
@@ -319,7 +319,7 @@ namespace configman
     std::pair<bool, Configuration> deserializeConfig(const char *configStr)
     {
         std::pair<bool, Configuration> res = std::pair<bool, Configuration>(false, Configuration());
-        DynamicJsonDocument doc(4096);
+        JsonDocument doc;
         DeserializationError err = deserializeJson(doc, configStr);
         if (err.code() != DeserializationError::Code::Ok)
         {
@@ -396,7 +396,7 @@ namespace configman
         return res;
     }
 
-    SunriseSettings deserializeSunrise(const DynamicJsonDocument &doc)
+    SunriseSettings deserializeSunrise(const JsonDocument &doc)
     {
         SunriseSettings res = SunriseSettings();
 
@@ -470,7 +470,7 @@ namespace configman
         return res;
     }
 
-    AlarmWeekday deserializeDaySetting(const DynamicJsonDocument &doc)
+    AlarmWeekday deserializeDaySetting(const JsonDocument &doc)
     {
         AlarmWeekday daySetting = AlarmWeekday();
 

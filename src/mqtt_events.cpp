@@ -49,7 +49,7 @@ namespace mqtt_events
         brightness = factor*100;
         isOn = on;
 
-        StaticJsonDocument<512> doc;
+        JsonDocument doc;
         /*
         {
             "color_mode": "rgb",
@@ -65,7 +65,7 @@ namespace mqtt_events
         doc["color_mode"] = "rgb";
         doc["state"] = on ? "ON" : "OFF";
         doc["brightness"] = brightness;
-        StaticJsonDocument<200> docRGB;
+        JsonDocument docRGB;
         docRGB["r"] = c[0];
         docRGB["g"] = c[1];
         docRGB["b"] = c[2];
@@ -122,7 +122,7 @@ namespace mqtt_events
         if (topic.indexOf("/json/set") > 0)
         {
             Serial.println("JSON SET");
-            StaticJsonDocument<512> doc;
+            JsonDocument doc;
             deserializeJson(doc, payload);
             // example{"state":"ON","color":{"r":140,"g":249,"b":255}}
             String state = doc["state"];
@@ -131,7 +131,7 @@ namespace mqtt_events
                 brightness = doc["brightness"];
                 Serial.printf("brightness %d\n", brightness);
             }
-            StaticJsonDocument<200> rgb = doc["color"];
+            JsonObject rgb = doc["color"];
             if (!rgb.isNull())
             {
                 colors[0] = rgb["r"];

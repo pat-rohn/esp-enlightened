@@ -112,12 +112,12 @@ namespace configman
     bool writeFileLFS(const char *path, const char *message);
 
     std::pair<bool, Configuration> deserializeConfig(const char *configStr);
-    SunriseSettings deserializeSunrise(const DynamicJsonDocument &doc);
-    AlarmWeekday deserializeDaySetting(const DynamicJsonDocument &doc);
+    SunriseSettings deserializeSunrise(const JsonDocument &doc);
+    AlarmWeekday deserializeDaySetting(const JsonDocument &doc);
 
     String serializeConfig(const Configuration *config);
-    DynamicJsonDocument serializeSunrise(const SunriseSettings *config);
-    DynamicJsonDocument serializeDaySettings(const AlarmWeekday *config);
+    JsonDocument serializeSunrise(const SunriseSettings *config);
+    JsonDocument serializeDaySettings(const AlarmWeekday *config);
 
 }
 
