@@ -34,16 +34,13 @@ namespace ts_http
 
     bool CTimeseriesHttp::sendData()
     {
-        // https://arduinojson.org/v6/assistant/
-        // https://arduinojson.org/v6/how-to/determine-the-capacity-of-the-jsondocument/
-
-        DynamicJsonDocument doc(10000); // uses heap because it's too much data for stack
+        JsonDocument doc; 
         for (auto const &ts : m_Data)
         {
-            JsonObject tsEntry = doc.createNestedObject();
+            JsonObject tsEntry = doc["location"].to<JsonObject>();
             tsEntry["Tag"] = ts.first;
-            JsonArray tsValuesTS = tsEntry.createNestedArray("Timestamps");
-            JsonArray tsValuesV = tsEntry.createNestedArray("Values");
+            JsonArray tsValuesTS = tsEntry["Timestamps"].to<JsonArray>();
+            JsonArray tsValuesV = tsEntry["Values"].to<JsonArray>();
             for (auto val : ts.second.m_DataSeries)
             {
                 tsValuesTS.add(val.Timestamp);

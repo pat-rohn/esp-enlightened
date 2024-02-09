@@ -12,7 +12,7 @@ CLEDService::CLEDService(LedStrip *ledStrip) : m_LedStrip(ledStrip)
 String CLEDService::apply(String ledString)
 {
   Serial.println("POST Apply");
-  DynamicJsonDocument doc(4096);
+  JsonDocument doc;
   DeserializationError err = deserializeJson(doc, ledString);
   if (err.code() != DeserializationError::Code::Ok)
   {

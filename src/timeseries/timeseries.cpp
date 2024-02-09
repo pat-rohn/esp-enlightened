@@ -26,13 +26,13 @@ namespace timeseries
     Device CTimeseries::init(const DeviceDesc &deviceDesc)
     {
         Serial.printf("Init Device: %s\n", deviceDesc.Name.c_str());
-        StaticJsonDocument<300> doc;
+        JsonDocument doc;
 
-        JsonObject JSONDevice = doc.createNestedObject("Device");
+        JsonObject JSONDevice = doc["Device"].to<JsonObject>();
         JSONDevice["Name"] = deviceDesc.Name;
         JSONDevice["Description"] = deviceDesc.Description;
-
-        JsonArray Device_Sensors = JSONDevice.createNestedArray("Sensors");
+        
+        JsonArray Device_Sensors = JSONDevice["ports"];
         for (const String &s : deviceDesc.Sensors)
         {
             Device_Sensors.add(deviceDesc.Name + s);
@@ -72,7 +72,7 @@ namespace timeseries
     Device CTimeseries::deserializeDevice(const String &deviceJson)
     {
         Serial.print("deserialize device");
-        StaticJsonDocument<4000> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, deviceJson);
         if (error)
         {
