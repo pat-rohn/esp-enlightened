@@ -45,14 +45,13 @@ namespace windsensor
 
     IRAM_ATTR void detectsChange()
     {
-        Serial.print(" ");
-        Serial.print(clickCounter);
-        Serial.print("; ");
         unsigned long now = millis();
         if (now - lastClickTime < 50)
         {
-            Serial.print(" . "); // skip
+            //Serial.print(" . "); // skip
+            return;
         }
+
         lastClickTime = now;
         clickCounter++;
         if (clickCounter % 3 == 0)
