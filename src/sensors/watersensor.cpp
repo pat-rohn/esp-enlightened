@@ -33,8 +33,9 @@ namespace watersensor
     IRAM_ATTR void detectsChange()
     {
         unsigned long now = millis();
-        if (lastClickTime < now - 100)
-        { // unprell
+        if (now - lastClickTime < 50)
+        {
+            //Serial.print(" . "); // skip
             return;
         }
         lastClickTime = now;
