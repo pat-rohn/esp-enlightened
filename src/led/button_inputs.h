@@ -4,6 +4,7 @@
 
 namespace button_inputs
 {
+    const unsigned long debounceTime = 200;
     struct Button
     {
         int pin;
@@ -17,7 +18,7 @@ namespace button_inputs
 
     IRAM_ATTR void button1Pressed()
     {
-        if (button1.pressed || millis() < buttonTime1 + 200)
+        if (button1.pressed || millis() < buttonTime1 + debounceTime)
         {
             return;
         }
@@ -27,7 +28,7 @@ namespace button_inputs
 
     IRAM_ATTR void button2Pressed()
     {
-        if (button2.pressed || millis() < buttonTime2 + 200)
+        if (button2.pressed || millis() < buttonTime2 + debounceTime)
         {
             return;
         }
@@ -38,14 +39,16 @@ namespace button_inputs
     void start()
     {
         Serial.printf("Button 1: %d  -  Button 2: %d \n", button1.pin, button2.pin);
+        // Because of EMC pull down with low resistor might be more stable
+        // 10kOhm is often used. Had to go down to 220 Ohm without internal resistor :( 
         if (button1.pin > 0)
         {
-            pinMode(button1.pin, INPUT);
+            pinMode(button1.pin, INPUT); // INPUT_PULLDOWN
             attachInterrupt(digitalPinToInterrupt(button1.pin), button1Pressed, FALLING);
         }
         if (button2.pin > 0)
         {
-            pinMode(button2.pin, INPUT);
+            pinMode(button2.pin, INPUT); // INPUT_PULLDOWN
             attachInterrupt(digitalPinToInterrupt(button2.pin), button2Pressed, FALLING);
         }
     }
