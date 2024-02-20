@@ -252,8 +252,8 @@ void triggerEvents(const std::map<String, sensor::SensorData> &values)
     Serial.println("Check for windspeed");
     if (values.at("WindSpeed").value > 4.0)
     {
-      Serial.println("Windspeed high, trigger event");
-      CallEvent();
+      Serial.println("TODO: Windspeed high, trigger event");
+      CallEvent(configman::getConfig().Button2GetURL);
     }
   }
 }
@@ -442,7 +442,7 @@ void handleButton1()
 void handleButton2()
 {
   Serial.println("Button 2 pressed");
-  CallEvent();
+  CallEvent(configman::getConfig().Button2GetURL);
 }
 
 void handleButtons()
@@ -464,8 +464,8 @@ void handleMQTT()
   if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
   {
     std::array<uint8_t, 3> c = mqtt_events::getRGB();
-    uint8_t maxColor = 128; 
-    ledStrip->setColor(min(c[0],maxColor),min(c[1],maxColor), min(c[2],maxColor));
+    uint8_t maxColor = 128;
+    ledStrip->setColor(min(c[0], maxColor), min(c[1], maxColor), min(c[2], maxColor));
     if (mqtt_events::getIsOn())
     {
       ledStrip->m_LEDMode = LedStrip::LEDModes::on;
@@ -474,7 +474,7 @@ void handleMQTT()
     {
       ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     }
-    ledStrip->m_Factor = mqtt_events::getBrightness()/100.0;
+    ledStrip->m_Factor = mqtt_events::getBrightness() / 100.0;
     ledStrip->applyModeAndColor();
     mqtt_events::sendStateTopic(c, ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
   }

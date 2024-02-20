@@ -13,12 +13,11 @@
 
 #endif /* ESP32 */
 
-void CallEvent()
+void CallEvent(String serverPath)
 {
     WiFiClient client = WiFiClient();
     HTTPClient http;
-    //TODO: Add to config
-    String serverPath = "http://192.168.1.125/relay/0?turn=toggle";
+
     Serial.println(serverPath);
 
     http.begin(client, serverPath.c_str());

@@ -85,6 +85,7 @@ namespace configman
         int LEDPin;
         int Button1;
         int Button2;
+        String Button2GetURL;
         bool ShowWebpage;
         bool UseMQTT;
         String MQTTTopic;

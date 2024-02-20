@@ -53,6 +53,7 @@ namespace configman
                                      LEDPin(-1),
                                      Button1(-1),
                                      Button2(-1),
+                                     Button2GetURL("http://192.168.1.125/relay/0?turn=toggle"),
                                      ShowWebpage(true),
                                      UseMQTT(false),
                                      MQTTTopic(""),
@@ -251,6 +252,7 @@ namespace configman
         doc["LEDPin"] = config->LEDPin;
         doc["Button1"] = config->Button1;
         doc["Button2"] = config->Button2;
+        doc["Button2GetURL"] = config->Button2GetURL;
         doc["NumberOfLEDs"] = config->NumberOfLEDs;
         doc["FindSensors"] = config->FindSensors;
         doc["IsOfflineMode"] = config->IsOfflineMode;
@@ -352,6 +354,17 @@ namespace configman
         {
             res.second.Button1 = doc["Button1"];
             res.second.Button2 = doc["Button2"];
+        }
+
+        JsonVariant button2GetURL = doc["Button2GetURL"];
+        if (button2GetURL.isNull())
+        {
+            res.second.Button2GetURL = "http://192.168.1.125/relay/0?turn=toggle";
+            Serial.println("Button 2 get URL set to " + res.second.Button2GetURL);
+        }
+        else
+        {
+            res.second.Button2GetURL = doc["Button2GetURL"].as<String>();
         }
 
         res.second.NumberOfLEDs = doc["NumberOfLEDs"];
