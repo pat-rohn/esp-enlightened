@@ -37,7 +37,7 @@ namespace ts_http
         JsonDocument doc; 
         for (auto const &ts : m_Data)
         {
-            JsonObject tsEntry = doc["location"].to<JsonObject>();
+            JsonObject tsEntry = doc.add<JsonObject>();
             tsEntry["Tag"] = ts.first;
             JsonArray tsValuesTS = tsEntry["Timestamps"].to<JsonArray>();
             JsonArray tsValuesV = tsEntry["Values"].to<JsonArray>();
