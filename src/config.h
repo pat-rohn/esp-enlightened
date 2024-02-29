@@ -33,6 +33,25 @@ namespace configman
         }
     };
 
+    struct Light
+    {
+        int Red;
+        int Green;
+        int Blue;
+        Light()
+        {
+            Red = 128;
+            Green = 128;
+            Blue = 128;
+        }
+        Light(int red, int green, int blue)
+        {
+            Red = red;
+            Green = green;
+            Blue = blue;
+        }
+    };
+
     enum weekday_t
     {
         Monday,
@@ -91,6 +110,9 @@ namespace configman
         String MQTTTopic;
         int MQTTPort;
         SunriseSettings AlarmSettings;
+        Light LightLow;
+        Light LightMedium;
+        Light LightHigh;
 
         Configuration();
         Configuration(const Configuration *c);
