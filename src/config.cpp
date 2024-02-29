@@ -60,6 +60,9 @@ namespace configman
                                      MQTTPort(1883),
                                      AlarmSettings()
     {
+        LightLow = Light(16, 4, 0);
+        LightMedium = Light(64, 32, 4);
+        LightHigh = Light(128, 64, 24);
     }
 
     void begin()
@@ -262,6 +265,23 @@ namespace configman
         doc["MQTTPort"] = config->MQTTPort;
 
         doc["SunriseSettings"] = serializeSunrise(&config->AlarmSettings);
+        JsonDocument docLightLow;
+        docLightLow["Red"] = config->LightLow.Red;
+        docLightLow["Green"] = config->LightLow.Green;
+        docLightLow["Blue"] = config->LightLow.Blue;
+        doc["LightLow"] = docLightLow;
+
+        JsonDocument docLightMedium;
+        docLightMedium["Red"] = config->LightMedium.Red;
+        docLightMedium["Green"] = config->LightMedium.Green;
+        docLightMedium["Blue"] = config->LightMedium.Blue;
+        doc["LightMedium"] = docLightMedium;
+
+        JsonDocument docLightHigh;
+        docLightHigh["Red"] = config->LightHigh.Red;
+        docLightHigh["Green"] = config->LightHigh.Green;
+        docLightHigh["Blue"] = config->LightHigh.Blue;
+        doc["LightHigh"] = docLightHigh;
 
         char buffer[2000];
         serializeJsonPretty(doc, buffer);
@@ -404,7 +424,32 @@ namespace configman
                 return deserializeConfig(configStr.c_str());
             }
         }
+        JsonVariant lightLow = doc["LightLow"];
+        if (lightLow.isNull())
+        {
+            Serial.println("Light settings do not exist (yet?)");
+            res.second.LightLow = Light(32,4,0);
+            res.second.LightMedium = Light(64,32,4);
+            res.second.LightHigh = Light(128,64,24);
+        }
+        else
+        {
+            res.second.LightLow.Red = lightLow["Red"];
+            res.second.LightLow.Green = lightLow["Green"];
+            res.second.LightLow.Blue = lightLow["Blue"];
 
+            JsonVariant LightMedium = doc["LightMedium"];
+
+            res.second.LightMedium.Red = LightMedium["Red"];
+            res.second.LightMedium.Green = LightMedium["Green"];
+            res.second.LightMedium.Blue = LightMedium["Blue"];
+
+            JsonVariant LightHigh = doc["LightHigh"];
+
+            res.second.LightHigh.Red = LightHigh["Red"];
+            res.second.LightHigh.Green = LightHigh["Green"];
+            res.second.LightHigh.Blue = LightHigh["Blue"];
+        }
         res.first = true;
         return res;
     }

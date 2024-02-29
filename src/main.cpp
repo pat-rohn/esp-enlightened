@@ -3,6 +3,7 @@
 #include <map>
 #include "events.h"
 #include "ArduinoMqttClient.h"
+#include "handle_buttons.h"
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
@@ -402,63 +403,6 @@ void setup()
   Serial.println("Succesfully set up");
 }
 
-void handleButton1()
-{
-  Serial.println("Button 1 pressed");
-  if (sunriseAlarm != nullptr && sunriseAlarm->run())
-  {
-    Serial.println("interrupt sunrise");
-    sunriseAlarm->interruptAlarm();
-    return;
-  }
-  LedStrip::LEDModes mode = ledStrip->m_LEDMode;
-  if (mode == LedStrip::LEDModes::off)
-  {
-    Serial.println("Turn on (default)");
-    ledStrip->m_LEDMode = LedStrip::LEDModes::on;
-    ledStrip->m_Factor = 0.08;
-    ledStrip->setColor(128, 96, 45); // Adjust here depending on the LEDs
-
-    ledStrip->applyModeAndColor();
-  }
-  else
-  {
-    if (ledStrip->m_Factor >= 1.0)
-    {
-      Serial.println("Turn off");
-      ledStrip->m_LEDMode = LedStrip::LEDModes::off;
-      ledStrip->applyModeAndColor();
-    }
-    else
-    {
-      ledStrip->m_Factor += 0.46;
-      Serial.printf("Brighter :%f\n", ledStrip->m_Factor);
-      ledStrip->applyColorImmediate();
-    }
-  }
-  mqtt_events::sendStateTopic(ledStrip->getColor(), ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
-}
-
-void handleButton2()
-{
-  Serial.println("Button 2 pressed");
-  CallEvent(configman::getConfig().Button2GetURL);
-}
-
-void handleButtons()
-{
-  if (button_inputs::button1.pressed)
-  {
-    handleButton1();
-    button_inputs::button1.pressed = false;
-  }
-  if (button_inputs::button2.pressed)
-  {
-    handleButton2();
-    button_inputs::button2.pressed = false;
-  }
-}
-
 void handleMQTT()
 {
   if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
@@ -491,7 +435,7 @@ void loop()
   // maybe the related to this? https://github.com/espressif/arduino-esp32/issues/2493
   vTaskDelay(pdMS_TO_TICKS(1));
 #endif
-  handleButtons();
+  handleButtons(sunriseAlarm, ledStrip);
   handleMQTT();
 
   if (millis() < nextLoopTime)
