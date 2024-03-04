@@ -3,10 +3,10 @@
 #include <string.h>
 #include <sstream>
 #include <ArduinoJson.h>
+#include "mqtt_events.h"
 
 CLEDService::CLEDService(LedStrip *ledStrip) : m_LedStrip(ledStrip)
 {
-
 }
 
 String CLEDService::apply(String ledString)
@@ -39,7 +39,7 @@ String CLEDService::apply(String ledString)
     int factorBlue = doc["Blue"];
     String message = doc["Message"];
     m_LedStrip->setColor(factorRed, factorGreen, factorBlue);
-    m_LedStrip->applyModeAndColor(); 
+    m_LedStrip->applyModeAndColor();
     std::stringstream str;
     std::array<uint8_t, 3> color = m_LedStrip->getColor();
     str << R"({"Red":)" << int(color[0])
@@ -50,7 +50,9 @@ String CLEDService::apply(String ledString)
         << R"( ,"Message": "Success - )" << message.c_str() << R"( ")"
         << R"( })" << std::endl;
     doc.clear();
+    mqtt_events::sendStateTopic(color, m_LedStrip->m_LEDMode == LedStrip::LEDModes::on, m_LedStrip->m_Factor);
   }
+
   return get();
 }
 
@@ -66,5 +68,5 @@ String CLEDService::get()
       << R"( ,"Mode": )" << int(m_LedStrip->m_LEDMode)
       << R"( ,"Message": "Success")"
       << R"( })" << std::endl;
-      return String(str.str().c_str());
+  return String(str.str().c_str());
 }
