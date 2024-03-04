@@ -396,11 +396,12 @@ void setup()
     ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     ledStrip->m_Factor = 0.5;
     ledStrip->applyModeAndColor();
-    ledStrip->setColor(128, 96, 45); // Adjust here depending on the LEDs
+    ledStrip->setColor(configman::getConfig().LightHigh.Red,configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
 
     mqtt_events::sendStateTopic(ledStrip->getColor(), ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
   }
   Serial.println("Succesfully set up");
+  Serial.println(WiFi.localIP());
 }
 
 void handleMQTT()
@@ -408,8 +409,8 @@ void handleMQTT()
   if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
   {
     std::array<uint8_t, 3> c = mqtt_events::getRGB();
-    uint8_t maxColor = 128;
-    ledStrip->setColor(min(c[0], maxColor), min(c[1], maxColor), min(c[2], maxColor));
+    int maxColor = 255;
+    ledStrip->setColor(c[0],c[1],c[2]);
     if (mqtt_events::getIsOn())
     {
       ledStrip->m_LEDMode = LedStrip::LEDModes::on;
