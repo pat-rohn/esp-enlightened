@@ -165,7 +165,7 @@ void connectToMqtt()
       }
       else
       {
-        Serial.printf("MQTT: Connected to %s:%d", broker.c_str(), configman::getConfig().MQTTPort);
+        Serial.printf("MQTT: Connected to %s:%d\n", broker.c_str(), configman::getConfig().MQTTPort);
       }
     }
   }
@@ -396,9 +396,13 @@ void setup()
     ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     ledStrip->m_Factor = 0.5;
     ledStrip->applyModeAndColor();
-    ledStrip->setColor(configman::getConfig().LightHigh.Red,configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
+    ledStrip->setColor(configman::getConfig().LightHigh.Red,
+                       configman::getConfig().LightHigh.Green,
+                       configman::getConfig().LightHigh.Blue);
 
-    mqtt_events::sendStateTopic(ledStrip->getColor(), ledStrip->m_LEDMode == LedStrip::LEDModes::on, ledStrip->m_Factor);
+    mqtt_events::sendStateTopic(ledStrip->getColor(),
+                                ledStrip->m_LEDMode == LedStrip::LEDModes::on,
+                                ledStrip->m_Factor);
   }
   Serial.println("Succesfully set up");
   Serial.println(WiFi.localIP());
@@ -410,7 +414,7 @@ void handleMQTT()
   {
     std::array<uint8_t, 3> c = mqtt_events::getRGB();
     int maxColor = 255;
-    ledStrip->setColor(c[0],c[1],c[2]);
+    ledStrip->setColor(c[0], c[1], c[2]);
     if (mqtt_events::getIsOn())
     {
       ledStrip->m_LEDMode = LedStrip::LEDModes::on;
@@ -479,10 +483,11 @@ void loop()
         Serial.println("No WiFi Connection");
         return;
       }
-      if (configman::getConfig().UseMQTT)
-      {
-        connectToMqtt();
-      }
+    }
+    if (configman::getConfig().UseMQTT && !mqttClient->connected())
+    {
+      connectToMqtt();
+      mqtt_events::subscribe();
     }
     if (!timeHelper->isTimeSet())
     {

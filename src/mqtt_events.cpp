@@ -23,20 +23,26 @@ namespace mqtt_events
         Serial.println("You're connected to the MQTT broker!");
         Serial.println();
         // set the message receive callback
-        mqttClient->onMessage(onMqttMessage);
-        Serial.print("Subscribing to topic: ");
-        Serial.println();
-
-        mqttClient->subscribe(String(topic + "set").c_str());
-        mqttClient->subscribe(String(topic + "json/set").c_str());
-        mqttClient->subscribe(String(topic + "switch").c_str());
+        subscribe();
         // mqttClient->subscribe(String(topic + "status").c_str());
-        //  topics can be unsubscribed using:
-        //  mqttClient->unsubscribe(topic);
+        // topics can be unsubscribed using:
+        // mqttClient->unsubscribe(topic);
         Serial.print("Topic: ");
         Serial.println(topic);
         colors = {0, 0, 0};
         isOn = false;
+    }
+    
+    void subscribe(){
+        mqttClient->onMessage(onMqttMessage);
+        Serial.println("\nSubscribing to topics: " + String(topic));
+        mqttClient->unsubscribe(String(topic + "set").c_str());
+        mqttClient->unsubscribe(String(topic + "json/set").c_str());
+        mqttClient->unsubscribe(String(topic + "switch").c_str());
+
+        mqttClient->subscribe(String(topic + "set").c_str());
+        mqttClient->subscribe(String(topic + "json/set").c_str());
+        mqttClient->subscribe(String(topic + "switch").c_str());
     }
 
     void sendStateTopic(std::array<uint8_t, 3> c, bool on, double factor)

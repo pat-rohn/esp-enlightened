@@ -32,6 +32,7 @@ Light JSON Topic used for Home Assistant:
 */
 
     void setup(MqttClient *mqttClient, const String topic);
+    void subscribe();
     bool poll();
     void onMqttMessage(int messageSize);
     void sendStateTopic(std::array<uint8_t, 3> colors, bool on, double factor);
