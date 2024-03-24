@@ -20,6 +20,8 @@ enum class light_level
 
 light_level level = light_level::off;
 
+unsigned long buttonResetTime = millis();
+
 void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
 {
     Serial.println("Button 1 pressed");
@@ -27,6 +29,12 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
     {
         Serial.println("interrupt sunrise");
         sunrise->interruptAlarm();
+        Serial.println("turn off");
+        leds->m_LEDMode = LedStrip::LEDModes::off;
+        level = light_level::off;
+        leds->m_Factor = 1.0;
+        leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
+        leds->applyModeAndColor();
         return;
     }
 
@@ -37,7 +45,16 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
         leds->m_LEDMode = LedStrip::LEDModes::on;
         level = light_level::low;
         leds->m_Factor = 1.0;
-            leds->setColor(configman::getConfig().LightLow.Red, configman::getConfig().LightLow.Green, configman::getConfig().LightLow.Blue); 
+        leds->setColor(configman::getConfig().LightLow.Red, configman::getConfig().LightLow.Green, configman::getConfig().LightLow.Blue);
+        leds->applyModeAndColor();
+    }
+    else if (millis() > buttonResetTime)
+    {
+        Serial.println("turn off");
+        leds->m_LEDMode = LedStrip::LEDModes::off;
+        level = light_level::off;
+        leds->m_Factor = 1.0;
+        leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
         leds->applyModeAndColor();
     }
     else
@@ -48,7 +65,7 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
             leds->m_LEDMode = LedStrip::LEDModes::on;
             level = light_level::medium;
             leds->m_Factor = 1.0;
-            leds->setColor(configman::getConfig().LightMedium.Red, configman::getConfig().LightMedium.Green, configman::getConfig().LightMedium.Blue); 
+            leds->setColor(configman::getConfig().LightMedium.Red, configman::getConfig().LightMedium.Green, configman::getConfig().LightMedium.Blue);
             leds->applyModeAndColor();
         }
         else if (level == light_level::medium)
@@ -62,34 +79,35 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
         }
         else
         {
-           Serial.println("turn off");
+            Serial.println("turn off");
             leds->m_LEDMode = LedStrip::LEDModes::off;
             level = light_level::off;
             leds->m_Factor = 1.0;
-            leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue); 
+            leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
             leds->applyModeAndColor();
         }
     }
     mqtt_events::sendStateTopic(leds->getColor(), leds->m_LEDMode == LedStrip::LEDModes::on, leds->m_Factor);
+    buttonResetTime = millis() + 5000;
 }
 
 void handleButton2()
 {
-  Serial.println("Button 2 pressed");
-  CallEvent(configman::getConfig().Button2GetURL);
+    Serial.println("Button 2 pressed");
+    CallEvent(configman::getConfig().Button2GetURL);
 }
 
 void handleButtons(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
 {
-  if (button_inputs::button1.pressed)
-  {
-    handleButton1(sunrise, leds);
-    button_inputs::button1.pressed = false;
-  }
-  if (button_inputs::button2.pressed)
-  {
-    handleButton2();
-    button_inputs::button2.pressed = false;
-  }
+    if (button_inputs::button1.pressed)
+    {
+        handleButton1(sunrise, leds);
+        button_inputs::button1.pressed = false;
+    }
+    if (button_inputs::button2.pressed)
+    {
+        handleButton2();
+        button_inputs::button2.pressed = false;
+    }
 }
 #endif // HANDLE_BUTTONS_H
