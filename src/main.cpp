@@ -43,6 +43,8 @@ CLEDService *ledService;
 webpage::CWebPage *webPage;
 sunrise::CSunriseAlarm *sunriseAlarm;
 
+std::atomic<bool> restartTriggered;
+
 WiFiClient wifiClient;
 MqttClient *mqttClient;
 
@@ -206,8 +208,11 @@ void configureDevice()
   button_inputs::button2.pin = configman::getConfig().Button2;
   button_inputs::start();
   webPage = new webpage::CWebPage();
+  restartTriggered = new std::atomic<bool>();
   webPage->setLEDService(ledService);
   webPage->setTimeHelper(timeHelper);
+  restartTriggered.store(false);
+  webPage->setTriggerFlag(&restartTriggered);
 }
 
 unsigned long lastColorChange = 0;
@@ -319,7 +324,7 @@ void setup()
     config.WiFiName = String("Enlightened");
     config.WiFiPassword = String("enlighten-me");
     config.IsOfflineMode = false; // if true it creates access-point
-    config.IsConfigured = false;
+    //config.IsConfigured = false;
     config.ShowWebpage = true;
     configman::saveConfig(&config);
     delay(200);
@@ -413,7 +418,6 @@ void handleMQTT()
   if (configman::getConfig().NumberOfLEDs > 0 && mqtt_events::poll())
   {
     std::array<uint8_t, 3> c = mqtt_events::getRGB();
-    int maxColor = 255;
     ledStrip->setColor(c[0], c[1], c[2]);
     if (mqtt_events::getIsOn())
     {
@@ -473,6 +477,13 @@ void loop()
     Serial.println(configman::serializeConfig(&config));
     Serial.println("--------------------------------");
     return;
+  }
+  if (restartTriggered.load())
+  {
+    Serial.println("----------------------------- RESTART -----------------------------\n\n");
+    vTaskDelay(pdMS_TO_TICKS(50));
+    ESP.restart();
+    //restartTriggered.store(false);
   }
   if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
   {

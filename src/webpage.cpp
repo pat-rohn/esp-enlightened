@@ -6,12 +6,15 @@
 #include <array>
 #include "config.h"
 #include "timehelper.h"
+#include <atomic>
+#include <memory>
 
 namespace webpage
 {
 
   CLEDService *m_LedService;
   CTimeHelper *m_TimeHelper;
+  std::atomic<bool> *m_RestartTriggered;
 
   const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
@@ -73,6 +76,11 @@ namespace webpage
     Serial.println("Set Time Helper");
   }
 
+  void CWebPage::setTriggerFlag(std::atomic<bool> *restartTriggered)
+  {
+    m_RestartTriggered = restartTriggered;
+  }
+
   void CWebPage::beginServer()
   {
     Serial.println("Webpage: Begin Server.");
@@ -118,7 +126,7 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
 
                   request->send(response); });
-
+    
     m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
                 {
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/json", "");
@@ -126,7 +134,8 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                  request->send(response); 
+                  });
 
     // Config Post
     m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
@@ -152,9 +161,35 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response);
-                  Serial.println("restart");
-                  ESP.restart(); });
-
+                  Serial.println("restart triggered");
+                  m_RestartTriggered->store(true);
+                  
+                  });
+    /// Config PUT (no restart)
+    m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
+                { 
+                  int params = request->params();
+                  Serial.printf("%d params sent in\n", params);
+                  String input = "";
+                  for (int i = 0; i < params; i++)
+                  {
+                    AsyncWebParameter *p = request->getParam(i);
+                      if (p->isPost())
+                    {
+                        Serial.printf("_PUT[%s]: %s\n", p->name().c_str(), p->value().c_str());
+                        input = p->value();
+                    }
+                  }
+                  Serial.printf("Input is: %s\n", input.c_str());
+                  configman::writeConfig(input.c_str());
+                  
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", input);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response);
+                  });
     // Config Get
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
@@ -200,10 +235,16 @@ namespace webpage
     // Restart
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
-                  Serial.println("restart");
-                  ESP.restart(); 
+                  String answer = String("restart triggered");
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
+                  response->addHeader("Content-type", "text/plain");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); 
+                  Serial.println("restart triggered");                 
+                  m_RestartTriggered->store(true);
                 });
-
     // Send a GET request to <ESP_IP>/get?configuration=<inputMessage>
     m_Server.on("/get", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
