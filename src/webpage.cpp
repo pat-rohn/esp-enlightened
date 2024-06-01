@@ -29,13 +29,7 @@ namespace webpage
           alert("Save config to Device");
           setTimeout(function () { document.location.reload(false); }, 500);
         }
-        function restart() {
-          console.log("restart device")
-          var xhr = new XMLHttpRequest();
-          xhr.open("GET", "/restart", true);
-          xhr.send();
-          setTimeout(function () { document.location.reload(false); }, 15000);
-      }
+        
     </script>
 </head>
 
@@ -50,9 +44,9 @@ namespace webpage
         <textarea id="configuration" name="configuration" cols="80" rows="22"></textarea> 
         <br>
         <input type="submit" value="Submit" onclick="submitConfig()">
-         <br>
-        <input type="submit" value="Restart" onclick="restart()">
     </form>
+     <a href="/restart" class="button">Restart </a>
+
     <br>
 
     <iframe style="display:none" name="hidden-form"></iframe>
@@ -163,7 +157,7 @@ namespace webpage
                   request->send(response);
                   Serial.println("restart triggered");
                   m_RestartTriggered->store(true);
-                  
+
                   });
     /// Config PUT (no restart)
     m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
@@ -235,13 +229,13 @@ namespace webpage
     // Restart
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
-                  String answer = String("restart triggered");
+                  String answer = "<html><head><meta http-equiv=\"refresh\" content=\"10;url=/\" /></head><body><h1>Redirecting in 10 seconds...</h1></body></html>";
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
-                  response->addHeader("Content-type", "text/plain");
+                  response->addHeader("Content-type", "text/html");
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); 
+                  request->send(response); request->send(200, "text/html", answer);
                   Serial.println("restart triggered");                 
                   m_RestartTriggered->store(true);
                 });
