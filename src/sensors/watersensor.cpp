@@ -33,7 +33,7 @@ namespace watersensor
     IRAM_ATTR void detectRainClick()
     {
         unsigned long now = millis();
-        if (now - lastClickTime < 50)
+        if (now - lastClickTime < 250)
         {
             //Serial.print(" . "); // skip
             return;
