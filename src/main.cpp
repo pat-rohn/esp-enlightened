@@ -43,7 +43,11 @@ CLEDService *ledService;
 webpage::CWebPage *webPage;
 sunrise::CSunriseAlarm *sunriseAlarm;
 
+// webpage triggers
 std::atomic<bool> restartTriggered;
+std::atomic<bool> buttonPressed1;
+std::atomic<bool> buttonPressed2;
+
 
 WiFiClient wifiClient;
 MqttClient *mqttClient;
@@ -213,6 +217,12 @@ void configureDevice()
   webPage->setTimeHelper(timeHelper);
   restartTriggered.store(false);
   webPage->setTriggerFlag(&restartTriggered);
+
+  buttonPressed1 = new std::atomic<bool>();
+  buttonPressed1.store(false);
+  buttonPressed2 = new std::atomic<bool>();
+  buttonPressed2.store(false);
+  webPage->setButtonsPressed(&buttonPressed1, &buttonPressed2);
 }
 
 unsigned long lastColorChange = 0;
@@ -437,6 +447,29 @@ unsigned long nextLoopTime = millis();
 
 unsigned long loopTime = 500;
 
+void checkWebpageTriggers()
+{
+  if (restartTriggered.load())
+  {
+    Serial.println("----------------------------- RESTART -----------------------------\n\n");
+    vTaskDelay(pdMS_TO_TICKS(50));
+    ESP.restart();
+    // restartTriggered.store(false);
+  }
+  if (buttonPressed1.load())
+  {
+    Serial.println("----------------------------- BUTTON1 PRESSED -----------------------------\n\n");
+    handleButton1(sunriseAlarm, ledStrip);
+    buttonPressed1.store(false);
+  }
+  if (buttonPressed2.load())
+  {
+    Serial.println("----------------------------- BUTTON2 PRESSED -----------------------------\n\n");
+    handleButton2();
+    buttonPressed2.store(false);
+  }
+}
+
 void loop()
 {
 #ifdef ESP32
@@ -478,13 +511,7 @@ void loop()
     Serial.println("--------------------------------");
     return;
   }
-  if (restartTriggered.load())
-  {
-    Serial.println("----------------------------- RESTART -----------------------------\n\n");
-    vTaskDelay(pdMS_TO_TICKS(50));
-    ESP.restart();
-    //restartTriggered.store(false);
-  }
+  checkWebpageTriggers();
   if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
   {
     if (WiFi.status() != WL_CONNECTED)
