@@ -68,12 +68,14 @@ namespace windsensor
             lastPeakClickCount = getClicks();
             lastPeakTime = now;
         }
+        Serial.println("wind click");
     }
 
     void start(uint8_t pin)
     {
         Serial.print("Start windsensor with pin:  ");
         Serial.println(pin);
+        pinMode(pin, INPUT);
         attachInterrupt(digitalPinToInterrupt(pin), detectsChange, RISING);
         lastPeakTime = millis();
         lastTime = millis();
