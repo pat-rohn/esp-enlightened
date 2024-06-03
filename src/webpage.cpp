@@ -15,6 +15,8 @@ namespace webpage
   CLEDService *m_LedService;
   CTimeHelper *m_TimeHelper;
   std::atomic<bool> *m_RestartTriggered;
+  std::atomic<bool> *m_ButtonPressed1;
+  std::atomic<bool> *m_ButtonPressed2;
 
   const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
@@ -75,6 +77,12 @@ namespace webpage
     m_RestartTriggered = restartTriggered;
   }
 
+  void CWebPage::setButtonsPressed(std::atomic<bool> *buttonPressed1, std::atomic<bool> *buttonPressed2)
+  {
+    m_ButtonPressed1 = buttonPressed1;
+    m_ButtonPressed2 = buttonPressed2;
+  }
+
   void CWebPage::beginServer()
   {
     Serial.println("Webpage: Begin Server.");
@@ -96,7 +104,47 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); });
-
+    m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+    m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  String answer = "Button 1 pressed";
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); 
+                  Serial.println("button 1 pressed");
+                  m_ButtonPressed1->store(true);
+                });
+    m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+    m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
+                               {
+                  String answer = "Button 2 pressed";
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
+                  response->addHeader("Content-type", "text/json");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); 
+                  Serial.println("button 2 pressed");
+                  m_ButtonPressed2->store(true);
+                });
+    
     m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
                   int params = request->params();
