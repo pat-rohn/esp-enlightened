@@ -14,7 +14,7 @@ public:
     DHTSensor(uint8_t sensorPin)
     {
         pinMode(sensorPin, INPUT);
-        Serial.printf("Pin Nr: %d\n", sensorPin);
+        Serial.printf("DHT pin: %d\n", sensorPin);
         m_Dht = new DHT(sensorPin, DHTTYPE);
     }
     ~DHTSensor()
