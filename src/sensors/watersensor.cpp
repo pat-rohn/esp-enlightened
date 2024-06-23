@@ -8,9 +8,9 @@
 
 namespace watersensor
 {
-    int clickCounter = 0;
-    int lastTime = millis();
-    int lastClickCount = 0;
+    unsigned long clickCounter = 0;
+    unsigned long lastTime = millis();
+    unsigned long lastClickCount = 0;
     unsigned long lastClickTime = millis();
 
     double getValue()
@@ -20,14 +20,7 @@ namespace watersensor
 
     double getClicks()
     {
-        return clickCounter;
-    }
-
-    double getFlow()
-    {
-        double diffFlow = (clickCounter - lastClickCount) * getFactor();
-        lastClickCount = getClicks();
-        return diffFlow / (millis() - lastTime) * 1000.0;
+        return clickCounter - lastClickCount;
     }
 
     IRAM_ATTR void detectRainClick()
@@ -35,7 +28,7 @@ namespace watersensor
         unsigned long now = millis();
         if (now - lastClickTime < 250)
         {
-            //Serial.print(" . "); // skip
+            // Serial.print(" . "); // skip
             return;
         }
         lastClickTime = now;
@@ -51,7 +44,6 @@ namespace watersensor
     {
         Serial.print("Water Sensor on pin: ");
         Serial.println(pin);
-        clickCounter++;
         pinMode(pin, INPUT);
         attachInterrupt(digitalPinToInterrupt(pin), detectRainClick, RISING);
     }
