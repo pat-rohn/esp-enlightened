@@ -18,6 +18,7 @@ uint8_t kLEDOFF = 0x1;
 #include "WiFi.h"
 #include <HTTPClient.h>
 
+bool ledState = false;
 uint8_t kLEDON = 0x1;
 uint8_t kLEDOFF = 0x0;
 
@@ -47,7 +48,6 @@ sunrise::CSunriseAlarm *sunriseAlarm;
 std::atomic<bool> restartTriggered;
 std::atomic<bool> buttonPressed1;
 std::atomic<bool> buttonPressed2;
-
 
 WiFiClient wifiClient;
 MqttClient *mqttClient;
@@ -79,24 +79,26 @@ bool tryConnect(std::string ssid, std::string password)
 
   WiFi.begin(ssid.c_str(), password.c_str());
 
-  int counter = 0;
   unsigned long nextWifiLoopTime = millis();
-  while (WiFi.status() != WL_CONNECTED && counter <= 15)
+  unsigned long timeoutTime = millis() + 30000;
+  while (WiFi.status() != WL_CONNECTED)
   {
     if (millis() > nextWifiLoopTime)
     {
+      Serial.printf("Waiting for connection: %s\n", ssid.c_str());
       nextWifiLoopTime = millis() + 1000;
-      if (configman::getConfig().Button1 < 0)
-      {
-        digitalWrite(LED_BUILTIN, counter % 2 == 0 ? kLEDON : kLEDOFF);
-      }
-      delay(400);
-      counter++;
-      if (counter >= 15)
-      {
-        return false;
-      }
+      digitalWrite(LED_BUILTIN, ledState ? kLEDON : kLEDOFF);
+      ledState = !ledState;
+
+      delay(500);
     }
+
+    if (millis() > timeoutTime)
+    {
+      ESP.restart();
+    }
+
+    delay(100);
   }
   Serial.print("\nConnected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
@@ -124,7 +126,7 @@ void createAccesPoint()
   {
     Serial.print("mode failed.");
   }
-  if (!WiFi.softAP(configman::getConfig().WiFiName, configman::getConfig().WiFiPassword))
+  if (!WiFi.softAP(configman::getConfig().WiFiName.c_str(), configman::getConfig().WiFiPassword.c_str()))
   {
     Serial.print("softAP failed.");
     setup();
@@ -288,6 +290,11 @@ void measureAndSendSensorData()
   {
     colorUpdate(values);
   }
+  else
+  {
+    digitalWrite(LED_BUILTIN, ledState ? kLEDON : kLEDOFF);
+    ledState = !ledState;
+  }
 
   std::vector<String> valueNames;
   std::vector<float> tsValues;
@@ -334,7 +341,7 @@ void setup()
     config.WiFiName = String("Enlightened");
     config.WiFiPassword = String("enlighten-me");
     config.IsOfflineMode = false; // if true it creates access-point
-    //config.IsConfigured = false;
+    // config.IsConfigured = false;
     config.ShowWebpage = true;
     configman::saveConfig(&config);
     delay(200);
@@ -343,6 +350,8 @@ void setup()
   {
     configman::readConfig();
   }
+
+  pinMode(LED_BUILTIN, OUTPUT);
 
   if (!configman::getConfig().IsOfflineMode)
   {
@@ -366,7 +375,6 @@ void setup()
   configureDevice();
   startLedControl();
 
-  pinMode(LED_BUILTIN, OUTPUT);
   if (configman::getConfig().FindSensors && sensor::sensorsInit())
   {
     hasSensors = true;
