@@ -8,7 +8,6 @@ namespace watersensor
 {
     double getValue();
     double getClicks();
-    double getFlow();
     void start(uint8_t pin);
     double getFactor();
 
