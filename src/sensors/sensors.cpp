@@ -460,30 +460,14 @@ namespace sensor
     {
         std::array<SensorData, 3> sensorData;
         sensorData.fill(SensorData());
-        double vol = watersensor::getValue();
-        Serial.print("Volume: ");
-        Serial.println(vol, 9);
-        Serial.println("mm");
-        sensorData[0].isValid = true;
-        sensorData[0].value = vol;
-        sensorData[0].unit = "mm";
-        sensorData[0].name = "WaterVolume";
 
         float clicks = watersensor::getClicks();
         Serial.print("Clicks: ");
         Serial.println(clicks);
-        sensorData[1].isValid = true;
-        sensorData[1].value = clicks;
-        sensorData[1].unit = "1";
-        sensorData[1].name = "WaterClicks";
-
-        double flow = watersensor::getFlow();
-        Serial.print("Flow: ");
-        Serial.println(flow, 9);
-        sensorData[2].isValid = true;
-        sensorData[2].value = flow;
-        sensorData[2].unit = "mm/s";
-        sensorData[2].name = "WaterFlow";
+        sensorData[0].isValid = true;
+        sensorData[0].value = clicks;
+        sensorData[0].unit = "1";
+        sensorData[0].name = "WaterClicks";
 
         return sensorData;
     }

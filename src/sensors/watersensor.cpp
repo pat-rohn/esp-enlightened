@@ -13,14 +13,11 @@ namespace watersensor
     unsigned long lastClickCount = 0;
     unsigned long lastClickTime = millis();
 
-    double getValue()
-    {
-        return getFactor() * clickCounter;
-    }
-
     double getClicks()
     {
-        return clickCounter - lastClickCount;
+        double clicks = clickCounter - lastClickCount;
+        lastClickCount = clickCounter;
+        return clicks;
     }
 
     IRAM_ATTR void detectRainClick()
@@ -35,7 +32,6 @@ namespace watersensor
         Serial.print("Counter;Vol:  ");
         Serial.print(clickCounter);
         Serial.print("; ");
-        Serial.println(getValue(), 8);
 
         clickCounter++;
     }
