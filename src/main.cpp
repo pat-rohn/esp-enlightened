@@ -11,6 +11,7 @@
 
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
+bool ledState = false;
 
 #endif /* ESP8266 */
 
@@ -18,7 +19,6 @@ uint8_t kLEDOFF = 0x1;
 #include "WiFi.h"
 #include <HTTPClient.h>
 
-bool ledState = false;
 uint8_t kLEDON = 0x1;
 uint8_t kLEDOFF = 0x0;
 
@@ -460,7 +460,10 @@ void checkWebpageTriggers()
   if (restartTriggered.load())
   {
     Serial.println("----------------------------- RESTART -----------------------------\n\n");
+
+#ifdef ESP32
     vTaskDelay(pdMS_TO_TICKS(50));
+#endif
     ESP.restart();
     // restartTriggered.store(false);
   }
