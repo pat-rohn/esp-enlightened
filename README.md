@@ -16,8 +16,4 @@ This project is using Platform IO. To build project, first run commands describe
 ## Example Wemos with DHT22
 ![alt text](https://raw.githubusercontent.com/pat-rohn/wemos-d1-lite/main/wemosd1dht22.png)
 
-## Pin Outs
-- https://randomnerdtutorials.com/esp8266-pinout-reference-gpios/
-- https://randomnerdtutorials.com/esp32-pinout-reference-gpios/
-- https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/pinouts
-- https://github.com/WeActStudio/WeActStudio.ESP32C3CoreBoard/blob/master/Hardware/WeAct-ESP32C3CoreBoard_V10_SchDoc.pdf
+- 
