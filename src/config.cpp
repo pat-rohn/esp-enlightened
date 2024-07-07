@@ -122,6 +122,8 @@ namespace configman
             Serial.println("Retry reading config...");
             return readConfig();
         }
+
+        Serial.printf("Stored config: \n%s\n", config);
         auto res = deserializeConfig(configStr.c_str());
         if (!res.first)
         {
@@ -185,11 +187,13 @@ namespace configman
             return;
         }
         Configuration c = res.second;
-        auto config = serializeConfig(&c);
-        if (!writeFileLFS(kPathToConfig, config.c_str()))
+        auto cStr = serializeConfig(&c);
+        if (!writeFileLFS(kPathToConfig, cStr.c_str()))
         {
             Serial.print("Failed to write config.");
+            return;
         }
+        config = c;
     }
 
     String readFile(fs::FS &fs, const char *path)
