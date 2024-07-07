@@ -128,7 +128,7 @@ namespace configman
             return readConfig();
         }
 
-        Serial.printf("Stored config: \n%s\n", config);
+        Serial.printf("Stored config: \n%s\n", configStr.c_str());
         auto res = deserializeConfig(configStr.c_str());
         if (!res.first)
         {
