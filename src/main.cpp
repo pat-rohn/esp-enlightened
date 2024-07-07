@@ -5,13 +5,13 @@
 #include "ArduinoMqttClient.h"
 #include "handle_buttons.h"
 
+bool ledState = false;
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
-bool ledState = false;
 
 #endif /* ESP8266 */
 
