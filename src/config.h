@@ -98,6 +98,8 @@ namespace configman
         bool IsOfflineMode;
         String SensorID;
         int NumberOfLEDs;
+        int SerialRX;
+        int SerialTX;
         int DhtPin;
         int WindSensorPin;
         int RainfallSensorPin;

@@ -27,6 +27,8 @@ namespace configman
                                                            SensorID(c->SensorID),
                                                            NumberOfLEDs(c->NumberOfLEDs),
                                                            DhtPin(c->DhtPin),
+                                                           SerialRX(c->SerialRX),
+                                                           SerialTX(c->SerialTX),
                                                            WindSensorPin(c->WindSensorPin),
                                                            RainfallSensorPin(c->RainfallSensorPin),
                                                            LEDPin(c->LEDPin),
@@ -48,6 +50,8 @@ namespace configman
                                      SensorID("Test1"),
                                      NumberOfLEDs(-1),
                                      DhtPin(-1),
+                                     SerialRX(-1),
+                                     SerialTX(-1),
                                      WindSensorPin(-1),
                                      RainfallSensorPin(-1),
                                      LEDPin(-1),
@@ -112,6 +116,7 @@ namespace configman
         String configStr = readFileLFS(kPathToConfig);
         if (configStr.length() <= 0)
         {
+            Serial.println("No config was stored");
             auto defaultConf = Configuration();
             if (!saveConfig(&defaultConf))
             {
@@ -254,6 +259,8 @@ namespace configman
         doc["WiFiName"] = config->WiFiName;
         doc["WiFiPassword"] = config->WiFiPassword;
         doc["DhtPin"] = config->DhtPin;
+        doc["SerialRX"] = config->SerialRX;
+        doc["SerialTX"] = config->SerialTX;
         doc["WindSensorPin"] = config->WindSensorPin;
         doc["RainfallSensorPin"] = config->RainfallSensorPin;
         doc["LEDPin"] = config->LEDPin;
@@ -364,6 +371,18 @@ namespace configman
         res.second.WiFiName = doc["WiFiName"].as<String>();
         res.second.WiFiPassword = doc["WiFiPassword"].as<String>();
         res.second.DhtPin = doc["DhtPin"];
+        JsonVariant serialRX = doc["SerialRX"];
+        if (serialRX.isNull())
+        {
+            Serial.println("Serial Pins not configured");
+            res.second.SerialRX = -1;
+            res.second.SerialTX = -1;
+        }
+        else
+        {
+            res.second.SerialRX = doc["SerialRX"];
+            res.second.SerialTX = doc["SerialTX"];
+        }
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
         res.second.LEDPin = doc["LEDPin"];
@@ -432,9 +451,9 @@ namespace configman
         if (lightLow.isNull())
         {
             Serial.println("Light settings do not exist (yet?)");
-            res.second.LightLow = Light(32,4,0);
-            res.second.LightMedium = Light(64,32,4);
-            res.second.LightHigh = Light(128,64,24);
+            res.second.LightLow = Light(32, 4, 0);
+            res.second.LightMedium = Light(64, 32, 4);
+            res.second.LightHigh = Light(128, 64, 24);
         }
         else
         {
