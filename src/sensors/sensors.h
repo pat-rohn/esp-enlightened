@@ -33,7 +33,7 @@ namespace sensor
         }
     };
 
-    bool sensorsInit();
+    bool sensorsInit(int serialRX, int serialTX);
     void findAndInitSensors();
     void findAndInitMHZ19();
     std::map<String, SensorData> getValues();

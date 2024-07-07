@@ -1,5 +1,5 @@
 #include "sensors.h"
-//#include <M5Core2.h>
+// #include <M5Core2.h>
 #include <Adafruit_Sensor.h>
 
 #include "DHT.h"
@@ -8,26 +8,19 @@
 #include <Adafruit_BME280.h>
 #include <Adafruit_BMP280.h>
 #include <set>
-//#include "Adafruit_SGP30.h"
-//#include <WEMOS_SHT3X.h>
+// #include "Adafruit_SGP30.h"
+// #include <WEMOS_SHT3X.h>
 #include <MHZ19.h>
 #include <SparkFun_SCD30_Arduino_Library.h>
 #include "config.h"
 #include "sensors/watersensor.h"
 #include "sensors/windsensor.h"
-
-#ifdef ESP8266
 #include <SoftwareSerial.h>
 
-/*
-GPIOs 3, 12, 13 and 14 pulled HIGH during boot. Their actual state does (should) not influence the boot process.
-*/
-// Digital Input: (D5,D6,D7) (GPIO 12, 13 and 14)
-#else
-// Digital Input: e.g. D16-D33
 int waterSensorPin = -1;
 int windSensorPin = -1;
-#endif /* ESP8266 */
+int rx = -1;
+int tx = -1;
 
 namespace sensor
 {
@@ -51,13 +44,9 @@ namespace sensor
 
     // Adafruit_SGP30 sgp;
 
-#ifdef ESP32
-    HardwareSerial MySerial = Serial2;
-#else
-    SoftwareSerial MySerial(D7, D6);
-#endif
+    SoftwareSerial MySerial;
 
-    bool sensorsInit()
+    bool sensorsInit(int serialRX, int serialTX)
     {
         Serial.println("Sensors init.");
         configman::Configuration config = configman::readConfig();
@@ -75,12 +64,16 @@ namespace sensor
                 m_ValueNames.emplace_back("Humidity");
             }
         }
-
-#ifdef ESP32
-        MySerial.begin(9600, SERIAL_8N1, RX, TX);
-#else
-        MySerial.begin(9600);
-#endif
+        if (serialRX > 0 && serialTX > 0)
+        {
+            rx = serialRX;
+            tx = serialTX;
+            Serial.printf("Serial pins set to %d and %d\n", rx, tx);
+        }
+        else
+        {
+            Serial.println("No serial pins configured");
+        }
         findAndInitSensors();
         if (config.RainfallSensorPin >= 0)
         {
@@ -132,7 +125,13 @@ namespace sensor
     void findAndInitMHZ19()
     {
         Serial.println("Find and init MHZ19 sensor");
+        if (rx < 0 || tx < 0)
+        {
+            Serial.printf("rx and tx pins not configured %d, %d\n ", rx, tx);
+            return;
+        }
 
+        MySerial.begin(9600, EspSoftwareSerial::Config(), rx, tx);
         myMHZ19.begin(MySerial);
         delay(500);
 

@@ -375,7 +375,7 @@ void setup()
   configureDevice();
   startLedControl();
 
-  if (configman::getConfig().FindSensors && sensor::sensorsInit())
+  if (configman::getConfig().FindSensors && sensor::sensorsInit(configman::getConfig().SerialRX, configman::getConfig().SerialTX))
   {
     hasSensors = true;
   }
