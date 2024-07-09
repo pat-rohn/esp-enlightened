@@ -114,14 +114,14 @@ namespace webpage
                   request->send(response); });
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
-                  String answer = "Button 1 pressed";
+                  String answer = "{\"msg\": \"button 1 pressed\"}";
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
                   response->addHeader("Content-type", "text/json");
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); 
-                  Serial.println("button 1 pressed");
+                  Serial.println(answer);
                   m_ButtonPressed1->store(true);
                 });
     m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
@@ -134,14 +134,14 @@ namespace webpage
                   request->send(response); });
     m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
                                {
-                  String answer = "Button 2 pressed";
+                  String answer = "{\"msg\": \"button 2 pressed\"}";
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/json", answer);
                   response->addHeader("Content-type", "text/json");
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); 
-                  Serial.println("button 2 pressed");
+                  Serial.println(answer);
                   m_ButtonPressed2->store(true);
                 });
     

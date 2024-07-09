@@ -451,10 +451,6 @@ void handleMQTT()
   }
 }
 
-unsigned long nextLoopTime = millis();
-
-unsigned long loopTime = 500;
-
 void checkWebpageTriggers()
 {
   if (restartTriggered.load())
@@ -480,6 +476,10 @@ void checkWebpageTriggers()
     buttonPressed2.store(false);
   }
 }
+
+unsigned long nextLoopTime = millis();
+
+unsigned long loopTime = 500;
 
 void loop()
 {
