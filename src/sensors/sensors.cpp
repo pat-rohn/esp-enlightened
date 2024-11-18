@@ -41,7 +41,7 @@ namespace sensor
     DHTSensor *dhtSensor;
 
     MHZ19 myMHZ19;
-
+    
     // Adafruit_SGP30 sgp;
 
     SoftwareSerial MySerial;
@@ -130,9 +130,9 @@ namespace sensor
             Serial.printf("rx and tx pins not configured %d, %d\n ", rx, tx);
             return;
         }
-
-        MySerial.begin(9600, EspSoftwareSerial::Config(), rx, tx);
+        MySerial.begin(9600, SWSERIAL_8N1, rx, tx);
         myMHZ19.begin(MySerial);
+        myMHZ19.verify();
         delay(500);
 
         char version[4];
