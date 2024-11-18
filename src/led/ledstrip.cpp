@@ -14,7 +14,7 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
     m_LEDMode = LEDModes::on;
     m_LedColor = LEDColor::white;
     m_NrOfPixels = nrOfPixels;
-    m_UseAllLEDs = false;
+    m_UseAllLEDs = true;
     Serial.printf("LedStrip with pin %d (%d)\n", pin, nrOfPixels);
 }
 
