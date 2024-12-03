@@ -11,7 +11,7 @@ CLEDService::CLEDService(LedStrip *ledStrip) : m_LedStrip(ledStrip)
 
 String CLEDService::apply(String ledString)
 {
-  Serial.println("POST Apply");
+  Serial.printf("apply %s\n", ledString.c_str());
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, ledString);
   if (err.code() != DeserializationError::Code::Ok)
@@ -56,7 +56,7 @@ String CLEDService::apply(String ledString)
   return get();
 }
 
-String CLEDService::get()
+String CLEDService::get(String msg /*= "Success"*/)
 {
   Serial.println("LEDs-Service: GET");
   std::stringstream str;
@@ -66,7 +66,7 @@ String CLEDService::get()
       << R"( ,"Blue": )" << int(color[2])
       << R"( ,"Brightness": )" << int(m_LedStrip->m_Factor * 100)
       << R"( ,"Mode": )" << int(m_LedStrip->m_LEDMode)
-      << R"( ,"Message": "Success")"
+      << R"( ,"Message": ")" << msg.c_str() << R"(")"
       << R"( })" << std::endl;
   return String(str.str().c_str());
 }

@@ -14,7 +14,7 @@ public:
 
 public:
     String apply(String ledString);
-    String get();
+    String get(String msg = "Success");
     LedStrip *m_LedStrip;
     
 };
