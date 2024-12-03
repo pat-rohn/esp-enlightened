@@ -355,7 +355,7 @@ void LedStrip::campfireMode()
     for (int i = 0; i < m_NrOfPixels; i++)
     {
         m_PixelColors.pRed[i] = static_cast<double>(colorTemplate[m_FlameMode.LastIndexRed]) * brightness;
-        m_PixelColors.pGreen[i] = static_cast<double>(colorTemplate[m_FlameMode.LastIndexGreen]) * brightness / 2.3;
+        m_PixelColors.pGreen[i] = static_cast<double>(colorTemplate[m_FlameMode.LastIndexGreen]) * brightness / 4;
         m_PixelColors.pBlue[i] = 0.1 * brightness;
     }
 
