@@ -16,11 +16,13 @@
 #include "sensors/watersensor.h"
 #include "sensors/windsensor.h"
 #include <SoftwareSerial.h>
+#include <SensirionI2CScd4x.h>
 
 int waterSensorPin = -1;
 int windSensorPin = -1;
 int rx = -1;
 int tx = -1;
+SensirionI2CScd4x scd4x;
 
 namespace sensor
 {
@@ -41,7 +43,7 @@ namespace sensor
     DHTSensor *dhtSensor;
 
     MHZ19 myMHZ19;
-    
+
     // Adafruit_SGP30 sgp;
 
     SoftwareSerial MySerial;
@@ -100,21 +102,24 @@ namespace sensor
         Serial.println("Find and init i2c sensors");
         byte count = 0;
         MyWire.begin(SDA, SCL);
-        for (byte i = 8; i < 120; i++)
-        {
-            MyWire.beginTransmission(i);
-            if (MyWire.endTransmission() == 0)
+        if (!initSCD40())// so far only this i2c device alone supported
+        { 
+            for (byte i = 8; i < 120; i++)
             {
-                Serial.print("Found address: ");
-                Serial.print(i, DEC);
-                Serial.print(" (0x");
-                Serial.print(i, HEX);
-                Serial.println(")");
-                count++;
-                delay(100);
-                initI2CSensor(i);
+                MyWire.beginTransmission(i);
+                if (MyWire.endTransmission() == 0)
+                {
+                    Serial.print("Found address: ");
+                    Serial.print(i, DEC);
+                    Serial.print(" (0x");
+                    Serial.print(i, HEX);
+                    Serial.println(")");
+                    count++;
+                    delay(100);
+                    initI2CSensor(i);
+                }
+                delay(50);
             }
-            delay(50);
         }
 
         Serial.println();
@@ -212,6 +217,16 @@ namespace sensor
         if (m_SensorTypes.find(SensorType::scd30) != m_SensorTypes.end())
         {
             for (const auto &val : getSCD30())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+        if (m_SensorTypes.find(SensorType::scd40) != m_SensorTypes.end())
+        {
+            for (const auto &val : getSCD40())
             {
                 if (val.isValid)
                 {
@@ -397,6 +412,71 @@ namespace sensor
             sensorData[0].value = CO2;
             sensorData[0].unit = "ppm";
             sensorData[0].name = "CO2";
+        }
+
+        return sensorData;
+    }
+
+    std::array<SensorData, 3> getSCD40()
+    {
+        std::array<SensorData, 3> sensorData;
+        Serial.print("Fetch SCD40 ");
+
+        uint16_t error;
+        char errorMessage[256];
+        uint16_t co2 = 0;
+        float temperature = 0.0f;
+        float humidity = 0.0f;
+        bool isDataReady = false;
+        error = scd4x.getDataReadyFlag(isDataReady);
+        if (error)
+        {
+            Serial.print("Error trying to execute getDataReadyFlag(): ");
+            errorToString(error, errorMessage, 256);
+            Serial.println(errorMessage);
+            return sensorData;
+        }
+        if (!isDataReady)
+        {
+            return sensorData;
+        }
+        error = scd4x.readMeasurement(co2, temperature, humidity);
+        if (error)
+        {
+            Serial.print("Error trying to execute readMeasurement(): ");
+            errorToString(error, errorMessage, 256);
+            Serial.println(errorMessage);
+            return sensorData;
+        }
+        else if (co2 == 0)
+        {
+            Serial.println("Invalid sample detected, skipping.");
+            return sensorData;
+        }
+        if (co2 > 0)
+        {
+            sensorData[0].isValid = true;
+            sensorData[0].value = co2;
+            sensorData[0].unit = "ppm";
+            sensorData[0].name = "CO2";
+            if (co2 < 400)
+            {
+                // todo: calibrate
+            }
+        }
+        if (temperature > 0)
+        {
+            sensorData[1].isValid = true;
+            sensorData[1].value = temperature;
+            sensorData[1].unit = "*C";
+            sensorData[1].name = "Temperature";
+        }
+        if (humidity > 0)
+        {
+            sensorData[2].isValid = true;
+            sensorData[2].value = humidity;
+            sensorData[2].unit = "%";
+            sensorData[2].name = "Humidity";
         }
 
         return sensorData;
@@ -615,6 +695,54 @@ namespace sensor
         delay(300);
     }
 
+    bool initSCD40()
+    {
+        uint16_t error;
+        char errorMessage[256];
+
+        scd4x.begin(MyWire);
+
+        // stop potentially previously started measurement
+        error = scd4x.stopPeriodicMeasurement();
+        if (error)
+        {
+            Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
+            errorToString(error, errorMessage, 256);
+            Serial.println(errorMessage);
+        }
+
+        uint16_t serial0;
+        uint16_t serial1;
+        uint16_t serial2;
+        error = scd4x.getSerialNumber(serial0, serial1, serial2);
+        if (error)
+        {
+            Serial.print("Error trying to execute getSerialNumber(): ");
+            errorToString(error, errorMessage, 256);
+            Serial.println(errorMessage);
+            return false;
+        }
+        scd40printSerialNumber(serial0, serial1, serial2);
+
+        Serial.println("Found SCD40 (CO2)");
+
+        error = scd4x.startPeriodicMeasurement();
+        if (error)
+        {
+            Serial.print("Error trying to execute startPeriodicMeasurement(): ");
+            errorToString(error, errorMessage, 256);
+            Serial.println(errorMessage);
+            return false;
+        }
+
+        m_SensorTypes.insert(SensorType::scd40);
+        m_Description = m_Description + "SCD40;";
+        m_ValueNames.emplace_back("CO2");
+        m_ValueNames.emplace_back("Temperature");
+        m_ValueNames.emplace_back("Humidity");
+        return true;
+    }
+
     std::vector<String> getValueNames()
     {
         for (auto &s : m_ValueNames)
@@ -629,6 +757,23 @@ namespace sensor
     {
         Serial.println(m_Description);
         return m_Description;
+    }
+
+    void scd40printUint16Hex(uint16_t value)
+    {
+        Serial.print(value < 4096 ? "0" : "");
+        Serial.print(value < 256 ? "0" : "");
+        Serial.print(value < 16 ? "0" : "");
+        Serial.print(value, HEX);
+    }
+
+    void scd40printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2)
+    {
+        Serial.print("Serial: 0x");
+        scd40printUint16Hex(serial0);
+        scd40printUint16Hex(serial1);
+        scd40printUint16Hex(serial2);
+        Serial.println();
     }
 
 }; // namespace sensor
