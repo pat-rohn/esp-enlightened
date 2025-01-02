@@ -20,6 +20,7 @@ namespace sensor
         scd30 = 7,
         watersensor = 8,
         windsensor = 9,
+        scd40 = 10,
     };
 
     struct SensorData
@@ -42,11 +43,16 @@ namespace sensor
     std::array<SensorData, 3> getEnv();
     std::array<SensorData, 3> getMHZ19();
     std::array<SensorData, 3> getSCD30();
+    std::array<SensorData, 3> getSCD40();
     std::array<SensorData, 3> getWaterValues();
     std::array<SensorData, 3> getWindValues();
     void initI2CSensor(uint8_t address);
     void initSCD30();
+    bool initSCD40();
     std::vector<String> getValueNames();
     const String &getDescription();
+
+    void scd40printUint16Hex(uint16_t value);
+    void scd40printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2);
 
 }
