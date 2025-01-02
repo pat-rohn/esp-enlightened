@@ -94,7 +94,38 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); });
-
+    m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
+                  response->addHeader("Content-type", "application/json ");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+    m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
+                  response->addHeader("Content-type", "application/json ");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+    m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", "");
+                  response->addHeader("Content-type", "application/json ");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
+    m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
+                  response->addHeader("Content-type", "text/plain");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
     m_Server.on("/api/led", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   String answer = m_LedService->get();
@@ -104,14 +135,43 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); });
-    m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+    m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                  Serial.printf("PUT set led\n");
+                  int params = request->params();
+                  Serial.printf("%d params sent in\n", params);
+                  if (params == 0)
+                  {
+                    Serial.printf("No params sent\n");
+                    String answer = m_LedService->get("Error: No input received");
+                    AsyncWebServerResponse *response = request->beginResponse(400, "application/json ", answer);
+                    response->addHeader("Content-type", "application/json ");
+                    response->addHeader("Access-Control-Allow-Origin", "*");
+                    response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                    response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                    request->send(response); 
+                  }else{
+                    String input = "";
+                    for (int i = 0; i < params; i++)
+                    {
+                      AsyncWebParameter *p = request->getParam(i);
+                      if (p->isPost())
+                      {
+                        Serial.printf("_PUT[%s]: %s\n", p->name().c_str(), p->value().c_str());
+                        input = p->value();
+                      }
+                    }
+                    Serial.printf("Input is: %s\n", input.c_str());
+                    String answer = m_LedService->apply(input);
+                    AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
+                    response->addHeader("Content-type", "application/json ");
+                    response->addHeader("Access-Control-Allow-Origin", "*");
+                    response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                    response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+
+                    request->send(response);
+                    } });
+
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   String answer = "{\"msg\": \"button 1 pressed\"}";
@@ -122,18 +182,10 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); 
                   Serial.println(answer);
-                  m_ButtonPressed1->store(true);
-                });
-    m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                  m_ButtonPressed1->store(true); });
+
     m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
-                               {
+                {
                   String answer = "{\"msg\": \"button 2 pressed\"}";
                   AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
                   response->addHeader("Content-type", "application/json ");
@@ -142,10 +194,10 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); 
                   Serial.println(answer);
-                  m_ButtonPressed2->store(true);
-                });
-    
-    m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
+                  m_ButtonPressed2->store(true); });
+
+    // Config Post
+    m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
                   int params = request->params();
                   Serial.printf("%d params sent in\n", params);
@@ -160,43 +212,8 @@ namespace webpage
                     }
                   }
                   Serial.printf("Input is: %s\n", input.c_str());
-                  String answer = m_LedService->apply(input);
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-
-                  request->send(response); });
-    
-    m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); 
-                  });
-
-    // Config Post
-    m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
-                { 
-                  int params = request->params();
-                  Serial.printf("%d params sent in\n", params);
-                  String input = "";
-                  for (int i = 0; i < params; i++)
-                  {
-                    AsyncWebParameter *p = request->getParam(i);
-                      if (p->isPost())
-                    {
-                        Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
-                        input = p->value();
-                    }
-                  }
-                  Serial.printf("Input is: %s\n", input.c_str());
                   configman::writeConfig(input.c_str());
-                  
+
                   AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", input);
                   response->addHeader("Content-type", "application/json ");
                   response->addHeader("Access-Control-Allow-Origin", "*");
@@ -204,9 +221,7 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response);
                   Serial.println("restart triggered");
-                  m_RestartTriggered->store(true);
-
-                  });
+                  m_RestartTriggered->store(true); });
     /// Config PUT (no restart)
     m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
                 { 
@@ -230,8 +245,7 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response);
-                  });
+                  request->send(response); });
     // Config Get
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
@@ -246,14 +260,6 @@ namespace webpage
                   request->send(response); });
 
     // Time Get
-    m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
-                  response->addHeader("Content-type", "text/plain");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
     m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
                 auto hoursAndMinutes = m_TimeHelper->getHoursAndMinutes();
@@ -271,8 +277,7 @@ namespace webpage
     m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
                   Serial.println("get web page");
-                  request->send_P(200, "text/html", index_html, processor);
-                });
+                  request->send_P(200, "text/html", index_html, processor); });
 
     // Restart
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -285,8 +290,7 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); request->send(200, "text/html", answer);
                   Serial.println("restart triggered");                 
-                  m_RestartTriggered->store(true);
-                });
+                  m_RestartTriggered->store(true); });
     // Send a GET request to <ESP_IP>/get?configuration=<inputMessage>
     m_Server.on("/get", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
@@ -302,12 +306,10 @@ namespace webpage
           inputMessage = "Unknown param";
         }
         Serial.println(inputMessage);
-        request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); 
-        });
-    m_Server.onNotFound([](AsyncWebServerRequest * req)
-    {
-      req->send(404);
-    });
+        request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); });
+
+        m_Server.onNotFound([](AsyncWebServerRequest *req)
+                        { req->send(404); });
     m_Server.begin();
   }
 
