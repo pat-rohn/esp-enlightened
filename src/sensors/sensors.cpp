@@ -64,7 +64,7 @@ namespace sensor
                 m_ValueNames.emplace_back("Humidity");
             }
         }
-        if (serialRX > 0 && serialTX > 0)
+        if (serialRX >= 0 && serialTX >= 0)
         {
             rx = serialRX;
             tx = serialTX;
