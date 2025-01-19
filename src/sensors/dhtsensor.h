@@ -14,7 +14,7 @@ public:
     DHTSensor(uint8_t sensorPin)
     {
         pinMode(sensorPin, INPUT);
-        Serial.printf("DHT pin: %d\n", sensorPin);
+        Serial.printf("DHT: pin: %d\n", sensorPin);
         m_Dht = new DHT(sensorPin, DHTTYPE);
     }
     ~DHTSensor()
@@ -30,17 +30,17 @@ public:
         {
             float h = m_Dht->readHumidity(true);
             float t = m_Dht->readTemperature(false, true);
-            Serial.print("Humidity:");
+            Serial.print("DHT: Humidity:");
             Serial.println(h);
 
-            Serial.print("Temperature:");
+            Serial.print("DHT:Temperature:");
             Serial.println(t);
             if (!isnan(h) || !isnan(t))
             {
                 Serial.println("DHT: Received DHT value");
                 return true;
             }
-            delay(250);
+            delay(50);
         }
 
         Serial.println("DHT: No response received");
