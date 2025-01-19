@@ -16,15 +16,23 @@
 #include "sensors/watersensor.h"
 #include "sensors/windsensor.h"
 #include <SoftwareSerial.h>
-#include <SensirionI2CScd4x.h>
 #include "one_wire.h"
+
+// unfortunately some ESP32 (e.g. firebeetle esp32-e) 
+#define DISABLE_SCD40 true;
+
+#if !defined DISABLE_SCD40
+#include <SensirionI2CScd4x.h>
+#endif
 
 int waterSensorPin = -1;
 int windSensorPin = -1;
 int rx = -1;
 int tx = -1;
-SensirionI2CScd4x scd4x;
 
+#if !defined DISABLE_SCD40 
+SensirionI2CScd4x scd4x;
+#endif
 namespace sensor
 {
 
@@ -112,8 +120,12 @@ namespace sensor
         Serial.println("Find and init i2c sensors");
         byte count = 0;
         MyWire.begin(SDA, SCL);
-        if (!initSCD40())// so far only this i2c device alone supported
-        { 
+        bool hasSCD40 = false;
+#if !defined DISABLE_SCD40
+        hasSCD40 = initSCD40();
+#endif
+        if (!hasSCD40) // so far only this i2c device alone supported
+        {
             for (byte i = 8; i < 120; i++)
             {
                 MyWire.beginTransmission(i);
@@ -439,7 +451,7 @@ namespace sensor
     {
         std::array<SensorData, 3> sensorData;
         Serial.print("Fetch SCD40 ");
-
+#if !defined DISABLE_SCD40
         uint16_t error;
         char errorMessage[256];
         uint16_t co2 = 0;
@@ -496,7 +508,8 @@ namespace sensor
             sensorData[2].unit = "%";
             sensorData[2].name = "Humidity";
         }
-
+#endif
+        
         return sensorData;
     }
 
@@ -724,6 +737,7 @@ namespace sensor
         return m_Description;
     }
 
+#if !defined DISABLE_SCD40
     bool initSCD40()
     {
         
@@ -789,5 +803,6 @@ namespace sensor
         scd40printUint16Hex(serial2);
         Serial.println();
     }
+#endif
 
 }; // namespace sensor
