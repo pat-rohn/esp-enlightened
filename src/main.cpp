@@ -336,7 +336,7 @@ void setup()
     configman::saveConfig(&config);
     delay(200);
   }
-  else if (true)
+  else if (false)
   {
     Serial.println("reset WiFi");
     auto config = configman::readConfig();    
