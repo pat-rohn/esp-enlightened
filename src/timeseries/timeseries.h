@@ -66,21 +66,6 @@ namespace timeseries
         }
     };
 
-    struct Device
-    {
-        String Name;
-        std::vector<Sensor> Sensors;
-        double Interval;
-        int Buffer;
-
-        Device(const String &name, double interval, int buffer)
-        {
-            this->Name = name;
-            this->Interval = interval;
-            this->Buffer = buffer;
-        }
-    };
-
     class CTimeseries
     {
 
@@ -89,8 +74,6 @@ namespace timeseries
         virtual ~CTimeseries(){};
 
     public:
-        virtual Device init(const DeviceDesc &deviceDesc);
-        Device deserializeDevice(const String &deviceJson);
         virtual void newValue(const String &name, const double &value) = 0;
         virtual bool sendData() { return true; };
 

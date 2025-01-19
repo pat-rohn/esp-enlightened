@@ -104,6 +104,7 @@ namespace configman
         int WindSensorPin;
         int RainfallSensorPin;
         int LEDPin;
+        int OneWirePin;
         int Button1;
         int Button2;
         String Button2GetURL;
@@ -115,6 +116,9 @@ namespace configman
         Light LightLow;
         Light LightMedium;
         Light LightHigh;
+        int DeepSleepTime;
+        int BufferedValues;
+        int MeasureInterval;
 
         Configuration();
         Configuration(const Configuration *c);

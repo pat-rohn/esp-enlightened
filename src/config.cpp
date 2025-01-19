@@ -32,13 +32,17 @@ namespace configman
                                                            WindSensorPin(c->WindSensorPin),
                                                            RainfallSensorPin(c->RainfallSensorPin),
                                                            LEDPin(c->LEDPin),
+                                                           OneWirePin(c->OneWirePin),
                                                            Button1(c->Button1),
                                                            Button2(c->Button2),
                                                            ShowWebpage(c->ShowWebpage),
                                                            UseMQTT(c->UseMQTT),
                                                            MQTTTopic(c->MQTTTopic),
                                                            MQTTPort(c->MQTTPort),
-                                                           AlarmSettings(SunriseSettings(c->AlarmSettings))
+                                                           AlarmSettings(SunriseSettings(c->AlarmSettings)),
+                                                           DeepSleepTime(c->DeepSleepTime),
+                                                           BufferedValues(c->BufferedValues),
+                                                           MeasureInterval(c->MeasureInterval)
     {
     }
     Configuration::Configuration() : IsConfigured(false),
@@ -55,6 +59,7 @@ namespace configman
                                      WindSensorPin(-1),
                                      RainfallSensorPin(-1),
                                      LEDPin(-1),
+                                     OneWirePin(-1),
                                      Button1(-1),
                                      Button2(-1),
                                      Button2GetURL("http://192.168.1.125/relay/0?turn=toggle"),
@@ -62,7 +67,10 @@ namespace configman
                                      UseMQTT(false),
                                      MQTTTopic(""),
                                      MQTTPort(1883),
-                                     AlarmSettings()
+                                     AlarmSettings(),
+                                     DeepSleepTime(-1),
+                                     BufferedValues(3),
+                                     MeasureInterval(30)
     {
         LightLow = Light(16, 4, 0);
         LightMedium = Light(64, 32, 4);
@@ -264,6 +272,7 @@ namespace configman
         doc["WindSensorPin"] = config->WindSensorPin;
         doc["RainfallSensorPin"] = config->RainfallSensorPin;
         doc["LEDPin"] = config->LEDPin;
+        doc["OneWirePin"] = config->OneWirePin;
         doc["Button1"] = config->Button1;
         doc["Button2"] = config->Button2;
         doc["Button2GetURL"] = config->Button2GetURL;
@@ -274,6 +283,9 @@ namespace configman
         doc["UseMQTT"] = config->UseMQTT;
         doc["MQTTTopic"] = config->MQTTTopic;
         doc["MQTTPort"] = config->MQTTPort;
+        doc["DeepSleepTime"] = config->DeepSleepTime;
+        doc["BufferedValues"] = config->BufferedValues;
+        doc["MeasureInterval"] = config->MeasureInterval;
 
         doc["SunriseSettings"] = serializeSunrise(&config->AlarmSettings);
         JsonDocument docLightLow;
@@ -386,6 +398,22 @@ namespace configman
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
         res.second.LEDPin = doc["LEDPin"];
+        JsonVariant oneWire = doc["OneWirePin"];
+        if (oneWire.isNull())
+        {
+            Serial.println("One wire does not exist (yet?)");
+            res.second.OneWirePin = -1;
+            res.second.DeepSleepTime = -1;
+            res.second.BufferedValues = 3;
+            res.second.MeasureInterval = 30;
+        }
+        else
+        {
+            res.second.OneWirePin = doc["OneWirePin"];
+            res.second.DeepSleepTime = doc["DeepSleepTime"];
+            res.second.BufferedValues = doc["BufferedValues"];
+            res.second.MeasureInterval = doc["MeasureInterval"];
+        }
         JsonVariant button1 = doc["Button1"];
         if (button1.isNull())
         {

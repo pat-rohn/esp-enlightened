@@ -62,7 +62,6 @@ IPAddress gateway(192, 168, 4, 1);
 
 bool isAccessPoint = false;
 
-timeseries::Device deviceConfig = timeseries::Device("", 10.0, 3);
 std::map<String, float> sensorOffsets;
 
 unsigned long lastUpdate = millis();
@@ -276,11 +275,11 @@ void triggerEvents(const std::map<String, sensor::SensorData> &values)
   }
 }
 
-void measureAndSendSensorData()
+bool measureAndSendSensorData()
 {
-  if (millis() < lastUpdate + deviceConfig.Interval * 1000)
+  if (millis() < lastUpdate + configman::getConfig().MeasureInterval * 1000)
   {
-    return;
+    return false;
   }
 
   lastUpdate = millis();
@@ -302,6 +301,7 @@ void measureAndSendSensorData()
   if (values.empty())
   {
     Serial.println("No Values");
+    return false;
   }
   for (it = values.begin(); it != values.end(); it++)
   {
@@ -314,11 +314,13 @@ void measureAndSendSensorData()
   }
 
   valueCounter++;
-  if (valueCounter >= deviceConfig.Buffer)
+  if (valueCounter >= configman::getConfig().BufferedValues)
   {
     timeSeries->sendData();
     valueCounter = 0;
+    return true;
   }
+  return false;
 }
 
 void setup()
@@ -334,10 +336,10 @@ void setup()
     configman::saveConfig(&config);
     delay(200);
   }
-  else if (false)
+  else if (true)
   {
     Serial.println("reset WiFi");
-    auto config = configman::readConfig();
+    auto config = configman::readConfig();    
     config.WiFiName = String("Enlightened");
     config.WiFiPassword = String("enlighten-me");
     config.IsOfflineMode = false; // if true it creates access-point
@@ -375,7 +377,9 @@ void setup()
   configureDevice();
   startLedControl();
 
-  if (configman::getConfig().FindSensors && sensor::sensorsInit(configman::getConfig().SerialRX, configman::getConfig().SerialTX))
+  if (configman::getConfig().FindSensors &&
+      sensor::sensorsInit(
+          configman::getConfig().SerialRX, configman::getConfig().SerialTX))
   {
     hasSensors = true;
   }
@@ -395,20 +399,9 @@ void setup()
       Serial.println("Device Information:");
       desc += sensor::getDescription();
       timeseries::DeviceDesc deviceDesc(configman::getConfig().SensorID, desc);
-      deviceDesc.Sensors = sensor::getValueNames();
-      auto device = timeSeries->init(deviceDesc);
-
-      Serial.printf("\nDevice Name: %s\n Sensor Offsets:\n", device.Name.c_str());
-      deviceConfig = device;
-      for (auto const &s : deviceConfig.Sensors)
-      {
-        Serial.printf("%s \n", s.Name.c_str());
-        sensorOffsets[s.Name] = s.Offset;
-        Serial.printf(" is %f\n", sensorOffsets[s.Name]);
-      }
     }
 
-    lastUpdate = millis() - deviceConfig.Interval;
+    lastUpdate = millis() - configman::getConfig().MeasureInterval;
   }
 
   webPage->beginServer();
@@ -429,6 +422,16 @@ void setup()
   }
   Serial.println("Succesfully set up");
   Serial.println(WiFi.localIP());
+#ifdef ESP32
+  if (configman::getConfig().DeepSleepTime > 0)
+  {
+    unsigned long deepSleepInUS = configman::getConfig().DeepSleepTime * 1000000;
+    Serial.printf("Set deepsleep to %d\n", deepSleepInUS);
+    esp_sleep_enable_timer_wakeup(deepSleepInUS);
+  }
+#else
+  Serial.println("Deep sleep not supported.");
+#endif
 }
 
 void handleMQTT()
@@ -550,7 +553,19 @@ void loop()
 
   if (hasSensors)
   {
-    measureAndSendSensorData();
+    if (measureAndSendSensorData())
+    {
+#ifdef ESP32
+      if (configman::getConfig().DeepSleepTime > 0)
+      {
+        Serial.printf("Going to sleep for %d",
+                      configman::getConfig().DeepSleepTime);
+        delay(1000);
+        Serial.flush();
+        esp_deep_sleep_start();
+      }
+#endif
+    }
   }
 
   if (configman::getConfig().AlarmSettings.IsActivated)
