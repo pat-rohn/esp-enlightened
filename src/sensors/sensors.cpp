@@ -17,6 +17,7 @@
 #include "sensors/windsensor.h"
 #include <SoftwareSerial.h>
 #include <SensirionI2CScd4x.h>
+#include "one_wire.h"
 
 int waterSensorPin = -1;
 int windSensorPin = -1;
@@ -28,7 +29,6 @@ namespace sensor
 {
 
     std::set<SensorType> m_SensorTypes;
-    std::vector<String> m_ValueNames;
     String m_Description = "";
 
     Adafruit_BME280 bme; // I2C
@@ -48,7 +48,7 @@ namespace sensor
 
     SoftwareSerial MySerial;
 
-    bool sensorsInit(int serialRX, int serialTX)
+    bool sensorsInit(int serialRX, int serialTX, int oneWirePin)
     {
         Serial.println("Sensors init.");
         configman::Configuration config = configman::readConfig();
@@ -62,8 +62,6 @@ namespace sensor
             {
                 m_SensorTypes.insert(SensorType::dht22);
                 m_Description = m_Description + "DHT22;";
-                m_ValueNames.emplace_back("Temperature");
-                m_ValueNames.emplace_back("Humidity");
             }
         }
         if (serialRX >= 0 && serialTX >= 0)
@@ -81,17 +79,29 @@ namespace sensor
         {
             m_SensorTypes.insert(SensorType::watersensor);
             watersensor::start(config.RainfallSensorPin);
+            m_Description = m_Description + "Rain;";
         }
         if (config.WindSensorPin >= 0)
         {
             m_SensorTypes.insert(SensorType::windsensor);
             windsensor::start(config.WindSensorPin);
+            m_Description = m_Description + "Wind;";
+        }
+        
+        if (oneWirePin > 0)
+        {
+            if (one_wire::init(oneWirePin))
+            {
+                m_SensorTypes.insert(SensorType::ds18b20);
+                m_Description = m_Description + "Temperature;";
+            }
         }
 
         if (m_SensorTypes.empty())
         {
             // MyWire.begin(32, 33);
             Serial.println("Change Wire since nothing found.");
+            m_Description = m_Description + "No Sensors;";
             return false;
         }
         return true;
@@ -159,7 +169,6 @@ namespace sensor
         {
             Serial.println("Found sensor");
             m_SensorTypes.insert(SensorType::mhz19);
-            m_ValueNames.emplace_back("CO2");
             m_Description = m_Description + "MHZ19(" + v + ");";
             myMHZ19.autoCalibration();
             return;
@@ -254,7 +263,16 @@ namespace sensor
                 }
             }
         }
-
+        if (m_SensorTypes.find(SensorType::ds18b20) != m_SensorTypes.end())
+        {
+            for (const auto &val : getDS18B20Values())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
         return res;
     }
 
@@ -583,6 +601,21 @@ namespace sensor
         return sensorData;
     }
 
+    std::array<SensorData, 3> getDS18B20Values()
+    {
+        std::array<SensorData, 3> sensorData;
+        sensorData.fill(SensorData());
+
+        float temp = one_wire::getTemperature();
+        Serial.print("Temperature: ");
+        Serial.println(temp);
+        sensorData[0].isValid = true;
+        sensorData[0].value = temp;
+        sensorData[0].unit = "*C";
+        sensorData[0].name = "Temperature";
+        return sensorData;
+    }
+
     void initI2CSensor(uint8_t address)
     {
         Serial.print("Init Sensor: ");
@@ -611,17 +644,11 @@ namespace sensor
                 bmp_temp->printSensorDetails();
                 m_SensorTypes.insert(SensorType::bmp280);
                 m_Description = m_Description + "BMP280;";
-
-                m_ValueNames.emplace_back("Temperature");
-                m_ValueNames.emplace_back("Humidity");
-                m_ValueNames.emplace_back("Pressure");
             }
             else
             {
                 m_SensorTypes.insert(SensorType::bme280);
                 m_Description = m_Description + "BME280;";
-                m_ValueNames.emplace_back("Temperature");
-                m_ValueNames.emplace_back("Humidity");
             }
         }
         else if (address == 0x44)
@@ -658,9 +685,6 @@ namespace sensor
 
             m_SensorTypes.insert(SensorType::scd30);
             m_Description = m_Description + "SCD30;";
-            m_ValueNames.emplace_back("CO2");
-            m_ValueNames.emplace_back("Temperature");
-            m_ValueNames.emplace_back("Humidity");
             airSensor.setForcedRecalibrationFactor(420); // Assuming outdoor conditions.
             delay(300);
 
@@ -694,9 +718,15 @@ namespace sensor
 
         delay(300);
     }
+    const String &getDescription()
+    {
+        Serial.println(m_Description);
+        return m_Description;
+    }
 
     bool initSCD40()
     {
+        
         uint16_t error;
         char errorMessage[256];
 
@@ -709,6 +739,7 @@ namespace sensor
             Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
             errorToString(error, errorMessage, 256);
             Serial.println(errorMessage);
+            return false;
         }
 
         uint16_t serial0;
@@ -737,27 +768,10 @@ namespace sensor
 
         m_SensorTypes.insert(SensorType::scd40);
         m_Description = m_Description + "SCD40;";
-        m_ValueNames.emplace_back("CO2");
-        m_ValueNames.emplace_back("Temperature");
-        m_ValueNames.emplace_back("Humidity");
         return true;
     }
 
-    std::vector<String> getValueNames()
-    {
-        for (auto &s : m_ValueNames)
-        {
-            Serial.println(s);
-        }
 
-        return m_ValueNames;
-    }
-
-    const String &getDescription()
-    {
-        Serial.println(m_Description);
-        return m_Description;
-    }
 
     void scd40printUint16Hex(uint16_t value)
     {

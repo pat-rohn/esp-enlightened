@@ -21,6 +21,7 @@ namespace sensor
         watersensor = 8,
         windsensor = 9,
         scd40 = 10,
+        ds18b20 = 11,
     };
 
     struct SensorData
@@ -34,7 +35,7 @@ namespace sensor
         }
     };
 
-    bool sensorsInit(int serialRX, int serialTX);
+    bool sensorsInit(int serialRX, int serialTX, int oneWirePin);
     void findAndInitSensors();
     void findAndInitMHZ19();
     std::map<String, SensorData> getValues();
@@ -46,10 +47,10 @@ namespace sensor
     std::array<SensorData, 3> getSCD40();
     std::array<SensorData, 3> getWaterValues();
     std::array<SensorData, 3> getWindValues();
+    std::array<SensorData, 3> getDS18B20Values();
     void initI2CSensor(uint8_t address);
     void initSCD30();
     bool initSCD40();
-    std::vector<String> getValueNames();
     const String &getDescription();
 
     void scd40printUint16Hex(uint16_t value);

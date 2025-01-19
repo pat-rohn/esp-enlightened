@@ -379,7 +379,8 @@ void setup()
 
   if (configman::getConfig().FindSensors &&
       sensor::sensorsInit(
-          configman::getConfig().SerialRX, configman::getConfig().SerialTX))
+          configman::getConfig().SerialRX, configman::getConfig().SerialTX,
+          configman::getConfig().OneWirePin))
   {
     hasSensors = true;
   }
