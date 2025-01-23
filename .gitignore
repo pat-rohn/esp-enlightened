@@ -10,3 +10,4 @@ lib/*
 
 !include/README*
 !lib/README*
+platformio.ini
