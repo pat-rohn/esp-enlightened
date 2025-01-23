@@ -20,19 +20,21 @@ namespace one_wire
         numberOfDevices = sensors.getDeviceCount();
         if (numberOfDevices > 0)
         {
-
-            Serial.print("ONE WIRE: Locating devices...");
-            Serial.print("Found ");
+            Serial.print("ONE WIRE: Found ");
             Serial.print(numberOfDevices, DEC);
             Serial.println(" devices.");
             return true;
         }
-        return true;
-    }
 
-    double getTemperature()
+        Serial.print("ONE WIRE: error - no devies found");
+        
+        return false;
+    }
+    
+    std::vector<float>  getTemperatures()
     {
         Serial.print("Read temperature of One Wire ... \n ");
+        std::vector<float> temps;
         sensors.requestTemperatures();
         for (int i = 0; i < numberOfDevices; i++)
         {
@@ -48,9 +50,9 @@ namespace one_wire
                 float tempC = sensors.getTempC(tempDeviceAddress);
                 Serial.print("Temp C: ");
                 Serial.print(tempC);
-                return tempC;
+                temps.emplace_back(tempC);
             }
         }
-        return 0;
+        return temps;
     }
 };
