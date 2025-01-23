@@ -33,6 +33,7 @@ int tx = -1;
 #if !defined DISABLE_SCD40 
 SensirionI2CScd4x scd4x;
 #endif
+
 namespace sensor
 {
 
@@ -95,7 +96,7 @@ namespace sensor
             windsensor::start(config.WindSensorPin);
             m_Description = m_Description + "Wind;";
         }
-        
+
         if (oneWirePin > 0)
         {
             if (one_wire::init(oneWirePin))
@@ -509,7 +510,7 @@ namespace sensor
             sensorData[2].name = "Humidity";
         }
 #endif
-        
+
         return sensorData;
     }
 
@@ -619,13 +620,22 @@ namespace sensor
         std::array<SensorData, 3> sensorData;
         sensorData.fill(SensorData());
 
-        float temp = one_wire::getTemperature();
-        Serial.print("Temperature: ");
-        Serial.println(temp);
-        sensorData[0].isValid = true;
-        sensorData[0].value = temp;
-        sensorData[0].unit = "*C";
-        sensorData[0].name = "Temperature";
+        auto temps = one_wire::getTemperatures();
+        int counter = 0;
+        for (auto temp : temps)
+        {
+            if  (counter > 2){
+                Serial.printf("Only 3 allowed");
+                break;
+            }
+            Serial.print("Temperature: ");
+            Serial.println(temp);
+            sensorData[counter].isValid = true;
+            sensorData[counter].value = temp;
+            sensorData[counter].unit = "*C";
+            sensorData[counter].name = "Temperature"+ String(counter);
+            counter++;
+        }
         return sensorData;
     }
 
@@ -740,7 +750,7 @@ namespace sensor
 #if !defined DISABLE_SCD40
     bool initSCD40()
     {
-        
+
         uint16_t error;
         char errorMessage[256];
 
@@ -784,8 +794,6 @@ namespace sensor
         m_Description = m_Description + "SCD40;";
         return true;
     }
-
-
 
     void scd40printUint16Hex(uint16_t value)
     {
