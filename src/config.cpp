@@ -372,7 +372,7 @@ namespace configman
             Serial.print(configStr);
             return res;
         }
-        if (!doc.containsKey("IsConfigured"))
+        if (!doc["IsConfigured"].is<bool>())
         {
             Serial.printf("No valid config %s\n", configStr);
             return res;
@@ -522,49 +522,49 @@ namespace configman
             switch (weekDay)
             {
             case weekday_t::Monday:
-                if (!doc.containsKey("Monday"))
+                if (!doc["Monday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
                 res.DaySettings[weekday_t::Monday] = deserializeDaySetting(doc["Monday"]);
                 break;
             case weekday_t::Tuesday:
-                if (!doc.containsKey("Tuesday"))
+                if (!doc["Tuesday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
                 res.DaySettings[weekday_t::Tuesday] = deserializeDaySetting(doc["Tuesday"]);
                 break;
             case weekday_t::Wednesday:
-                if (!doc.containsKey("Wednesday"))
+                if (!doc["Wednesday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
                 res.DaySettings[weekday_t::Wednesday] = deserializeDaySetting(doc["Wednesday"]);
                 break;
             case weekday_t::Thursday:
-                if (!doc.containsKey("Thursday"))
+                if (!doc["Thursday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
                 res.DaySettings[weekday_t::Thursday] = deserializeDaySetting(doc["Thursday"]);
                 break;
             case weekday_t::Friday:
-                if (!doc.containsKey("Friday"))
+                if (!doc["Friday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
                 res.DaySettings[weekday_t::Friday] = deserializeDaySetting(doc["Friday"]);
                 break;
             case weekday_t::Saturday:
-                if (!doc.containsKey("Saturday"))
+                if (!doc["Saturday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
                 res.DaySettings[weekday_t::Saturday] = deserializeDaySetting(doc["Saturday"]);
                 break;
             case weekday_t::Sunday:
-                if (!doc.containsKey("Sunday"))
+                if (!doc["Sunday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
