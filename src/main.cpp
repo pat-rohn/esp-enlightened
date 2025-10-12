@@ -4,8 +4,11 @@
 #include "events.h"
 #include "ArduinoMqttClient.h"
 #include "handle_buttons.h"
+#include "logging.h"
+#include "chip_info.h"
 
 bool ledState = false;
+
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -43,6 +46,7 @@ LedStrip *ledStrip;
 CLEDService *ledService;
 webpage::CWebPage *webPage;
 sunrise::CSunriseAlarm *sunriseAlarm;
+logging::CLogger *logger;
 
 // webpage triggers
 std::atomic<bool> restartTriggered;
@@ -72,6 +76,7 @@ bool tryConnect(std::string ssid, std::string password)
   if (ssid.empty() || ssid.c_str() == nullptr || ssid == "null")
   {
     Serial.println("No WiFi configured ");
+    logger->m_IsOnline = false;
     return false;
   }
   Serial.printf("Try connecting to: %s\n", ssid.c_str());
@@ -107,6 +112,7 @@ bool tryConnect(std::string ssid, std::string password)
   }
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
+  logger->m_IsOnline = true;
   return true;
 }
 
@@ -116,7 +122,7 @@ void createAccesPoint()
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
   {
     Serial.println("STA Failed to configure");
-    setup();
+    ESP.restart();
   }
   Serial.print("Has access point:");
   Serial.println(WiFi.localIP());
@@ -128,7 +134,7 @@ void createAccesPoint()
   if (!WiFi.softAP(configman::getConfig().WiFiName.c_str(), configman::getConfig().WiFiPassword.c_str()))
   {
     Serial.print("softAP failed.");
-    setup();
+    ESP.restart();
   }
 }
 
@@ -339,7 +345,7 @@ void setup()
   else if (false)
   {
     Serial.println("reset WiFi");
-    auto config = configman::readConfig();    
+    auto config = configman::readConfig();
     config.WiFiName = String("Enlightened");
     config.WiFiPassword = String("enlighten-me");
     config.IsOfflineMode = false; // if true it creates access-point
@@ -352,12 +358,12 @@ void setup()
   {
     configman::readConfig();
   }
+  logger = new logging::CLogger(configman::getConfig().ServerAddress, configman::getConfig().SensorID);
 
   pinMode(LED_BUILTIN, OUTPUT);
 
   if (!configman::getConfig().IsOfflineMode)
   {
-    WiFi.disconnect();
     while (!tryConnect(configman::getConfig().WiFiName.c_str(), configman::getConfig().WiFiPassword.c_str()))
     {
       if (!configman::getConfig().IsConfigured)
@@ -385,9 +391,9 @@ void setup()
     hasSensors = true;
   }
 
+  String desc = "";
   if (hasSensors)
   {
-    String desc = "";
 #ifdef ESP8266
     desc += "ESP8266;";
 #endif
@@ -423,6 +429,15 @@ void setup()
   }
   Serial.println("Succesfully set up");
   Serial.println(WiFi.localIP());
+  String initMsg = "IoT Device setup: ";
+  initMsg += getChipInfo();
+  initMsg += " - IP: " + WiFi.localIP().toString();
+  if (hasSensors)
+  {
+    initMsg += " - Descr: " + desc;
+  }
+  logger->logMessage(initMsg);
+
 #ifdef ESP32
   if (configman::getConfig().DeepSleepTime > 0)
   {
@@ -499,8 +514,18 @@ void loop()
   {
     return;
   }
-
   nextLoopTime = millis() + loopTime;
+  if (configman::getConfig().FindSensors && !hasSensors)
+  {
+    hasSensors = sensor::sensorsInit(
+        configman::getConfig().SerialRX, configman::getConfig().SerialTX,
+        configman::getConfig().OneWirePin);
+    if (!hasSensors && logger != nullptr)
+    {
+      logger->logMessage("No sensors found");
+      nextLoopTime += 10000;
+    }
+  }
   if (!configman::getConfig().IsConfigured)
   {
     nextLoopTime = millis() + 15000;
