@@ -65,6 +65,10 @@ namespace sensor
         m_SensorTypes.clear();
         if (config.DhtPin >= 0)
         {
+            if (dhtSensor != nullptr)
+            {
+                delete dhtSensor;
+            }
             dhtSensor = new DHTSensor(config.DhtPin);
 
             if (dhtSensor->init())
