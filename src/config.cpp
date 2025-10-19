@@ -136,7 +136,7 @@ namespace configman
             return readConfig();
         }
 
-        Serial.printf("Stored config: \n%s\n", configStr.c_str());
+        //Serial.printf("Stored config: \n%s\n", configStr.c_str());
         auto res = deserializeConfig(configStr.c_str());
         if (!res.first)
         {
@@ -185,6 +185,7 @@ namespace configman
 
     bool saveConfig(const Configuration *c)
     {
+        Serial.println("Save config.");
         config = Configuration(c);
         String confStr = serializeConfig(c);
         return writeFileLFS(kPathToConfig, confStr.c_str());
@@ -260,6 +261,7 @@ namespace configman
 
     String serializeConfig(const Configuration *config)
     {
+        Serial.println("Serialize config...");
         JsonDocument doc;
         doc["IsConfigured"] = config->IsConfigured;
         doc["ServerAddress"] = config->ServerAddress;
@@ -306,7 +308,7 @@ namespace configman
         docLightHigh["Blue"] = config->LightHigh.Blue;
         doc["LightHigh"] = docLightHigh;
 
-        char buffer[2000];
+        char buffer[2500];
         serializeJsonPretty(doc, buffer);
 
         return String(buffer);
@@ -502,6 +504,7 @@ namespace configman
             res.second.LightHigh.Blue = LightHigh["Blue"];
         }
         res.first = true;
+        Serial.println("Success: Deserialized config");
         return res;
     }
 

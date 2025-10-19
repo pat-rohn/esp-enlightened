@@ -46,8 +46,8 @@ namespace sensor
     std::array<SensorData, 3> getEnv();
     std::array<SensorData, 3> getBME280();
     std::array<SensorData, 3> getMHZ19();
-    std::array<SensorData, 3> getSCD40();
 #endif
+    std::array<SensorData, 3> getSCD40();
     std::array<SensorData, 3> getWaterValues();
     std::array<SensorData, 3> getWindValues();
     std::array<SensorData, 3> getDS18B20Values();
