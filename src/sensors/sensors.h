@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <Arduino.h>
 #include <map>
@@ -37,14 +36,18 @@ namespace sensor
 
     bool sensorsInit(int serialRX, int serialTX, int oneWirePin);
     void findAndInitSensors();
+#if USE_ALL_SENSORS
     void findAndInitMHZ19();
+#endif
     std::map<String, SensorData> getValues();
-    std::array<SensorData, 3> getBME280();
     std::array<SensorData, 3> getDHT22();
-    std::array<SensorData, 3> getEnv();
-    std::array<SensorData, 3> getMHZ19();
     std::array<SensorData, 3> getSCD30();
+#if USE_ALL_SENSORS
+    std::array<SensorData, 3> getEnv();
+    std::array<SensorData, 3> getBME280();
+    std::array<SensorData, 3> getMHZ19();
     std::array<SensorData, 3> getSCD40();
+#endif
     std::array<SensorData, 3> getWaterValues();
     std::array<SensorData, 3> getWindValues();
     std::array<SensorData, 3> getDS18B20Values();

@@ -5,32 +5,34 @@
 #include "DHT.h"
 #include <Wire.h>
 #include <SPI.h>
-#include <Adafruit_BME280.h>
-#include <Adafruit_BMP280.h>
 #include <set>
 // #include "Adafruit_SGP30.h"
 // #include <WEMOS_SHT3X.h>
-#include <MHZ19.h>
-#include <SparkFun_SCD30_Arduino_Library.h>
 #include "config.h"
 #include "sensors/watersensor.h"
 #include "sensors/windsensor.h"
 #include <SoftwareSerial.h>
 #include "one_wire.h"
 
-// unfortunately some ESP32 (e.g. firebeetle esp32-e) 
-#define DISABLE_SCD40 true;
+// unfortunately some ESP32 (e.g. firebeetle esp32-e)
 
-#if !defined DISABLE_SCD40
+#if DISABLE_SCD40
 #include <SensirionI2CScd4x.h>
 #endif
+
+#if USE_ALL_SENSORS
+#include <MHZ19.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_BMP280.h>
+#endif
+#include <SparkFun_SCD30_Arduino_Library.h>
 
 int waterSensorPin = -1;
 int windSensorPin = -1;
 int rx = -1;
 int tx = -1;
 
-#if !defined DISABLE_SCD40 
+#if DISABLE_SCD40
 SensirionI2CScd4x scd4x;
 #endif
 
@@ -40,18 +42,19 @@ namespace sensor
     std::set<SensorType> m_SensorTypes;
     String m_Description = "";
 
-    Adafruit_BME280 bme; // I2C
-
     TwoWire MyWire = Wire;
-    SCD30 airSensor;
 
+    SCD30 airSensor;
+#if USE_ALL_SENSORS
+    MHZ19 myMHZ19;
+    Adafruit_BME280 bme; // I2C
     Adafruit_BMP280 bmp = Adafruit_BMP280(&MyWire);
     Adafruit_Sensor *bmp_temp = bmp.getTemperatureSensor();
     Adafruit_Sensor *bmp_pressure = bmp.getPressureSensor();
     // SHT3X sht30(0x44);
-    DHTSensor *dhtSensor;
+#endif
 
-    MHZ19 myMHZ19;
+    DHTSensor *dhtSensor;
 
     // Adafruit_SGP30 sgp;
 
@@ -126,7 +129,7 @@ namespace sensor
         byte count = 0;
         MyWire.begin(SDA, SCL);
         bool hasSCD40 = false;
-#if !defined DISABLE_SCD40
+#if DISABLE_SCD40
         hasSCD40 = initSCD40();
 #endif
         if (!hasSCD40) // so far only this i2c device alone supported
@@ -151,9 +154,12 @@ namespace sensor
 
         Serial.println();
 
+#if USE_ALL_SENSORS
         findAndInitMHZ19();
+#endif
     }
 
+#if USE_ALL_SENSORS
     void findAndInitMHZ19()
     {
         Serial.println("Find and init MHZ19 sensor");
@@ -191,6 +197,7 @@ namespace sensor
             return;
         }
     }
+#endif
 
     std::map<String, SensorData> getValues()
     {
@@ -210,6 +217,17 @@ namespace sensor
                 }
             }
         }
+        if (m_SensorTypes.find(SensorType::scd30) != m_SensorTypes.end())
+        {
+            for (const auto &val : getSCD30())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+#if USE_ALL_SENSORS
         if (m_SensorTypes.find(SensorType::bme280) != m_SensorTypes.end())
         {
             for (const auto &val : getBME280())
@@ -240,16 +258,7 @@ namespace sensor
                 }
             }
         }
-        if (m_SensorTypes.find(SensorType::scd30) != m_SensorTypes.end())
-        {
-            for (const auto &val : getSCD30())
-            {
-                if (val.isValid)
-                {
-                    res[val.name] = val;
-                }
-            }
-        }
+
         if (m_SensorTypes.find(SensorType::scd40) != m_SensorTypes.end())
         {
             for (const auto &val : getSCD40())
@@ -260,6 +269,7 @@ namespace sensor
                 }
             }
         }
+#endif
         if (m_SensorTypes.find(SensorType::watersensor) != m_SensorTypes.end())
         {
             for (const auto &val : getWaterValues())
@@ -330,6 +340,7 @@ namespace sensor
         return sensorData;
     }
 
+#if USE_ALL_SENSORS
     std::array<SensorData, 3> getBME280()
     {
         std::array<SensorData, 3> sensorData;
@@ -451,12 +462,13 @@ namespace sensor
 
         return sensorData;
     }
+#endif
 
     std::array<SensorData, 3> getSCD40()
     {
         std::array<SensorData, 3> sensorData;
         Serial.print("Fetch SCD40 ");
-#if !defined DISABLE_SCD40
+#if DISABLE_SCD40
         uint16_t error;
         char errorMessage[256];
         uint16_t co2 = 0;
@@ -628,7 +640,8 @@ namespace sensor
         int counter = 0;
         for (auto temp : temps)
         {
-            if  (counter > 2){
+            if (counter > 2)
+            {
                 Serial.printf("Only 3 allowed");
                 break;
             }
@@ -637,7 +650,7 @@ namespace sensor
             sensorData[counter].isValid = true;
             sensorData[counter].value = temp;
             sensorData[counter].unit = "*C";
-            sensorData[counter].name = "Temperature"+ String(counter);
+            sensorData[counter].name = "Temperature" + String(counter);
             counter++;
         }
         return sensorData;
@@ -650,6 +663,7 @@ namespace sensor
         delay(1.0);
         if (address == 0x76)
         {
+#if USE_ALL_SENSORS
             unsigned status;
             status = bme.begin(address, &MyWire);
             if (!status)
@@ -677,12 +691,15 @@ namespace sensor
                 m_SensorTypes.insert(SensorType::bme280);
                 m_Description = m_Description + "BME280;";
             }
+
         }
         else if (address == 0x44)
         {
             Serial.println("Sensor SHT30.");
             m_SensorTypes.insert(SensorType::sht30);
             m_Description = m_Description + "SHT30;";
+
+#endif
         }
         else if (address == 0x61)
         {
@@ -745,13 +762,13 @@ namespace sensor
 
         delay(300);
     }
+
     const String &getDescription()
     {
         Serial.println(m_Description);
         return m_Description;
     }
-
-#if !defined DISABLE_SCD40
+#if DISABLE_SCD40
     bool initSCD40()
     {
 
