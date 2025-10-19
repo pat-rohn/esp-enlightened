@@ -154,7 +154,7 @@ namespace webpage
                     String input = "";
                     for (int i = 0; i < params; i++)
                     {
-                      AsyncWebParameter *p = request->getParam(i);
+                      const AsyncWebParameter *p = request->getParam(i);
                       if (p->isPost())
                       {
                         Serial.printf("_PUT[%s]: %s\n", p->name().c_str(), p->value().c_str());
@@ -204,7 +204,7 @@ namespace webpage
                   String input = "";
                   for (int i = 0; i < params; i++)
                   {
-                    AsyncWebParameter *p = request->getParam(i);
+                    const AsyncWebParameter *p = request->getParam(i);
                     if (p->isPost())
                     {
                       Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
@@ -230,7 +230,7 @@ namespace webpage
                   String input = "";
                   for (int i = 0; i < params; i++)
                   {
-                    AsyncWebParameter *p = request->getParam(i);
+                    const AsyncWebParameter *p = request->getParam(i);
                       if (p->isPost())
                     {
                         Serial.printf("_PUT[%s]: %s\n", p->name().c_str(), p->value().c_str());
@@ -275,9 +275,13 @@ namespace webpage
                 request->send(response); });
 
     m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-                { 
-                  Serial.println("get web page");
+                {
+      Serial.println("get web page");
+#ifdef ESP8266
                   request->send_P(200, "text/html", index_html, processor); });
+#else
+                  request->send(200, "text/html", index_html, processor); });
+#endif
 
     // Restart
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -308,7 +312,7 @@ namespace webpage
         Serial.println(inputMessage);
         request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); });
 
-        m_Server.onNotFound([](AsyncWebServerRequest *req)
+    m_Server.onNotFound([](AsyncWebServerRequest *req)
                         { req->send(404); });
     m_Server.begin();
   }
