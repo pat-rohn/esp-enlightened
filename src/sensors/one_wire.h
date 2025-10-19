@@ -26,7 +26,7 @@ namespace one_wire
             return true;
         }
 
-        Serial.print("ONE WIRE: error - no devies found");
+        Serial.print("ONE WIRE: error - no devies found\n");
         
         return false;
     }
