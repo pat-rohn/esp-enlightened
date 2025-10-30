@@ -193,18 +193,20 @@ void configureDevice()
   delete sunriseAlarm;
   delete mqttClient;
   mqttClient = new MqttClient(wifiClient);
-
-  String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
-  connectToMqtt();
   mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
 
-  if (configman::getConfig().UseMQTT)
+  if (!configman::getConfig().IsOfflineMode)
   {
-    timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, server, timeHelper, mqttClient);
-  }
-  else
-  {
-    timeSeries = new ts_http::CTimeseriesHttp(configman::getConfig().ServerAddress, timeHelper);
+    String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
+    connectToMqtt();
+    if (configman::getConfig().UseMQTT)
+    {
+      timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, server, timeHelper, mqttClient);
+    }
+    else
+    {
+      timeSeries = new ts_http::CTimeseriesHttp(configman::getConfig().ServerAddress, timeHelper);
+    }
   }
 
   ledStrip = new LedStrip(configman::getConfig().LEDPin, configman::getConfig().NumberOfLEDs);
@@ -309,9 +311,13 @@ bool measureAndSendSensorData()
     Serial.println("No Values");
     return false;
   }
+  if (configman::getConfig().IsOfflineMode)
+  {
+    return true;
+  }
   for (it = values.begin(); it != values.end(); it++)
   {
-    if (it->second.isValid)
+    if (it->second.isValid && timeSeries != nullptr)
     {
       String name = configman::getConfig().SensorID;
       String valueName = name + it->second.name;
@@ -322,7 +328,10 @@ bool measureAndSendSensorData()
   valueCounter++;
   if (valueCounter >= configman::getConfig().BufferedValues)
   {
-    timeSeries->sendData();
+    if (timeSeries != nullptr)
+    {
+      timeSeries->sendData();
+    }
     valueCounter = 0;
     return true;
   }
@@ -359,6 +368,8 @@ void setup()
     configman::readConfig();
   }
   logger = new logging::CLogger(configman::getConfig().ServerAddress, configman::getConfig().SensorID);
+
+  logger->m_IsOnline = !configman::getConfig().IsOfflineMode;
 
   pinMode(LED_BUILTIN, OUTPUT);
 
