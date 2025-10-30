@@ -10,7 +10,7 @@ This project is using Platform IO. To build project, first run commands describe
 ## Configure Device
 - Access point will be created and device will have IP 192.168.4.1
 - Connect to http://192.168.4.1 and change configuration to your needs (JSON)
-- To stay connected (on Android) configure static IP (e.g. 192.168.4.5/16) and use DNS1 0.0.0.0
+- To stay connected (on Android) configure static IP (e.g. 192.168.4.5/16 - 255.255.0.0) and use DNS1 0.0.0.0
 - Device will reboot
 
 ## Example Wemos with DHT22
