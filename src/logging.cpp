@@ -53,40 +53,41 @@ namespace logging
                 Serial.printf("[FAILED] %s: %s\n", m_DeviceID.c_str(), msg.c_str());
             }
 #ifdef ESP32
-                catch (const std::exception &e)
-                {
-                    Serial.printf("[ERROR] Logging failed: %s\n", e.what());
-                }
-#endif
-            }
-
-            bool CLogger::postData(const String &root, const String &url)
-            {
-                WiFiClient client = WiFiClient();
-                HTTPClient http;
-                String serverPath = "http://" + m_ServerAddress + url;
-                Serial.printf("[LOG] Send message from %s to %s\n", m_DeviceID.c_str(), serverPath.c_str());
-
-                http.begin(client, serverPath.c_str());
-                Serial.println("Post data");
-                int httpResponseCode = http.POST(root.c_str());
-
-                if (httpResponseCode > 0)
-                {
-                    Serial.print("HTTP Response code: ");
-                    Serial.println(httpResponseCode);
-                    String payload = http.getString();
-                    Serial.println(payload);
-                    http.end();
-                    return true;
-                }
-                else
-                {
-                    Serial.print("Error code: ");
-                    Serial.println(httpResponseCode);
-                    http.end();
-                    return false;
-                }
-                return true;
-            }
         }
+        catch (const std::exception &e)
+        {
+            Serial.printf("[ERROR] Logging failed: %s\n", e.what());
+        }
+#endif
+    }
+
+    bool CLogger::postData(const String &root, const String &url)
+    {
+        WiFiClient client = WiFiClient();
+        HTTPClient http;
+        String serverPath = "http://" + m_ServerAddress + url;
+        Serial.printf("[LOG] Send message from %s to %s\n", m_DeviceID.c_str(), serverPath.c_str());
+
+        http.begin(client, serverPath.c_str());
+        Serial.println("Post data");
+        int httpResponseCode = http.POST(root.c_str());
+
+        if (httpResponseCode > 0)
+        {
+            Serial.print("HTTP Response code: ");
+            Serial.println(httpResponseCode);
+            String payload = http.getString();
+            Serial.println(payload);
+            http.end();
+            return true;
+        }
+        else
+        {
+            Serial.print("Error code: ");
+            Serial.println(httpResponseCode);
+            http.end();
+            return false;
+        }
+        return true;
+    }
+}
