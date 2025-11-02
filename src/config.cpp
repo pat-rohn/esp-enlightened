@@ -136,7 +136,7 @@ namespace configman
             return readConfig();
         }
 
-        //Serial.printf("Stored config: \n%s\n", configStr.c_str());
+        // Serial.printf("Stored config: \n%s\n", configStr.c_str());
         auto res = deserializeConfig(configStr.c_str());
         if (!res.first)
         {
@@ -176,11 +176,19 @@ namespace configman
             return String(err.code());
         }
 
-        char buffer[2000];
-
-        serializeJsonPretty(doc, buffer);
-
-        return String(buffer);
+        Serial.println("make pretty...");
+        size_t needed = measureJsonPretty(doc) + 1;
+        Serial.printf("Allocate %d memory\n", needed);
+        char *buffer = (char *)malloc(needed);
+        if (!buffer)
+        {
+            Serial.printf("Can't allocate so much memory (%d)", needed);
+            return String("{}");
+        }
+        serializeJsonPretty(doc, buffer, needed);
+        String result(buffer);
+        free(buffer);
+        return result;
     }
 
     bool saveConfig(const Configuration *c)
@@ -308,10 +316,19 @@ namespace configman
         docLightHigh["Blue"] = config->LightHigh.Blue;
         doc["LightHigh"] = docLightHigh;
 
-        char buffer[2500];
-        serializeJsonPretty(doc, buffer);
-
-        return String(buffer);
+        Serial.println("make pretty...");
+        size_t needed = measureJsonPretty(doc) + 1;
+        Serial.printf("Allocate %d memory\n", needed);
+        char *buffer = (char *)malloc(needed);
+        if (!buffer)
+        {
+            Serial.printf("Can't allocate so much memory (%d)", needed);
+            return String("{}");
+        }
+        serializeJsonPretty(doc, buffer, needed);
+        String result(buffer);
+        free(buffer);
+        return result;
     }
 
     JsonDocument serializeSunrise(const SunriseSettings *config)
