@@ -526,8 +526,8 @@ namespace sensor
             sensorData[2].unit = "%";
             sensorData[2].name = "Humidity";
         }
+        Serial.printf("CO2: %d\n", co2);
 #endif
-
         return sensorData;
     }
 
