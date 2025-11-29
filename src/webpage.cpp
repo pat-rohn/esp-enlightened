@@ -135,6 +135,28 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response); });
+    m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
+                {
+                  int params = request->params();
+                  Serial.printf("%d params sent in\n", params);
+                  String input = "";
+                  for (int i = 0; i < params; i++)
+                  {
+                    const AsyncWebParameter *p = request->getParam(i);
+                    if (p->isPost())
+                    {
+                      Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+                      input = p->value();
+                    }
+                  }
+                  Serial.printf("Input is: %s\n", input.c_str());
+                  String answer = m_LedService->apply(input);
+                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
+                  response->addHeader("Content-type", "application/json ");
+                  response->addHeader("Access-Control-Allow-Origin", "*");
+                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  request->send(response); });
     m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
                   Serial.printf("PUT set led\n");
