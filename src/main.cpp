@@ -85,7 +85,8 @@ bool tryConnect(std::string ssid, std::string password)
   WiFi.hostname(configman::getConfig().SensorID);
 #endif /* ESP8266 */
 #ifdef ESP32
-  WiFi.setHostname(configman::getConfig().SensorID);
+
+  WiFi.setHostname(configman::getConfig().SensorID.c_str());
 #endif /* ESP32 */
 
   WiFi.begin(ssid.c_str(), password.c_str());
