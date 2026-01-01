@@ -81,6 +81,13 @@ bool tryConnect(std::string ssid, std::string password)
   }
   Serial.printf("Try connecting to: %s\n", ssid.c_str());
 
+#ifdef ESP8266
+  WiFi.hostname(configman::getConfig().SensorID);
+#endif /* ESP8266 */
+#ifdef ESP32
+  WiFi.setHostname(configman::getConfig().SensorID);
+#endif /* ESP32 */
+
   WiFi.begin(ssid.c_str(), password.c_str());
 
   unsigned long nextWifiLoopTime = millis();
