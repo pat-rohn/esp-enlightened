@@ -201,14 +201,14 @@ void configureDevice()
   delete sunriseAlarm;
   delete mqttClient;
   mqttClient = new MqttClient(wifiClient);
-  mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
 
   if (!configman::getConfig().IsOfflineMode)
   {
-    String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
     connectToMqtt();
+    mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
     if (configman::getConfig().UseMQTT)
     {
+      String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
       timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, server, timeHelper, mqttClient);
     }
     else
