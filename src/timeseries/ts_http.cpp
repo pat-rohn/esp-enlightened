@@ -32,6 +32,22 @@ namespace ts_http
         m_Data.at(name).addValue(value, m_TimeHelper->getTimestamp());
     }
 
+    bool CTimeseriesHttp::initDevice(const DeviceDesc &device)
+    {
+        JsonDocument doc;
+        JsonObject devObj = doc["Device"].to<JsonObject>();
+        devObj["Name"] = device.Name;
+        devObj["Description"] = device.Description;
+        JsonArray sensors = devObj["Sensors"].to<JsonArray>();
+        for (const auto &s : device.Sensors)
+        {
+            sensors.add(s);
+        }
+        Serial.print("initDevice: ");
+        Serial.println(doc.as<String>());
+        return postData(doc.as<String>(), "/init-device");
+    }
+
     bool CTimeseriesHttp::sendData()
     {
         JsonDocument doc;
@@ -83,6 +99,6 @@ namespace ts_http
             http.end();
             return false;
         }
-        return false;
+        return true;
     }
 }
