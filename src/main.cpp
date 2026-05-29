@@ -6,6 +6,7 @@
 #include "handle_buttons.h"
 #include "logging.h"
 #include "chip_info.h"
+#include "version.h"
 
 bool ledState = false;
 
@@ -421,6 +422,7 @@ void setup()
     {
       Serial.println("Device Information:");
       desc += sensor::getDescription();
+      desc += ";fw:" + getFirmwareVersion();
       timeseries::DeviceDesc deviceDesc(configman::getConfig().SensorID, desc);
       deviceDesc.Sensors = sensor::getSensorNames();
       if (timeSeries != nullptr)
