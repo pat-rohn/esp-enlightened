@@ -55,6 +55,7 @@ namespace sensor
     void initSCD30();
     bool initSCD40();
     const String &getDescription();
+    std::vector<String> getSensorNames();
 
     void scd40printUint16Hex(uint16_t value);
     void scd40printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2);
