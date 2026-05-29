@@ -228,6 +228,7 @@ void configureDevice()
   button_inputs::button1.pin = configman::getConfig().Button1;
   button_inputs::button2.pin = configman::getConfig().Button2;
   button_inputs::start();
+  delete webPage;
   webPage = new webpage::CWebPage();
   restartTriggered.store(false);
   webPage->setLEDService(ledService);
