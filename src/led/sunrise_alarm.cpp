@@ -71,7 +71,7 @@ void CSunriseAlarm::startSunrise()
     m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
     m_LedStrip->m_SunriseStartTime = millis();
     Serial.printf("Alarm start/end: %ld/%ld", m_LedStrip->m_SunriseStartTime, m_AlarmEndTime);
-    m_LedStrip->m_SunriseDuration = m_Settings.SunriseLightTime * 60 / 2;
+    m_LedStrip->m_SunriseDuration = m_Settings.SunriseLightTime * 60;
     m_LedStrip->applyModeAndColor();
     m_LedStrip->runModeAction();
 }
