@@ -297,11 +297,11 @@ void LedStrip::campfireMode()
         }
     }
     double random = (rand() % 100) / 100.0;
-    if (random > 0.1)
+    if (random < 0.5)
     {
         m_FlameMode.Brightness += 0.005;
     }
-    else if (random < 0.9)
+    else
     {
         m_FlameMode.Brightness -= 0.005;
     }
