@@ -454,6 +454,7 @@ void setup()
   Serial.println(WiFi.localIP());
   String initMsg = "IoT Device setup: ";
   initMsg += getChipInfo();
+  initMsg += " - FW: " + getFirmwareVersion();
   initMsg += " - IP: " + WiFi.localIP().toString();
   if (hasSensors)
   {
