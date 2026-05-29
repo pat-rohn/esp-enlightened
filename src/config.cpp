@@ -110,7 +110,7 @@ namespace configman
 #endif
     }
 
-    Configuration getConfig()
+    const Configuration& getConfig()
     {
         return config;
     }

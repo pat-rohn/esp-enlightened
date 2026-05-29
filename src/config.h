@@ -126,7 +126,7 @@ namespace configman
 
     void begin();
 
-    Configuration getConfig();
+    const Configuration& getConfig();
     void setConfig(Configuration config);
 
     Configuration readConfig();
