@@ -34,7 +34,7 @@ namespace ts_http
 
     bool CTimeseriesHttp::sendData()
     {
-        JsonDocument doc; 
+        JsonDocument doc;
         for (auto const &ts : m_Data)
         {
             JsonObject tsEntry = doc.add<JsonObject>();
@@ -75,7 +75,6 @@ namespace ts_http
             String payload = http.getString();
             Serial.println(payload);
             http.end();
-            return true;
         }
         else
         {
@@ -84,6 +83,6 @@ namespace ts_http
             http.end();
             return false;
         }
-        return true;
+        return false;
     }
 }
