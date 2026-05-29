@@ -309,7 +309,7 @@ namespace webpage
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   String answer = "<html><head><meta http-equiv=\"refresh\" content=\"10;url=/\" /></head><body><h1>Redirecting in 10 seconds...</h1></body></html>";
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/html", answer);
                   response->addHeader("Content-type", "text/html");
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET");
