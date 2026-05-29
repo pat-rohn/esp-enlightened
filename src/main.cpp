@@ -208,8 +208,7 @@ void configureDevice()
     mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
     if (configman::getConfig().UseMQTT)
     {
-      String server = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
-      timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, server, timeHelper, mqttClient);
+      timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, configman::getConfig().ServerAddress, timeHelper, mqttClient);
     }
     else
     {
