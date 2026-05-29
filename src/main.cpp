@@ -91,21 +91,21 @@ bool tryConnect(std::string ssid, std::string password)
 
   WiFi.begin(ssid.c_str(), password.c_str());
 
+  unsigned long startTime = millis();
   unsigned long nextWifiLoopTime = millis();
-  unsigned long timeoutTime = millis() + 30000;
   while (WiFi.status() != WL_CONNECTED)
   {
-    if (millis() > nextWifiLoopTime)
+    if (millis() - nextWifiLoopTime >= 1000)
     {
       Serial.printf("Waiting for connection: %s\n", ssid.c_str());
-      nextWifiLoopTime = millis() + 1000;
+      nextWifiLoopTime = millis();
       digitalWrite(LED_BUILTIN, ledState ? kLEDON : kLEDOFF);
       ledState = !ledState;
 
       delay(500);
     }
 
-    if (millis() > timeoutTime)
+    if (millis() - startTime >= 30000)
     {
       ESP.restart();
     }
@@ -291,7 +291,7 @@ void triggerEvents(const std::map<String, sensor::SensorData> &values)
 
 bool measureAndSendSensorData()
 {
-  if (millis() < lastUpdate + configman::getConfig().MeasureInterval * 1000)
+  if (millis() - lastUpdate < (unsigned long)configman::getConfig().MeasureInterval * 1000)
   {
     return false;
   }
@@ -513,9 +513,9 @@ void checkWebpageTriggers()
   }
 }
 
-unsigned long nextLoopTime = millis();
-
+unsigned long lastLoopTime = 0;
 unsigned long loopTime = 500;
+unsigned long nextInterval = 500;
 
 void loop()
 {
@@ -527,11 +527,12 @@ void loop()
   handleButtons(sunriseAlarm, ledStrip);
   handleMQTT();
 
-  if (millis() < nextLoopTime)
+  if (millis() - lastLoopTime < nextInterval)
   {
     return;
   }
-  nextLoopTime = millis() + loopTime;
+  lastLoopTime = millis();
+  nextInterval = loopTime;
   if (configman::getConfig().FindSensors && !hasSensors)
   {
     hasSensors = sensor::sensorsInit(
@@ -540,12 +541,12 @@ void loop()
     if (!hasSensors && logger != nullptr)
     {
       logger->logMessage("No sensors found");
-      nextLoopTime += 10000;
+      nextInterval += 10000;
     }
   }
   if (!configman::getConfig().IsConfigured)
   {
-    nextLoopTime = millis() + 15000;
+    nextInterval = 15000;
     Serial.println("Device not configured yet...");
     if (isAccessPoint)
     {
