@@ -418,7 +418,7 @@ void setup()
     desc += "ESP32;";
 #endif
 
-    if (configman::getConfig().IsConfigured && !configman::getConfig().UseMQTT)
+    if (configman::getConfig().IsConfigured)
     {
       Serial.println("Device Information:");
       desc += sensor::getDescription();
