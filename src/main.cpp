@@ -423,6 +423,10 @@ void setup()
       Serial.println("Device Information:");
       desc += sensor::getDescription();
       timeseries::DeviceDesc deviceDesc(configman::getConfig().SensorID, desc);
+      if (timeSeries != nullptr)
+      {
+        static_cast<ts_http::CTimeseriesHttp *>(timeSeries)->initDevice(deviceDesc);
+      }
     }
 
     lastUpdate = millis() - configman::getConfig().MeasureInterval;
