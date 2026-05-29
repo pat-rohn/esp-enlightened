@@ -8,11 +8,11 @@ namespace button_inputs
     struct Button
     {
         int pin;
-        bool pressed;
+        volatile bool pressed;
     };
 
-    unsigned long buttonTime1 = millis();
-    unsigned long buttonTime2 = millis();
+    volatile unsigned long buttonTime1 = millis();
+    volatile unsigned long buttonTime2 = millis();
     Button button1 = {-1, false};
     Button button2 = {-1, false};
 
