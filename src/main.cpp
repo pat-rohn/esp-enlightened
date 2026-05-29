@@ -409,29 +409,32 @@ void setup()
   }
 
   String desc = "";
-  if (hasSensors)
-  {
 #ifdef ESP8266
-    desc += "ESP8266;";
+  desc += "ESP8266;";
 #endif
 #ifdef ESP32
-    desc += "ESP32;";
+  desc += "ESP32;";
 #endif
+  desc += "fw:" + getFirmwareVersion();
 
-    if (configman::getConfig().IsConfigured)
-    {
-      Serial.println("Device Information:");
-      desc += sensor::getDescription();
-      desc += ";fw:" + getFirmwareVersion();
-      timeseries::DeviceDesc deviceDesc(configman::getConfig().SensorID, desc);
-      deviceDesc.Sensors = sensor::getSensorNames();
-      if (timeSeries != nullptr)
-      {
-        static_cast<ts_http::CTimeseriesHttp *>(timeSeries)->initDevice(deviceDesc);
-      }
-    }
-
+  if (hasSensors)
+  {
+    desc += ";" + sensor::getDescription();
     lastUpdate = millis() - configman::getConfig().MeasureInterval;
+  }
+
+  if (configman::getConfig().IsConfigured)
+  {
+    Serial.println("Device Information:");
+    timeseries::DeviceDesc deviceDesc(configman::getConfig().SensorID, desc);
+    if (hasSensors)
+    {
+      deviceDesc.Sensors = sensor::getSensorNames();
+    }
+    if (timeSeries != nullptr)
+    {
+      static_cast<ts_http::CTimeseriesHttp *>(timeSeries)->initDevice(deviceDesc);
+    }
   }
 
   webPage->beginServer();
