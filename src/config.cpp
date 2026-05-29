@@ -114,9 +114,9 @@ namespace configman
     {
         return config;
     }
-    void setConfig(Configuration config)
+    void setConfig(Configuration newConfig)
     {
-        config = config;
+        config = newConfig;
     }
 
     Configuration readConfig()
