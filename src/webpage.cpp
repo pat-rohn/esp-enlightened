@@ -314,7 +314,7 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Origin", "*");
                   response->addHeader("Access-Control-Allow-Methods", "GET");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); request->send(200, "text/html", answer);
+                  request->send(response);
                   Serial.println("restart triggered");                 
                   m_RestartTriggered->store(true); });
     // Send a GET request to <ESP_IP>/get?configuration=<inputMessage>
