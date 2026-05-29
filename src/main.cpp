@@ -229,15 +229,12 @@ void configureDevice()
   button_inputs::button2.pin = configman::getConfig().Button2;
   button_inputs::start();
   webPage = new webpage::CWebPage();
-  restartTriggered = new std::atomic<bool>();
+  restartTriggered.store(false);
   webPage->setLEDService(ledService);
   webPage->setTimeHelper(timeHelper);
-  restartTriggered.store(false);
   webPage->setTriggerFlag(&restartTriggered);
 
-  buttonPressed1 = new std::atomic<bool>();
   buttonPressed1.store(false);
-  buttonPressed2 = new std::atomic<bool>();
   buttonPressed2.store(false);
   webPage->setButtonsPressed(&buttonPressed1, &buttonPressed2);
 }
