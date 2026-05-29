@@ -10,4 +10,5 @@ lib/*
 
 !include/README*
 !lib/README*
+src/version_generated.h
 platformio.ini
