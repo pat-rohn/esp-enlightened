@@ -41,6 +41,7 @@ namespace sensor
 
     std::set<SensorType> m_SensorTypes;
     String m_Description = "";
+    std::vector<String> m_SensorNames;
 
     TwoWire MyWire = Wire;
 
@@ -66,6 +67,7 @@ namespace sensor
         configman::Configuration config = configman::readConfig();
 
         m_SensorTypes.clear();
+        m_SensorNames.clear();
         if (config.DhtPin >= 0)
         {
             if (dhtSensor != nullptr)
@@ -78,6 +80,8 @@ namespace sensor
             {
                 m_SensorTypes.insert(SensorType::dht22);
                 m_Description = m_Description + "DHT22;";
+                m_SensorNames.push_back("Temperature");
+                m_SensorNames.push_back("Humidity");
             }
         }
         if (serialRX >= 0 && serialTX >= 0)
@@ -96,12 +100,16 @@ namespace sensor
             m_SensorTypes.insert(SensorType::watersensor);
             watersensor::start(config.RainfallSensorPin);
             m_Description = m_Description + "Rain;";
+            m_SensorNames.push_back("WaterClicks");
         }
         if (config.WindSensorPin >= 0)
         {
             m_SensorTypes.insert(SensorType::windsensor);
             windsensor::start(config.WindSensorPin);
             m_Description = m_Description + "Wind;";
+            m_SensorNames.push_back("WindClicks");
+            m_SensorNames.push_back("WindSpeed");
+            m_SensorNames.push_back("WindPeak");
         }
 
         if (oneWirePin > 0)
@@ -110,6 +118,7 @@ namespace sensor
             {
                 m_SensorTypes.insert(SensorType::ds18b20);
                 m_Description = m_Description + "Temperature;";
+                m_SensorNames.push_back("Temperature0");
             }
         }
 
@@ -193,6 +202,7 @@ namespace sensor
             Serial.println("Found sensor");
             m_SensorTypes.insert(SensorType::mhz19);
             m_Description = m_Description + "MHZ19(" + v + ");";
+            m_SensorNames.push_back("CO2");
             myMHZ19.autoCalibration();
             return;
         }
@@ -686,11 +696,16 @@ namespace sensor
                 bmp_temp->printSensorDetails();
                 m_SensorTypes.insert(SensorType::bmp280);
                 m_Description = m_Description + "BMP280;";
+                m_SensorNames.push_back("Temperature");
+                m_SensorNames.push_back("Pressure");
             }
             else
             {
                 m_SensorTypes.insert(SensorType::bme280);
                 m_Description = m_Description + "BME280;";
+                m_SensorNames.push_back("Temperature");
+                m_SensorNames.push_back("Humidity");
+                m_SensorNames.push_back("Pressure");
             }
         }
         else if (address == 0x44)
@@ -729,6 +744,9 @@ namespace sensor
 
             m_SensorTypes.insert(SensorType::scd30);
             m_Description = m_Description + "SCD30;";
+            m_SensorNames.push_back("CO2");
+            m_SensorNames.push_back("Temperature");
+            m_SensorNames.push_back("Humidity");
             airSensor.setForcedRecalibrationFactor(420); // Assuming outdoor conditions.
             delay(300);
 
@@ -767,6 +785,11 @@ namespace sensor
     {
         Serial.println(m_Description);
         return m_Description;
+    }
+
+    std::vector<String> getSensorNames()
+    {
+        return m_SensorNames;
     }
 #if ENABLE_SCD40
     bool initSCD40()
@@ -813,6 +836,9 @@ namespace sensor
 
         m_SensorTypes.insert(SensorType::scd40);
         m_Description = m_Description + "SCD40;";
+        m_SensorNames.push_back("CO2");
+        m_SensorNames.push_back("Temperature");
+        m_SensorNames.push_back("Humidity");
         return true;
     }
 
