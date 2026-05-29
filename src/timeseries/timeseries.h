@@ -50,7 +50,7 @@ namespace timeseries
         Sensor(const String &name, double offset)
         {
             this->Name = name;
-            this->Offset = Offset;
+            this->Offset = offset;
         }
     };
 
