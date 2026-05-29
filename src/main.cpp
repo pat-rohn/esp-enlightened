@@ -565,7 +565,7 @@ void loop()
     }
     Serial.print("\nIP Address: ");
     Serial.println(WiFi.localIP());
-    auto config = configman::getConfig();
+    const auto& config = configman::getConfig();
     Serial.println(configman::serializeConfig(&config));
     Serial.println("--------------------------------");
     return;

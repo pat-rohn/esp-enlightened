@@ -272,7 +272,7 @@ namespace webpage
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
                   Serial.println("get /api/config");
-                  auto config =  configman::getConfig();
+                  const auto& config = configman::getConfig();
                   String answer = configman::serializeConfig(&config);
                   AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
                   response->addHeader("Content-type", "application/json ");
@@ -345,7 +345,7 @@ namespace webpage
     if (var == "devconfig")
     {
       Serial.println("get configuration");
-      auto config = configman::getConfig();
+      const auto& config = configman::getConfig();
       return configman::serializeConfig(&config);
     }
     else
