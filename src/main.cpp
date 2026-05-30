@@ -416,6 +416,7 @@ void setup()
   desc += "ESP32;";
 #endif
   desc += "fw:" + getFirmwareVersion();
+  desc += ";ip:" + WiFi.localIP().toString();
 
   if (hasSensors)
   {
