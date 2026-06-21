@@ -101,6 +101,7 @@ namespace configman
         int DhtPin;
         int SerialRX;
         int SerialTX;
+        int AnalogSensorPin;
         int WindSensorPin;
         int RainfallSensorPin;
         int LEDPin;

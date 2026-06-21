@@ -17,10 +17,11 @@ namespace sensor
         sgp30 = 6,
         mhz19 = 7,
         scd30 = 8,
-        watersensor = 8,
-        windsensor = 9,
-        scd40 = 10,
-        ds18b20 = 11,
+        watersensor = 9,
+        windsensor = 10,
+        scd40 = 11,
+        ds18b20 = 12,
+        analogSensor = 13,
     };
 
     struct SensorData
@@ -51,6 +52,7 @@ namespace sensor
     std::array<SensorData, 3> getWaterValues();
     std::array<SensorData, 3> getWindValues();
     std::array<SensorData, 3> getDS18B20Values();
+    std::array<SensorData, 3> getAnalogValues();
     void initI2CSensor(uint8_t address);
     void initSCD30();
     bool initSCD40();

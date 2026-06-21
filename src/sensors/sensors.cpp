@@ -29,6 +29,7 @@
 
 int waterSensorPin = -1;
 int windSensorPin = -1;
+int analogSensorPin = -1;
 int rx = -1;
 int tx = -1;
 
@@ -120,6 +121,15 @@ namespace sensor
                 m_Description = m_Description + "Temperature;";
                 m_SensorNames.push_back("Temperature0");
             }
+        }
+
+        if (config.AnalogSensorPin >= 0)
+        {
+            analogSensorPin = config.AnalogSensorPin;
+            pinMode(analogSensorPin, INPUT);
+            m_SensorTypes.insert(SensorType::analogSensor);
+            m_Description = m_Description + "AnalogSensor;";
+            m_SensorNames.push_back("Analog0");
         }
 
         if (m_SensorTypes.empty())
@@ -304,6 +314,16 @@ namespace sensor
         if (m_SensorTypes.find(SensorType::ds18b20) != m_SensorTypes.end())
         {
             for (const auto &val : getDS18B20Values())
+            {
+                if (val.isValid)
+                {
+                    res[val.name] = val;
+                }
+            }
+        }
+        if (m_SensorTypes.find(SensorType::analogSensor) != m_SensorTypes.end())
+        {
+            for (const auto &val : getAnalogValues())
             {
                 if (val.isValid)
                 {
@@ -664,6 +684,28 @@ namespace sensor
             sensorData[counter].name = "Temperature" + String(counter);
             counter++;
         }
+        return sensorData;
+    }
+
+    std::array<SensorData, 3> getAnalogValues()
+    {
+        std::array<SensorData, 3> sensorData;
+        sensorData.fill(SensorData());
+
+        if (analogSensorPin < 0)
+        {
+            return sensorData;
+        }
+
+        int value = analogRead(analogSensorPin);
+        Serial.print("Analog0: ");
+        Serial.println(value);
+
+        sensorData[0].isValid = true;
+        sensorData[0].value = value;
+        sensorData[0].unit = "1";
+        sensorData[0].name = "Analog0";
+
         return sensorData;
     }
 
