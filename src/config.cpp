@@ -29,6 +29,7 @@ namespace configman
                                                            DhtPin(c->DhtPin),
                                                            SerialRX(c->SerialRX),
                                                            SerialTX(c->SerialTX),
+                                                           AnalogSensorPin(c->AnalogSensorPin),
                                                            WindSensorPin(c->WindSensorPin),
                                                            RainfallSensorPin(c->RainfallSensorPin),
                                                            LEDPin(c->LEDPin),
@@ -56,6 +57,7 @@ namespace configman
                                      DhtPin(-1),
                                      SerialRX(-1),
                                      SerialTX(-1),
+                                     AnalogSensorPin(-1),
                                      WindSensorPin(-1),
                                      RainfallSensorPin(-1),
                                      LEDPin(-1),
@@ -279,6 +281,7 @@ namespace configman
         doc["DhtPin"] = config->DhtPin;
         doc["SerialRX"] = config->SerialRX;
         doc["SerialTX"] = config->SerialTX;
+        doc["AnalogSensorPin"] = config->AnalogSensorPin;
         doc["WindSensorPin"] = config->WindSensorPin;
         doc["RainfallSensorPin"] = config->RainfallSensorPin;
         doc["LEDPin"] = config->LEDPin;
@@ -413,6 +416,15 @@ namespace configman
         {
             res.second.SerialRX = doc["SerialRX"];
             res.second.SerialTX = doc["SerialTX"];
+        }
+        JsonVariant analogSensorPin = doc["AnalogSensorPin"];
+        if (analogSensorPin.isNull())
+        {
+            res.second.AnalogSensorPin = -1;
+        }
+        else
+        {
+            res.second.AnalogSensorPin = doc["AnalogSensorPin"];
         }
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];
