@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <array>
 #include <map>
+#include <time.h>
 #include "events.h"
 #include "ArduinoMqttClient.h"
 #include "handle_buttons.h"
@@ -22,6 +23,7 @@ uint8_t kLEDOFF = 0x1;
 #ifdef ESP32
 #include "WiFi.h"
 #include <HTTPClient.h>
+#include <esp_wifi.h>
 
 uint8_t kLEDON = 0x1;
 uint8_t kLEDOFF = 0x0;
@@ -121,6 +123,12 @@ bool tryConnect(std::string ssid, std::string password)
   }
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
+#ifdef ESP32
+  if (configman::getConfig().DeepSleepTime > 0)
+  {
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+  }
+#endif
   logger->m_IsOnline = true;
   return true;
 }
@@ -243,6 +251,23 @@ void configureDevice()
 unsigned long lastColorChange = 0;
 double co2TestVal = 400;
 double tempTestVal = 15;
+
+String getDeepSleepWakeMessage(unsigned long deepSleepSeconds)
+{
+  time_t now = time(nullptr);
+  if (now < 1651000000)
+  {
+    return "Going to sleep";
+  }
+
+  time_t wakeTime = now + deepSleepSeconds;
+  struct tm wakeTimeInfo;
+  localtime_r(&wakeTime, &wakeTimeInfo);
+
+  char wakeTimeBuffer[64];
+  strftime(wakeTimeBuffer, sizeof(wakeTimeBuffer), "Going to sleep until %Y-%m-%d %H:%M:%S %Z", &wakeTimeInfo);
+  return String(wakeTimeBuffer);
+}
 
 void colorUpdate(const std::map<String, sensor::SensorData> &values)
 {
@@ -469,7 +494,7 @@ void setup()
 #ifdef ESP32
   if (configman::getConfig().DeepSleepTime > 0)
   {
-    unsigned long deepSleepInUS = configman::getConfig().DeepSleepTime * 1000000;
+    uint64_t deepSleepInUS = static_cast<uint64_t>(configman::getConfig().DeepSleepTime) * 1000000ULL;
     Serial.printf("Set deepsleep to %d seconds\n", configman::getConfig().DeepSleepTime);
     esp_sleep_enable_timer_wakeup(deepSleepInUS);
   }
@@ -613,9 +638,20 @@ void loop()
 #ifdef ESP32
       if (configman::getConfig().DeepSleepTime > 0)
       {
-        Serial.printf("Going to sleep for %d",
+        String sleepMessage = getDeepSleepWakeMessage(configman::getConfig().DeepSleepTime);
+        Serial.printf("%s (%d seconds)\n",
+                      sleepMessage.c_str(),
                       configman::getConfig().DeepSleepTime);
-        delay(1000);
+        if (logger != nullptr)
+        {
+          logger->logMessage(sleepMessage + " (" + String(configman::getConfig().DeepSleepTime) + " seconds)");
+        }
+        if (mqttClient != nullptr && mqttClient->connected())
+        {
+          mqttClient->stop();
+        }
+        WiFi.disconnect(true, false);
+        WiFi.mode(WIFI_OFF);
         Serial.flush();
         esp_deep_sleep_start();
       }
