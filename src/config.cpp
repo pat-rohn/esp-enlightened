@@ -29,7 +29,8 @@ namespace configman
                                                            DhtPin(c->DhtPin),
                                                            SerialRX(c->SerialRX),
                                                            SerialTX(c->SerialTX),
-                                                           AnalogSensorPin(c->AnalogSensorPin),
+                                                           AnalogSensorPin0(c->AnalogSensorPin0),
+                                                           AnalogSensorPin1(c->AnalogSensorPin1),
                                                            WindSensorPin(c->WindSensorPin),
                                                            RainfallSensorPin(c->RainfallSensorPin),
                                                            LEDPin(c->LEDPin),
@@ -57,7 +58,8 @@ namespace configman
                                      DhtPin(-1),
                                      SerialRX(-1),
                                      SerialTX(-1),
-                                     AnalogSensorPin(-1),
+                                     AnalogSensorPin0(-1),
+                                     AnalogSensorPin1(-1),
                                      WindSensorPin(-1),
                                      RainfallSensorPin(-1),
                                      LEDPin(-1),
@@ -281,7 +283,8 @@ namespace configman
         doc["DhtPin"] = config->DhtPin;
         doc["SerialRX"] = config->SerialRX;
         doc["SerialTX"] = config->SerialTX;
-        doc["AnalogSensorPin"] = config->AnalogSensorPin;
+        doc["AnalogSensorPin0"] = config->AnalogSensorPin0;
+        doc["AnalogSensorPin1"] = config->AnalogSensorPin1;
         doc["WindSensorPin"] = config->WindSensorPin;
         doc["RainfallSensorPin"] = config->RainfallSensorPin;
         doc["LEDPin"] = config->LEDPin;
@@ -417,14 +420,23 @@ namespace configman
             res.second.SerialRX = doc["SerialRX"];
             res.second.SerialTX = doc["SerialTX"];
         }
-        JsonVariant analogSensorPin = doc["AnalogSensorPin"];
-        if (analogSensorPin.isNull())
+        JsonVariant analogSensorPin0 = doc["AnalogSensorPin0"];
+        if (analogSensorPin0.isNull())
         {
-            res.second.AnalogSensorPin = -1;
+            res.second.AnalogSensorPin0 = -1;
         }
         else
         {
-            res.second.AnalogSensorPin = doc["AnalogSensorPin"];
+            res.second.AnalogSensorPin0 = doc["AnalogSensorPin0"];
+        }
+        JsonVariant analogSensorPin1 = doc["AnalogSensorPin1"];
+        if (analogSensorPin1.isNull())
+        {
+            res.second.AnalogSensorPin1 = -1;
+        }
+        else
+        {
+            res.second.AnalogSensorPin1 = doc["AnalogSensorPin1"];
         }
         res.second.WindSensorPin = doc["WindSensorPin"];
         res.second.RainfallSensorPin = doc["RainfallSensorPin"];

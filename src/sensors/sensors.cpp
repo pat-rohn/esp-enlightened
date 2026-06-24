@@ -29,7 +29,8 @@
 
 int waterSensorPin = -1;
 int windSensorPin = -1;
-int analogSensorPin = -1;
+int analogSensorPin0 = -1;
+int analogSensorPin1 = -1;
 int rx = -1;
 int tx = -1;
 
@@ -123,13 +124,24 @@ namespace sensor
             }
         }
 
-        if (config.AnalogSensorPin >= 0)
+        if (config.AnalogSensorPin0 >= 0)
         {
-            analogSensorPin = config.AnalogSensorPin;
-            pinMode(analogSensorPin, INPUT);
+            analogSensorPin0 = config.AnalogSensorPin0;
+            pinMode(analogSensorPin0, INPUT);
             m_SensorTypes.insert(SensorType::analogSensor);
             m_Description = m_Description + "AnalogSensor;";
             m_SensorNames.push_back("Analog0");
+        }
+        if (config.AnalogSensorPin1 >= 0)
+        {
+            analogSensorPin1 = config.AnalogSensorPin1;
+            pinMode(analogSensorPin1, INPUT);
+            m_SensorTypes.insert(SensorType::analogSensor);
+            if (config.AnalogSensorPin0 < 0)
+            {
+                m_Description = m_Description + "AnalogSensor;";
+            }
+            m_SensorNames.push_back("Analog1");
         }
 
         if (m_SensorTypes.empty())
@@ -692,19 +704,34 @@ namespace sensor
         std::array<SensorData, 3> sensorData;
         sensorData.fill(SensorData());
 
-        if (analogSensorPin < 0)
+        if (analogSensorPin0 < 0 && analogSensorPin1 < 0)
         {
             return sensorData;
         }
 
-        int value = analogRead(analogSensorPin);
-        Serial.print("Analog0: ");
-        Serial.println(value);
+        if (analogSensorPin0 >= 0)
+        {
+            int value = analogRead(analogSensorPin0);
+            Serial.print("Analog0: ");
+            Serial.println(value);
 
-        sensorData[0].isValid = true;
-        sensorData[0].value = value;
-        sensorData[0].unit = "1";
-        sensorData[0].name = "Analog0";
+            sensorData[0].isValid = true;
+            sensorData[0].value = value;
+            sensorData[0].unit = "1";
+            sensorData[0].name = "Analog0";
+        }
+
+        if (analogSensorPin1 >= 0)
+        {
+            int value = analogRead(analogSensorPin1);
+            Serial.print("Analog1: ");
+            Serial.println(value);
+
+            sensorData[1].isValid = true;
+            sensorData[1].value = value;
+            sensorData[1].unit = "1";
+            sensorData[1].name = "Analog1";
+        }
 
         return sensorData;
     }

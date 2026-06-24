@@ -470,7 +470,7 @@ void setup()
   if (configman::getConfig().DeepSleepTime > 0)
   {
     unsigned long deepSleepInUS = configman::getConfig().DeepSleepTime * 1000000;
-    Serial.printf("Set deepsleep to %d\n", deepSleepInUS);
+    Serial.printf("Set deepsleep to %d seconds\n", configman::getConfig().DeepSleepTime);
     esp_sleep_enable_timer_wakeup(deepSleepInUS);
   }
 #else
@@ -575,7 +575,7 @@ void loop()
     }
     Serial.print("\nIP Address: ");
     Serial.println(WiFi.localIP());
-    const auto& config = configman::getConfig();
+    const auto &config = configman::getConfig();
     Serial.println(configman::serializeConfig(&config));
     Serial.println("--------------------------------");
     return;
