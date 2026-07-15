@@ -703,6 +703,17 @@ namespace sensor
     {
         std::array<SensorData, 3> sensorData;
         sensorData.fill(SensorData());
+        constexpr int analogSampleCount = 3;
+
+        const auto readAveragedAnalog = [](int pin)
+        {
+            long total = 0;
+            for (int sampleIndex = 0; sampleIndex < analogSampleCount; sampleIndex++)
+            {
+                total += analogRead(pin);
+            }
+            return static_cast<int>(total / analogSampleCount);
+        };
 
         if (analogSensorPin0 < 0 && analogSensorPin1 < 0)
         {
@@ -711,7 +722,7 @@ namespace sensor
 
         if (analogSensorPin0 >= 0)
         {
-            int value = analogRead(analogSensorPin0);
+            int value = readAveragedAnalog(analogSensorPin0);
             Serial.print("Analog0: ");
             Serial.println(value);
 
@@ -723,7 +734,7 @@ namespace sensor
 
         if (analogSensorPin1 >= 0)
         {
-            int value = analogRead(analogSensorPin1);
+            int value = readAveragedAnalog(analogSensorPin1);
             Serial.print("Analog1: ");
             Serial.println(value);
 
