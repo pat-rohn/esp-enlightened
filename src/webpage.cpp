@@ -18,6 +18,64 @@ namespace webpage
   std::atomic<bool> *m_ButtonPressed1;
   std::atomic<bool> *m_ButtonPressed2;
 
+  namespace
+  {
+    void addCorsHeaders(AsyncWebServerResponse *response)
+    {
+      response->addHeader("Access-Control-Allow-Origin", "*");
+      response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
+      response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+    }
+
+    void sendJson(AsyncWebServerRequest *request, int code, const String &body)
+    {
+      AsyncWebServerResponse *response = request->beginResponse(code, "application/json", body);
+      addCorsHeaders(response);
+      request->send(response);
+    }
+
+    // Body handler: accumulates a raw request body chunk by chunk into
+    // request->_tempObject, which the library frees when the request is destroyed.
+    void collectBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
+    {
+      if (index == 0)
+      {
+        request->_tempObject = calloc(total + 1, 1);
+        if (request->_tempObject == nullptr)
+        {
+          Serial.printf("Failed to allocate %u bytes for request body\n", (unsigned)(total + 1));
+        }
+      }
+      if (request->_tempObject != nullptr)
+      {
+        memcpy(static_cast<uint8_t *>(request->_tempObject) + index, data, len);
+      }
+    }
+
+    // Raw request body if one was sent, otherwise the value of the last posted
+    // form field (the historical input format).
+    String getInput(AsyncWebServerRequest *request)
+    {
+      if (request->_tempObject != nullptr)
+      {
+        return String(static_cast<const char *>(request->_tempObject));
+      }
+      String input = "";
+      int params = request->params();
+      Serial.printf("%d params sent in\n", params);
+      for (int i = 0; i < params; i++)
+      {
+        const AsyncWebParameter *p = request->getParam(i);
+        if (p->isPost())
+        {
+          Serial.printf("_%s[%s]: %s\n", request->methodToString(), p->name().c_str(), p->value().c_str());
+          input = p->value();
+        }
+      }
+      return input;
+    }
+  }
+
   const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
 <html>
@@ -87,199 +145,88 @@ namespace webpage
   {
     Serial.println("Webpage: Begin Server.");
     m_Server.on("/api/led", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                { sendJson(request, 200, ""); });
     m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                { sendJson(request, 200, ""); });
     m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                { sendJson(request, 200, ""); });
     m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", "");
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                { sendJson(request, 200, ""); });
     m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
                 {
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
-                  response->addHeader("Content-type", "text/plain");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                  addCorsHeaders(response);
                   request->send(response); });
     m_Server.on("/api/led", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  String answer = m_LedService->get();
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                { sendJson(request, 200, m_LedService->get()); });
     m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
-                  int params = request->params();
-                  Serial.printf("%d params sent in\n", params);
-                  String input = "";
-                  for (int i = 0; i < params; i++)
-                  {
-                    const AsyncWebParameter *p = request->getParam(i);
-                    if (p->isPost())
-                    {
-                      Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
-                      input = p->value();
-                    }
-                  }
+                  String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
-                  String answer = m_LedService->apply(input);
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                  sendJson(request, 200, m_LedService->apply(input)); },
+                nullptr, collectBody);
     m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
                   Serial.printf("PUT set led\n");
-                  int params = request->params();
-                  Serial.printf("%d params sent in\n", params);
-                  if (params == 0)
+                  String input = getInput(request);
+                  if (input.isEmpty())
                   {
-                    Serial.printf("No params sent\n");
-                    String answer = m_LedService->get("Error: No input received");
-                    AsyncWebServerResponse *response = request->beginResponse(400, "application/json ", answer);
-                    response->addHeader("Content-type", "application/json ");
-                    response->addHeader("Access-Control-Allow-Origin", "*");
-                    response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                    response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                    request->send(response); 
-                  }else{
-                    String input = "";
-                    for (int i = 0; i < params; i++)
-                    {
-                      const AsyncWebParameter *p = request->getParam(i);
-                      if (p->isPost())
-                      {
-                        Serial.printf("_PUT[%s]: %s\n", p->name().c_str(), p->value().c_str());
-                        input = p->value();
-                      }
-                    }
-                    Serial.printf("Input is: %s\n", input.c_str());
-                    String answer = m_LedService->apply(input);
-                    AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                    response->addHeader("Content-type", "application/json ");
-                    response->addHeader("Access-Control-Allow-Origin", "*");
-                    response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                    response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-
-                    request->send(response);
-                    } });
+                    Serial.printf("No input sent\n");
+                    sendJson(request, 400, m_LedService->get("Error: No input received"));
+                    return;
+                  }
+                  Serial.printf("Input is: %s\n", input.c_str());
+                  sendJson(request, 200, m_LedService->apply(input)); },
+                nullptr, collectBody);
 
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   String answer = "{\"msg\": \"button 1 pressed\"}";
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); 
+                  sendJson(request, 200, answer);
                   Serial.println(answer);
                   m_ButtonPressed1->store(true); });
 
     m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   String answer = "{\"msg\": \"button 2 pressed\"}";
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); 
+                  sendJson(request, 200, answer);
                   Serial.println(answer);
                   m_ButtonPressed2->store(true); });
 
-    // Config Post
+    // Config Post (restarts on success)
     m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
-                  int params = request->params();
-                  Serial.printf("%d params sent in\n", params);
-                  String input = "";
-                  for (int i = 0; i < params; i++)
-                  {
-                    const AsyncWebParameter *p = request->getParam(i);
-                    if (p->isPost())
-                    {
-                      Serial.printf("_POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
-                      input = p->value();
-                    }
-                  }
+                  String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
-                  configman::writeConfig(input.c_str());
-
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", input);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response);
+                  if (!configman::writeConfig(input.c_str()))
+                  {
+                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
+                    return;
+                  }
+                  const auto &config = configman::getConfig();
+                  sendJson(request, 200, configman::serializeConfig(&config));
                   Serial.println("restart triggered");
-                  m_RestartTriggered->store(true); });
+                  m_RestartTriggered->store(true); },
+                nullptr, collectBody);
     /// Config PUT (no restart)
     m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
-                { 
-                  int params = request->params();
-                  Serial.printf("%d params sent in\n", params);
-                  String input = "";
-                  for (int i = 0; i < params; i++)
-                  {
-                    const AsyncWebParameter *p = request->getParam(i);
-                      if (p->isPost())
-                    {
-                        Serial.printf("_PUT[%s]: %s\n", p->name().c_str(), p->value().c_str());
-                        input = p->value();
-                    }
-                  }
+                {
+                  String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
-                  configman::writeConfig(input.c_str());
-                  
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", input);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                  if (!configman::writeConfig(input.c_str()))
+                  {
+                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
+                    return;
+                  }
+                  const auto &config = configman::getConfig();
+                  sendJson(request, 200, configman::serializeConfig(&config)); },
+                nullptr, collectBody);
     // Config Get
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
-                { 
+                {
                   Serial.println("get /api/config");
                   const auto& config = configman::getConfig();
-                  String answer = configman::serializeConfig(&config);
-                  AsyncWebServerResponse *response = request->beginResponse(200, "application/json ", answer);
-                  response->addHeader("Content-type", "application/json ");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response); });
+                  sendJson(request, 200, configman::serializeConfig(&config)); });
 
     // Time Get
     m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -290,10 +237,7 @@ namespace webpage
                   + " (weekday " + String(weekday) + ")";
                 Serial.println("get time " + answer);
                 AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
-                response->addHeader("Content-type", "text/plain");
-                response->addHeader("Access-Control-Allow-Origin", "*");
-                response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-                response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+                addCorsHeaders(response);
                 request->send(response); });
 
     m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -326,8 +270,11 @@ namespace webpage
           // GET inputString value on <ESP_IP>/get?configuration=<inputMessage>
         if (request->hasParam("configuration")) {
           inputMessage = request->getParam("configuration")->value();
-          configman::writeConfig(inputMessage.c_str());
-          Serial.println("Config written");
+          if (configman::writeConfig(inputMessage.c_str())) {
+            Serial.println("Config written");
+          } else {
+            Serial.println("Config invalid - not written");
+          }
         } else{
           inputMessage = "Unknown param";
         }
