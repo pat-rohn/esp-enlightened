@@ -37,11 +37,15 @@ namespace configman
                                                            OneWirePin(c->OneWirePin),
                                                            Button1(c->Button1),
                                                            Button2(c->Button2),
+                                                           Button2GetURL(c->Button2GetURL),
                                                            ShowWebpage(c->ShowWebpage),
                                                            UseMQTT(c->UseMQTT),
                                                            MQTTTopic(c->MQTTTopic),
                                                            MQTTPort(c->MQTTPort),
                                                            AlarmSettings(SunriseSettings(c->AlarmSettings)),
+                                                           LightLow(c->LightLow),
+                                                           LightMedium(c->LightMedium),
+                                                           LightHigh(c->LightHigh),
                                                            DeepSleepTime(c->DeepSleepTime),
                                                            BufferedValues(c->BufferedValues),
                                                            MeasureInterval(c->MeasureInterval)
@@ -203,23 +207,24 @@ namespace configman
         return writeFileLFS(kPathToConfig, confStr.c_str());
     }
 
-    void writeConfig(const char *configStr)
+    bool writeConfig(const char *configStr)
     {
         Serial.println("Write config.");
         auto res = deserializeConfig(configStr);
         if (!res.first)
         {
             Serial.print("Invalid config.");
-            return;
+            return false;
         }
         Configuration c = res.second;
         auto cStr = serializeConfig(&c);
         if (!writeFileLFS(kPathToConfig, cStr.c_str()))
         {
             Serial.print("Failed to write config.");
-            return;
+            return false;
         }
         config = c;
+        return true;
     }
 
     String readFile(fs::FS &fs, const char *path)
@@ -407,7 +412,8 @@ namespace configman
         res.second.SensorID = doc["SensorID"].as<String>();
         res.second.WiFiName = doc["WiFiName"].as<String>();
         res.second.WiFiPassword = doc["WiFiPassword"].as<String>();
-        res.second.DhtPin = doc["DhtPin"];
+        // Missing pin fields must fall back to -1 (disabled), not 0 (a valid GPIO)
+        res.second.DhtPin = doc["DhtPin"] | -1;
         JsonVariant serialRX = doc["SerialRX"];
         if (serialRX.isNull())
         {
@@ -417,8 +423,8 @@ namespace configman
         }
         else
         {
-            res.second.SerialRX = doc["SerialRX"];
-            res.second.SerialTX = doc["SerialTX"];
+            res.second.SerialRX = doc["SerialRX"] | -1;
+            res.second.SerialTX = doc["SerialTX"] | -1;
         }
         JsonVariant analogSensorPin0 = doc["AnalogSensorPin0"];
         if (analogSensorPin0.isNull())
@@ -438,9 +444,9 @@ namespace configman
         {
             res.second.AnalogSensorPin1 = doc["AnalogSensorPin1"];
         }
-        res.second.WindSensorPin = doc["WindSensorPin"];
-        res.second.RainfallSensorPin = doc["RainfallSensorPin"];
-        res.second.LEDPin = doc["LEDPin"];
+        res.second.WindSensorPin = doc["WindSensorPin"] | -1;
+        res.second.RainfallSensorPin = doc["RainfallSensorPin"] | -1;
+        res.second.LEDPin = doc["LEDPin"] | -1;
         JsonVariant oneWire = doc["OneWirePin"];
         if (oneWire.isNull())
         {
@@ -452,10 +458,10 @@ namespace configman
         }
         else
         {
-            res.second.OneWirePin = doc["OneWirePin"];
-            res.second.DeepSleepTime = doc["DeepSleepTime"];
-            res.second.BufferedValues = doc["BufferedValues"];
-            res.second.MeasureInterval = doc["MeasureInterval"];
+            res.second.OneWirePin = doc["OneWirePin"] | -1;
+            res.second.DeepSleepTime = doc["DeepSleepTime"] | -1;
+            res.second.BufferedValues = doc["BufferedValues"] | 3;
+            res.second.MeasureInterval = doc["MeasureInterval"] | 30;
         }
         JsonVariant button1 = doc["Button1"];
         if (button1.isNull())
@@ -466,8 +472,8 @@ namespace configman
         }
         else
         {
-            res.second.Button1 = doc["Button1"];
-            res.second.Button2 = doc["Button2"];
+            res.second.Button1 = doc["Button1"] | -1;
+            res.second.Button2 = doc["Button2"] | -1;
         }
 
         JsonVariant button2GetURL = doc["Button2GetURL"];
@@ -481,10 +487,10 @@ namespace configman
             res.second.Button2GetURL = doc["Button2GetURL"].as<String>();
         }
 
-        res.second.NumberOfLEDs = doc["NumberOfLEDs"];
-        res.second.FindSensors = doc["FindSensors"];
-        res.second.IsOfflineMode = doc["IsOfflineMode"];
-        res.second.ShowWebpage = doc["ShowWebpage"];
+        res.second.NumberOfLEDs = doc["NumberOfLEDs"] | -1;
+        res.second.FindSensors = doc["FindSensors"] | false;
+        res.second.IsOfflineMode = doc["IsOfflineMode"] | true;
+        res.second.ShowWebpage = doc["ShowWebpage"] | true;
 
         JsonVariant UseMQTT = doc["UseMQTT"];
         if (UseMQTT.isNull())
@@ -497,7 +503,7 @@ namespace configman
         else
         {
             res.second.UseMQTT = doc["UseMQTT"];
-            res.second.MQTTPort = doc["MQTTPort"];
+            res.second.MQTTPort = doc["MQTTPort"] | 1883;
             res.second.MQTTTopic = doc["MQTTTopic"].as<String>();
         }
 

@@ -134,7 +134,7 @@ namespace configman
     Configuration readConfig();
     String readConfigAsString();
     bool saveConfig(const Configuration *config);
-    void writeConfig(const char *configStr);
+    bool writeConfig(const char *configStr);
 
     String readFileLFS(const char *path);
     String readFile(fs::FS &fs, const char *path);
