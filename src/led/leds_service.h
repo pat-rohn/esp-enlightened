@@ -13,7 +13,7 @@ public:
     ~CLEDService(){};
 
 public:
-    String apply(String ledString);
+    bool apply(const String &ledString, String &response);
     String get(String msg = "Success");
     LedStrip *m_LedStrip;
     
