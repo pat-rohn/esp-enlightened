@@ -96,6 +96,7 @@ namespace webpage
 
 <body>
     <h2>IoT Multi Device Configuration</h2>
+    <p>Firmware: %fwversion%</p>
 
   </body></html>
     <form action="/get" target="hidden-form">
@@ -159,6 +160,11 @@ namespace webpage
     m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
                 { sendJson(request, 200, ""); });
     m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
+                  addCorsHeaders(response);
+                  request->send(response); });
+    m_Server.on("/api/version", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
                 {
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
                   addCorsHeaders(response);
@@ -238,6 +244,15 @@ namespace webpage
                   const auto& config = configman::getConfig();
                   sendJson(request, 200, configman::serializeConfig(&config)); });
 
+    // Version Get
+    m_Server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  String answer = getFirmwareVersion();
+                  Serial.println("get version " + answer);
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
+                  addCorsHeaders(response);
+                  request->send(response); });
+
     // Time Get
     m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
                 { 
@@ -308,6 +323,10 @@ namespace webpage
       Serial.println("get configuration");
       const auto& config = configman::getConfig();
       return configman::serializeConfig(&config);
+    }
+    else if (var == "fwversion")
+    {
+      return getFirmwareVersion();
     }
     else
     {
