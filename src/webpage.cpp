@@ -6,6 +6,7 @@
 #include <array>
 #include "config.h"
 #include "timehelper.h"
+#include "version.h"
 #include <atomic>
 #include <memory>
 
@@ -174,8 +175,20 @@ namespace webpage
     m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
                   String input = getInput(request);
+                  if (input.isEmpty())
+                  {
+                    Serial.printf("No input sent\n");
+                    sendJson(request, 400, m_LedService->get("Error: No input received"));
+                    return;
+                  }
                   Serial.printf("Input is: %s\n", input.c_str());
-                  sendJson(request, 200, m_LedService->apply(input)); },
+                  String answer;
+                  if (!m_LedService->apply(input, answer))
+                  {
+                    sendJson(request, 400, answer);
+                    return;
+                  }
+                  sendJson(request, 200, answer); },
                 nullptr, collectBody);
     m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
@@ -188,7 +201,13 @@ namespace webpage
                     return;
                   }
                   Serial.printf("Input is: %s\n", input.c_str());
-                  sendJson(request, 200, m_LedService->apply(input)); },
+                  String answer;
+                  if (!m_LedService->apply(input, answer))
+                  {
+                    sendJson(request, 400, answer);
+                    return;
+                  }
+                  sendJson(request, 200, answer); },
                 nullptr, collectBody);
 
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
