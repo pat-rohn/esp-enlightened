@@ -15,6 +15,7 @@ namespace webpage
   CLEDService *m_LedService;
   CTimeHelper *m_TimeHelper;
   std::atomic<bool> *m_RestartTriggered;
+  std::atomic<bool> *m_ConfigChanged;
   std::atomic<bool> *m_ButtonPressed1;
   std::atomic<bool> *m_ButtonPressed2;
 
@@ -135,6 +136,11 @@ namespace webpage
     m_RestartTriggered = restartTriggered;
   }
 
+  void CWebPage::setConfigChangedFlag(std::atomic<bool> *configChanged)
+  {
+    m_ConfigChanged = configChanged;
+  }
+
   void CWebPage::setButtonsPressed(std::atomic<bool> *buttonPressed1, std::atomic<bool> *buttonPressed2)
   {
     m_ButtonPressed1 = buttonPressed1;
@@ -219,7 +225,11 @@ namespace webpage
                     return;
                   }
                   const auto &config = configman::getConfig();
-                  sendJson(request, 200, configman::serializeConfig(&config)); },
+                  sendJson(request, 200, configman::serializeConfig(&config));
+                  if (m_ConfigChanged != nullptr)
+                  {
+                    m_ConfigChanged->store(true);
+                  } },
                 nullptr, collectBody);
     // Config Get
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -272,6 +282,10 @@ namespace webpage
           inputMessage = request->getParam("configuration")->value();
           if (configman::writeConfig(inputMessage.c_str())) {
             Serial.println("Config written");
+            if (m_ConfigChanged != nullptr)
+            {
+              m_ConfigChanged->store(true);
+            }
           } else {
             Serial.println("Config invalid - not written");
           }

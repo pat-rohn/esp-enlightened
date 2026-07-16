@@ -13,6 +13,11 @@ CSunriseAlarm::CSunriseAlarm(LedStrip *ledStrip, CTimeHelper *timelper) : m_LedS
 void CSunriseAlarm::applySettings(const configman::SunriseSettings &settings)
 {
     m_Settings = settings;
+    if (!m_Settings.IsActivated && m_IsAlarmActive)
+    {
+        Serial.println("Alarm deactivated - stop running sunrise");
+        stopSunrise();
+    }
     auto doc = configman::serializeSunrise(&settings);
 
     char buffer[2000];
@@ -25,6 +30,10 @@ void CSunriseAlarm::applySettings(const configman::SunriseSettings &settings)
 
 bool CSunriseAlarm::run()
 {
+    if (!m_Settings.IsActivated)
+    {
+        return false;
+    }
     configman::weekday_t weekday = static_cast<configman::weekday_t>(m_TimeHelper->getWeekDay());
     if (!m_Settings.DaySettings.at(weekday).IsActive)
     {

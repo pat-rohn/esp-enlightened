@@ -53,6 +53,7 @@ logging::CLogger *logger;
 
 // webpage triggers
 std::atomic<bool> restartTriggered;
+std::atomic<bool> configChanged;
 std::atomic<bool> buttonPressed1;
 std::atomic<bool> buttonPressed2;
 
@@ -227,11 +228,12 @@ void configureDevice()
 
   ledStrip = new LedStrip(configman::getConfig().LEDPin, configman::getConfig().NumberOfLEDs);
   ledService = new CLEDService(ledStrip);
+  // always created so alarm settings can be activated at runtime via config save
+  sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
+  sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
   if (configman::getConfig().AlarmSettings.IsActivated)
   {
     Serial.println("Sunrise Activated");
-    sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
-    sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
   }
   button_inputs::button1.pin = configman::getConfig().Button1;
   button_inputs::button2.pin = configman::getConfig().Button2;
@@ -239,9 +241,11 @@ void configureDevice()
   delete webPage;
   webPage = new webpage::CWebPage();
   restartTriggered.store(false);
+  configChanged.store(false);
   webPage->setLEDService(ledService);
   webPage->setTimeHelper(timeHelper);
   webPage->setTriggerFlag(&restartTriggered);
+  webPage->setConfigChangedFlag(&configChanged);
 
   buttonPressed1.store(false);
   buttonPressed2.store(false);
@@ -535,6 +539,15 @@ void checkWebpageTriggers()
     ESP.restart();
     // restartTriggered.store(false);
   }
+  if (configChanged.load())
+  {
+    Serial.println("----------------------------- CONFIG CHANGED -----------------------------\n\n");
+    if (sunriseAlarm != nullptr)
+    {
+      sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
+    }
+    configChanged.store(false);
+  }
   if (buttonPressed1.load())
   {
     Serial.println("----------------------------- BUTTON1 PRESSED -----------------------------\n\n");
@@ -659,7 +672,7 @@ void loop()
     }
   }
 
-  if (configman::getConfig().AlarmSettings.IsActivated)
+  if (configman::getConfig().AlarmSettings.IsActivated && sunriseAlarm != nullptr)
   {
     sunriseAlarm->run();
     // Serial.println(ESP.getFreeHeap());
