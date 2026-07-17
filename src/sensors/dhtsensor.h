@@ -43,7 +43,7 @@ public:
             delay(50);
         }
 
-        Serial.println("DHT: No response received");
+        Serial.println("DHT: No response received. Still trying...");
         return true;
     }
 

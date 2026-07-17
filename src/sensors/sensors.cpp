@@ -830,13 +830,14 @@ namespace sensor
             airSensor.setForcedRecalibrationFactor(420); // Assuming outdoor conditions.
             delay(300);
 
-            unsigned long timeoutTime = millis() + 5000;
+            unsigned long startTime = millis();
             while (!airSensor.dataAvailable())
             {
                 delay(200);
-                if (millis() > timeoutTime)
+                if (millis() - startTime >= 5000)
                 {
                     Serial.println("Timeout: No data available.");
+                    return;
                 }
             }
 

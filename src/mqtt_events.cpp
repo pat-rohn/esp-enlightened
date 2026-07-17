@@ -47,6 +47,10 @@ namespace mqtt_events
 
     void sendStateTopic(std::array<uint8_t, 3> c, bool on, double factor)
     {
+        if (mqttClient == nullptr)
+        {
+            return;
+        }
         if (!mqttClient->connected())
         {
             Serial.println("MQTT: Not connected");
