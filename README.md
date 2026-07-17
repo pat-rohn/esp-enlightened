@@ -1,11 +1,13 @@
 # ESP32 / ESP8266 Project for using sensors and LED-Strips (WS28xx)
-Small platform.io project reading out multiple sensors or controlling LED's using WS28xx.
-Sensor data can be sent using http-request. A simple backend written in Go exists:
+Small PlatformIO project reading out multiple sensors or controlling LEDs using WS28xx.
+Sensor data can be sent via HTTP request or MQTT. A simple backend written in Go exists:
 [go-iotserver](https://github.com/pat-rohn/go-iotedge)
 
-
 ## Get Started
-This project is using Platform IO. To build project, first run commands described in lib/README.md to get dependencies
+This project uses [PlatformIO](https://platformio.org/). `platformio.ini` is intentionally
+untracked (it holds machine-specific ports); copy a matching `[env:...]` section from
+[platformio-examples.ini](platformio-examples.ini) into your own `platformio.ini`, then
+build — PlatformIO downloads all `lib_deps` automatically.
 
 ## Configure Device
 - Access point will be created and device will have IP 192.168.4.1
