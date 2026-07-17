@@ -53,7 +53,6 @@ logging::CLogger *logger;
 
 // webpage triggers
 std::atomic<bool> restartTriggered;
-std::atomic<bool> configChanged;
 std::atomic<bool> buttonPressed1;
 std::atomic<bool> buttonPressed2;
 
@@ -241,11 +240,9 @@ void configureDevice()
   delete webPage;
   webPage = new webpage::CWebPage();
   restartTriggered.store(false);
-  configChanged.store(false);
   webPage->setLEDService(ledService);
   webPage->setTimeHelper(timeHelper);
   webPage->setTriggerFlag(&restartTriggered);
-  webPage->setConfigChangedFlag(&configChanged);
 
   buttonPressed1.store(false);
   buttonPressed2.store(false);
@@ -461,7 +458,9 @@ void setup()
     {
       deviceDesc.Sensors = sensor::getSensorNames();
     }
-    if (timeSeries != nullptr)
+    // initDevice only exists on the HTTP backend; with UseMQTT the object is
+    // a CTimeseriesMQTT and the downcast would be invalid.
+    if (timeSeries != nullptr && !configman::getConfig().UseMQTT)
     {
       static_cast<ts_http::CTimeseriesHttp *>(timeSeries)->initDevice(deviceDesc);
     }
@@ -529,6 +528,16 @@ void handleMQTT()
 
 void checkWebpageTriggers()
 {
+  // Apply a staged config before handling the restart flag, so a config
+  // POSTed together with a restart request is persisted first.
+  if (configman::applyStagedConfig())
+  {
+    Serial.println("----------------------------- CONFIG CHANGED -----------------------------\n\n");
+    if (sunriseAlarm != nullptr)
+    {
+      sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
+    }
+  }
   if (restartTriggered.load())
   {
     Serial.println("----------------------------- RESTART -----------------------------\n\n");
@@ -538,15 +547,6 @@ void checkWebpageTriggers()
 #endif
     ESP.restart();
     // restartTriggered.store(false);
-  }
-  if (configChanged.load())
-  {
-    Serial.println("----------------------------- CONFIG CHANGED -----------------------------\n\n");
-    if (sunriseAlarm != nullptr)
-    {
-      sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
-    }
-    configChanged.store(false);
   }
   if (buttonPressed1.load())
   {
@@ -593,6 +593,10 @@ void loop()
       nextInterval += 10000;
     }
   }
+  // Must run before the !IsConfigured early return: during first-time setup
+  // via the access point, config saves and /restart set flags that would
+  // otherwise never be consumed.
+  checkWebpageTriggers();
   if (!configman::getConfig().IsConfigured)
   {
     nextInterval = 15000;
@@ -618,7 +622,6 @@ void loop()
     Serial.println("--------------------------------");
     return;
   }
-  checkWebpageTriggers();
   if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
   {
     if (WiFi.status() != WL_CONNECTED)

@@ -134,7 +134,12 @@ namespace configman
     Configuration readConfig();
     String readConfigAsString();
     bool saveConfig(const Configuration *config);
-    bool writeConfig(const char *configStr);
+    // Validate and stage a config update from any task (e.g. async web
+    // handlers). Optionally returns the serialized form of the staged config.
+    bool stageConfig(const char *configStr, String *serialized = nullptr);
+    // Apply + persist a staged config. Must only be called from loop().
+    // Returns true if a staged config was applied.
+    bool applyStagedConfig();
 
     String readFileLFS(const char *path);
     String readFile(fs::FS &fs, const char *path);
