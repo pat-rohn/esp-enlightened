@@ -16,7 +16,6 @@ namespace webpage
   CLEDService *m_LedService;
   CTimeHelper *m_TimeHelper;
   std::atomic<bool> *m_RestartTriggered;
-  std::atomic<bool> *m_ConfigChanged;
   std::atomic<bool> *m_ButtonPressed1;
   std::atomic<bool> *m_ButtonPressed2;
 
@@ -138,11 +137,6 @@ namespace webpage
     m_RestartTriggered = restartTriggered;
   }
 
-  void CWebPage::setConfigChangedFlag(std::atomic<bool> *configChanged)
-  {
-    m_ConfigChanged = configChanged;
-  }
-
   void CWebPage::setButtonsPressed(std::atomic<bool> *buttonPressed1, std::atomic<bool> *buttonPressed2)
   {
     m_ButtonPressed1 = buttonPressed1;
@@ -224,18 +218,19 @@ namespace webpage
                   Serial.println(answer);
                   m_ButtonPressed2->store(true); });
 
-    // Config Post (restarts on success)
+    // Config Post (restarts on success). The config is only staged here;
+    // loop() applies and persists it before acting on the restart flag.
     m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
                   String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
-                  if (!configman::writeConfig(input.c_str()))
+                  String staged;
+                  if (!configman::stageConfig(input.c_str(), &staged))
                   {
                     sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
                     return;
                   }
-                  const auto &config = configman::getConfig();
-                  sendJson(request, 200, configman::serializeConfig(&config));
+                  sendJson(request, 200, staged);
                   Serial.println("restart triggered");
                   m_RestartTriggered->store(true); },
                 nullptr, collectBody);
@@ -244,17 +239,13 @@ namespace webpage
                 {
                   String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
-                  if (!configman::writeConfig(input.c_str()))
+                  String staged;
+                  if (!configman::stageConfig(input.c_str(), &staged))
                   {
                     sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
                     return;
                   }
-                  const auto &config = configman::getConfig();
-                  sendJson(request, 200, configman::serializeConfig(&config));
-                  if (m_ConfigChanged != nullptr)
-                  {
-                    m_ConfigChanged->store(true);
-                  } },
+                  sendJson(request, 200, staged); },
                 nullptr, collectBody);
     // Config Get
     m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -314,12 +305,8 @@ namespace webpage
           // GET inputString value on <ESP_IP>/get?configuration=<inputMessage>
         if (request->hasParam("configuration")) {
           inputMessage = request->getParam("configuration")->value();
-          if (configman::writeConfig(inputMessage.c_str())) {
-            Serial.println("Config written");
-            if (m_ConfigChanged != nullptr)
-            {
-              m_ConfigChanged->store(true);
-            }
+          if (configman::stageConfig(inputMessage.c_str())) {
+            Serial.println("Config staged, applied by main loop");
           } else {
             Serial.println("Config invalid - not written");
           }

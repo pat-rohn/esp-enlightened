@@ -45,7 +45,6 @@ namespace webpage
         static void setLEDService(CLEDService *ledService);
         static void setTimeHelper(CTimeHelper *timeHelper);
         static void setTriggerFlag(std::atomic<bool> *restartTriggered);
-        static void setConfigChangedFlag(std::atomic<bool> *configChanged);
         static void setButtonsPressed(std::atomic<bool> *buttonPressed1, std::atomic<bool> *buttonPressed2);
         static String processor(const String &var);
     };

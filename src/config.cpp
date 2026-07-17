@@ -2,9 +2,17 @@
 
 #include "config.h"
 
+#include <atomic>
+
 namespace configman
 {
     Configuration config = Configuration();
+
+    // Handoff slot for config updates coming from the async web server task.
+    // Web handlers stage a validated copy here; only loop() (applyStagedConfig)
+    // may assign the global config or write flash, so readers in loop() never
+    // see the config mutate under them.
+    std::atomic<Configuration *> stagedConfig{nullptr};
 
     SunriseSettings::SunriseSettings(const SunriseSettings *s) : IsActivated(s->IsActivated),
                                                                  SunriseLightTime(s->SunriseLightTime)
@@ -207,23 +215,39 @@ namespace configman
         return writeFileLFS(kPathToConfig, confStr.c_str());
     }
 
-    bool writeConfig(const char *configStr)
+    bool stageConfig(const char *configStr, String *serialized)
     {
-        Serial.println("Write config.");
+        Serial.println("Stage config.");
         auto res = deserializeConfig(configStr);
         if (!res.first)
         {
             Serial.print("Invalid config.");
             return false;
         }
-        Configuration c = res.second;
-        auto cStr = serializeConfig(&c);
-        if (!writeFileLFS(kPathToConfig, cStr.c_str()))
+        if (serialized != nullptr)
         {
-            Serial.print("Failed to write config.");
+            *serialized = serializeConfig(&res.second);
+        }
+        Configuration *fresh = new Configuration(&res.second);
+        // A not-yet-applied staging is superseded; exchange keeps the handoff race-free.
+        delete stagedConfig.exchange(fresh);
+        return true;
+    }
+
+    bool applyStagedConfig()
+    {
+        Configuration *pending = stagedConfig.exchange(nullptr);
+        if (pending == nullptr)
+        {
             return false;
         }
-        config = c;
+        config = *pending;
+        String confStr = serializeConfig(pending);
+        if (!writeFileLFS(kPathToConfig, confStr.c_str()))
+        {
+            Serial.println("Failed to write config.");
+        }
+        delete pending;
         return true;
     }
 
@@ -515,14 +539,10 @@ namespace configman
         }
         else
         {
-            Serial.println("Warning: Alarm clock does not exist");
+            // No save/re-read here: deserializeConfig() runs on the async web
+            // task too, where mutating the global config or flash is unsafe.
+            Serial.println("Warning: Alarm clock does not exist, using defaults");
             res.second.AlarmSettings = SunriseSettings();
-            if (saveConfig(&res.second))
-            {
-                String configStr = readFileLFS(kPathToConfig);
-                ::delay(100);
-                return deserializeConfig(configStr.c_str());
-            }
         }
         JsonVariant lightLow = doc["LightLow"];
         if (lightLow.isNull())
