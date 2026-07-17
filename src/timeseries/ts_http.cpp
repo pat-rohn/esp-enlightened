@@ -84,21 +84,18 @@ namespace ts_http
         Serial.println("Post data");
         int httpResponseCode = http.POST(root.c_str());
 
-        if (httpResponseCode > 0)
+        if (httpResponseCode >= 200 && httpResponseCode < 300)
         {
             Serial.print("HTTP Response code: ");
             Serial.println(httpResponseCode);
             String payload = http.getString();
             Serial.println(payload);
             http.end();
+            return true;
         }
-        else
-        {
-            Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
-            http.end();
-            return false;
-        }
-        return true;
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+        http.end();
+        return false;
     }
 }
