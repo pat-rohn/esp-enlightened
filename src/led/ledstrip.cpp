@@ -1,4 +1,5 @@
 #include "ledstrip.h"
+#include "domain/deadline.h"
 
 LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_GRB + NEO_KHZ800),
                                                   m_PulseMode(),
@@ -169,7 +170,7 @@ void LedStrip::fancy()
 void LedStrip::pulseMode()
 {
     unsigned long currentTime = millis();
-    if (currentTime > m_PulseMode.NextUpdateTime)
+    if (timing::deadlineReached(currentTime, m_PulseMode.NextUpdateTime))
     {
         m_PulseMode.NextUpdateTime = currentTime + m_PulseMode.UpdateInterval;
         if (m_PulseMode.IsIncreasing)
@@ -288,7 +289,7 @@ void LedStrip::colorfulMode()
 
 void LedStrip::campfireMode()
 {
-    if (millis() < m_NextLEDActionTime)
+    if (!timing::deadlineReached(millis(), m_NextLEDActionTime))
     {
         return;
     }
