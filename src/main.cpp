@@ -43,6 +43,7 @@ uint8_t kLEDOFF = 0x0;
 #include "webpage.h"
 #include "led/sunrise_alarm.h"
 #include "mqtt_events.h"
+#include "ota_update.h"
 
 namespace
 {
@@ -404,6 +405,10 @@ void setup()
   }
 
   configureDevice();
+  if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
+  {
+    ota_update::begin(configman::getConfig());
+  }
   startLedControl();
 
   if (configman::getConfig().FindSensors &&
@@ -545,6 +550,7 @@ unsigned long nextInterval = 500;
 
 void loop()
 {
+  ota_update::handle();
 #ifdef ESP32
   // if button is pressed, the watchdog seems not to be triggered in the empty loop anymore.
   // maybe the related to this? https://github.com/espressif/arduino-esp32/issues/2493
