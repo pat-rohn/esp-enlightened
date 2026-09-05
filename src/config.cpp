@@ -1,8 +1,6 @@
 #include "config.h"
 #include "config_store.h"
 
-#include <atomic>
-
 namespace configman
 {
     Configuration config = Configuration();
@@ -11,7 +9,28 @@ namespace configman
     // Web handlers stage a validated copy here; only loop() (applyStagedConfig)
     // may assign the global config or write flash, so readers in loop() never
     // see the config mutate under them.
-    std::atomic<Configuration *> stagedConfig{nullptr};
+    Configuration *stagedConfig = nullptr;
+
+#ifdef ESP32
+    portMUX_TYPE stagedConfigLock = portMUX_INITIALIZER_UNLOCKED;
+#endif
+
+    Configuration *exchangeStagedConfig(Configuration *replacement)
+    {
+#ifdef ESP32
+        portENTER_CRITICAL(&stagedConfigLock);
+#elif defined(ESP8266)
+        noInterrupts();
+#endif
+        Configuration *previous = stagedConfig;
+        stagedConfig = replacement;
+#ifdef ESP32
+        portEXIT_CRITICAL(&stagedConfigLock);
+#elif defined(ESP8266)
+        interrupts();
+#endif
+        return previous;
+    }
 
     void begin()
     {
@@ -103,13 +122,13 @@ namespace configman
             *serialized = configuration::serializeConfig(&res.second);
         }
         Configuration *fresh = new Configuration(&res.second);
-        delete stagedConfig.exchange(fresh);
+        delete exchangeStagedConfig(fresh);
         return true;
     }
 
     bool applyStagedConfig()
     {
-        Configuration *pending = stagedConfig.exchange(nullptr);
+        Configuration *pending = exchangeStagedConfig(nullptr);
         if (pending == nullptr)
         {
             return false;

@@ -406,8 +406,9 @@ and only then the new interface itself.
 rejects UTF-8 assets larger than 16 KiB so an interface expansion cannot
 silently consume the ESP8266 flash headroom.
 
-The `d1_mini_lite` example currently reaches the generator but fails during
-the pre-existing ESP8266 `ESPAsyncWebServer`/lwIP TCP-state symbol conflict,
-before linking or size reporting. Fixing that environment and adding it to the
-build matrix remains tracked as `fw-test-ci-build-matrix`; it is separate from
-the asset pipeline.
+The `d1_mini_lite` example builds successfully with the ESP8266-compatible
+`me-no-dev` async web-server dependencies and the portable configuration
+staging handoff. Its current image uses 41,640 of 81,920 bytes RAM (50.8%) and
+472,797 of 958,448 bytes flash (49.3%), leaving enough headroom for the
+16 KiB asset budget. Adding both targets to the automated build matrix remains
+tracked as `fw-test-ci-build-matrix`.
