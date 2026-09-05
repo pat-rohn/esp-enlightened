@@ -170,7 +170,7 @@ sidesteps both until they are fixed server-side.
 
 | Option | Recommendation | Why |
 | --- | --- | --- |
-| Embedded HTML/CSS/JS in `PROGMEM` | Start here | No build pipeline, single firmware artifact, compatible with ESP8266/ESP32. |
+| Embedded HTML/CSS/JS in `PROGMEM` | Start here | Separate `web/` sources are embedded by the pre-build generator; the 16 KiB asset budget preserves ESP8266 flash headroom. |
 | Gzipped static assets in LittleFS | Follow-up if the interface grows | Better source separation and browser caching, but adds upload/build coordination. |
 | Full Ionic/Angular bundle | Do not use on-device | Asset size, memory, and no-network setup constraints conflict with the embedded web server. |
 
@@ -396,3 +396,18 @@ and only then the new interface itself.
    simulation, or sensor dashboards to the first embedded interface. Preserve
    the API for the companion app and return to live status/control only after
    the configuration flow and CORS policy are tested.
+
+## Phase 7 Status: UI Asset Pipeline
+
+`web/index.html` is the tracked source for the embedded page. The
+`pre:extra_scripts/web_assets.py` PlatformIO hook generates an ignored
+`src/web_assets.generated.h` containing a `PROGMEM` raw string, which
+`webpage.cpp` serves with the existing placeholder processor. The generator
+rejects UTF-8 assets larger than 16 KiB so an interface expansion cannot
+silently consume the ESP8266 flash headroom.
+
+The `d1_mini_lite` example currently reaches the generator but fails during
+the pre-existing ESP8266 `ESPAsyncWebServer`/lwIP TCP-state symbol conflict,
+before linking or size reporting. Fixing that environment and adding it to the
+build matrix remains tracked as `fw-test-ci-build-matrix`; it is separate from
+the asset pipeline.
