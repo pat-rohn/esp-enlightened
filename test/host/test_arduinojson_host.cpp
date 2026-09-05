@@ -17,10 +17,3 @@ void test_arduinojson_deserializes_and_serializes_on_host()
   TEST_ASSERT_EQUAL_STRING(
       R"({"enabled":true,"name":"enlightened"})", output.c_str());
 }
-
-int main()
-{
-  UNITY_BEGIN();
-  RUN_TEST(test_arduinojson_deserializes_and_serializes_on_host);
-  return UNITY_END();
-}
