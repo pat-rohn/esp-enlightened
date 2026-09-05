@@ -83,14 +83,17 @@ bool CLEDService::apply(const String &ledString, String &response)
 String CLEDService::get(String msg /*= "Success"*/)
 {
   Serial.println("LEDs-Service: GET");
-  std::stringstream str;
+  // [M13] Build the response with ArduinoJson instead of hand-concatenating
+  // strings so a Message containing '"' or '\' can't produce invalid JSON.
   std::array<uint8_t, 3> color = m_LedStrip->getColor();
-  str << R"({"Red":)" << int(color[0])
-      << R"( ,"Green": )" << int(color[1])
-      << R"( ,"Blue": )" << int(color[2])
-      << R"( ,"Brightness": )" << int(m_LedStrip->m_Factor * 100)
-      << R"( ,"Mode": )" << int(m_LedStrip->m_LEDMode)
-      << R"( ,"Message": ")" << msg.c_str() << R"(")"
-      << R"( })" << std::endl;
-  return String(str.str().c_str());
+  JsonDocument doc;
+  doc["Red"] = color[0];
+  doc["Green"] = color[1];
+  doc["Blue"] = color[2];
+  doc["Brightness"] = int(m_LedStrip->m_Factor * 100);
+  doc["Mode"] = int(m_LedStrip->m_LEDMode);
+  doc["Message"] = msg;
+  String result;
+  serializeJson(doc, result);
+  return result;
 }
