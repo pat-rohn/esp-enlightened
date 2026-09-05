@@ -35,8 +35,8 @@ bool CTimeHelper::initTime()
         {
             Serial.println("Timesync success");
             unsigned long timeout = millis() + 60000;
-            time_t now;
-            while (now < 1651000000 || now >= 35435628436)
+            time_t now = 0;
+            while (now < 1651000000)
             {
                 Serial.print("Wait for time...");
                 Serial.println(now);
