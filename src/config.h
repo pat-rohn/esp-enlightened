@@ -94,6 +94,11 @@ namespace configman
         String ServerAddress;
         String WiFiName;
         String WiFiPassword;
+        // Optional pre-shared token clients must send as the X-Authorization
+        // header on mutating requests (see webpage.cpp isAuthorized()). Empty
+        // by default so existing unauthenticated clients (e.g. the companion
+        // app) keep working until an operator opts in by setting one.
+        String ApiToken;
         bool FindSensors;
         bool IsOfflineMode;
         String SensorID;
@@ -151,7 +156,11 @@ namespace configman
     SunriseSettings deserializeSunrise(const JsonDocument &doc);
     AlarmWeekday deserializeDaySetting(const JsonDocument &doc);
 
-    String serializeConfig(const Configuration *config);
+    // revealSecrets controls whether WiFiPassword/ApiToken are included as
+    // plaintext. Internal persistence (flash writes) must pass true; any
+    // response that leaves the device (HTTP API bodies, Serial logs) must
+    // use the default false. See [D5] in BUGS.md.
+    String serializeConfig(const Configuration *config, bool revealSecrets = false);
     JsonDocument serializeSunrise(const SunriseSettings *config);
     JsonDocument serializeDaySettings(const AlarmWeekday *config);
 
