@@ -4,127 +4,26 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-#include <map>
 #include <ArduinoJson.h>
+#include "domain/configuration.h"
 
 namespace configman
 {
     // static const char kPathToConfig = "config.json";
     const char kPathToConfig[] = "/config.json";
-    struct Time
-    {
-        int Hours;
-        int Minutes;
-        Time()
-        {
-            Hours = 8;
-            Minutes = 30;
-        }
-
-        Time(int hours, int minutes)
-        {
-            Hours = hours;
-            Minutes = minutes;
-        }
-    };
-
-    struct Light
-    {
-        int Red;
-        int Green;
-        int Blue;
-        Light()
-        {
-            Red = 128;
-            Green = 128;
-            Blue = 128;
-        }
-        Light(int red, int green, int blue)
-        {
-            Red = red;
-            Green = green;
-            Blue = blue;
-        }
-    };
-
-    enum weekday_t
-    {
-        Monday,
-        Tuesday,
-        Wednesday,
-        Thursday,
-        Friday,
-        Saturday,
-        Sunday
-    };
-
-    struct AlarmWeekday
-    {
-        bool IsActive;
-        Time AlarmTime;
-        AlarmWeekday() : IsActive(false),
-                         AlarmTime(Time()){};
-    };
-
-    struct SunriseSettings
-    {
-        bool IsActivated;
-        double SunriseLightTime;
-        std::map<weekday_t, AlarmWeekday> DaySettings;
-        SunriseSettings() : IsActivated(false),
-                            SunriseLightTime(20.0)
-        {
-            DaySettings = std::map<weekday_t, AlarmWeekday>{};
-            for (int weekDay = weekday_t::Monday; weekDay <= weekday_t::Sunday; weekDay++)
-            {
-                DaySettings[static_cast<weekday_t>(weekDay)] = AlarmWeekday();
-            }
-        }
-        SunriseSettings(const SunriseSettings * settings);
-    };
-
-    struct Configuration
-    {
-        bool IsConfigured;
-        String ServerAddress;
-        String WiFiName;
-        String WiFiPassword;
-        // Optional pre-shared token clients must send as the X-Authorization
-        // header on mutating requests (see webpage.cpp isAuthorized()). Empty
-        // by default so existing unauthenticated clients (e.g. the companion
-        // app) keep working until an operator opts in by setting one.
-        String ApiToken;
-        bool FindSensors;
-        bool IsOfflineMode;
-        String SensorID;
-        int NumberOfLEDs;
-        int DhtPin;
-        int SerialRX;
-        int SerialTX;
-        int AnalogSensorPin0;
-        int AnalogSensorPin1;
-        int WindSensorPin;
-        int RainfallSensorPin;
-        int LEDPin;
-        int OneWirePin;
-        int Button1;
-        int Button2;
-        String Button2GetURL;
-        bool ShowWebpage;
-        bool UseMQTT;
-        String MQTTTopic;
-        int MQTTPort;
-        SunriseSettings AlarmSettings;
-        Light LightLow;
-        Light LightMedium;
-        Light LightHigh;
-        int DeepSleepTime;
-        int BufferedValues;
-        int MeasureInterval;
-
-        Configuration();
-        Configuration(const Configuration *c);
-    };
+    using configuration::AlarmWeekday;
+    using configuration::Configuration;
+    using configuration::Light;
+    using configuration::SunriseSettings;
+    using configuration::Time;
+    using configuration::weekday_t;
+    using configuration::Monday;
+    using configuration::Tuesday;
+    using configuration::Wednesday;
+    using configuration::Thursday;
+    using configuration::Friday;
+    using configuration::Saturday;
+    using configuration::Sunday;
 
     void begin();
 
