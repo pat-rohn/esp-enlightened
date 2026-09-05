@@ -7,6 +7,7 @@
 #include "config.h"
 #include "timehelper.h"
 #include "version.h"
+#include "web_assets.generated.h"
 #include <atomic>
 #include <memory>
 
@@ -96,32 +97,6 @@ namespace webpage
       return input;
     }
   }
-
-  // [M5] Previous version closed </body></html> mid-page (a stray form/
-  // iframe lived outside it) and submitted the whole config as a URL via
-  // the now-retired /get endpoint, reporting success unconditionally. This
-  // is a read-only placeholder until the interface in
-  // WEB_INTERFACE_WORKBOOK.md replaces it; it no longer offers a (broken)
-  // edit form. Use PUT /api/config to change settings in the meantime.
-  const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML>
-<html>
-
-<head>
-    <title>IoT Multi Device Configuration</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-</head>
-
-<body>
-    <h2>IoT Multi Device Configuration</h2>
-    <p>Firmware: %fwversion%</p>
-    <textarea disabled cols="80" rows="22">%devconfig%</textarea>
-    <br>
-    <a href="/restart" class="button">Restart</a>
-</body>
-
-</html>
-)rawliteral";
 
   CWebPage::CWebPage() : m_Server(80)
   {
@@ -336,11 +311,11 @@ namespace webpage
                 {
       Serial.println("get web page");
 #ifdef ESP8266
-                  request->send_P(200, "text/html", index_html,
+                  request->send_P(200, "text/html", web_index_html,
                                   [this](const String &var)
                                   { return processor(var); }); });
 #else
-                  request->send(200, "text/html", index_html,
+                  request->send(200, "text/html", web_index_html,
                                 [this](const String &var)
                                 { return processor(var); }); });
 #endif
