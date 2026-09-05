@@ -7,6 +7,11 @@ LedStrip::LedStrip(uint8_t pin, int nrOfPixels) : m_Pixels(nrOfPixels, pin, NEO_
                                                   m_PixelColors(nrOfPixels)
 {
     m_NextLEDActionTime = millis();
+    // [B19] Must be initialized: sunriseMode() reads it unconditionally, and
+    // if a caller reaches sunrise mode without going through
+    // CSunriseAlarm::startSunrise() (e.g. POST /api/led Mode:4), an
+    // uninitialized value made timeFactor jump straight to "risen".
+    m_SunriseStartTime = millis();
     m_CurrentColor = std::array<uint8_t, 3>{100, 70, 35};
     m_OldCurrentColor = std::array<uint8_t, 3>{100, 70, 35};
     m_SunriseDuration = 2 * 60;
@@ -49,6 +54,9 @@ void LedStrip::applyModeAndColor()
     }
     case LEDModes::sunrise:
         Serial.println("Started sunrise.");
+        // [B19] Reaching this case directly (e.g. via the API rather than
+        // CSunriseAlarm::startSunrise()) must (re)start the ramp from now.
+        m_SunriseStartTime = millis();
         m_Factor = 0;
         break;
     case LEDModes::pulse:
