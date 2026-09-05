@@ -412,3 +412,15 @@ staging handoff. Its current image uses 41,640 of 81,920 bytes RAM (50.8%) and
 472,797 of 958,448 bytes flash (49.3%), leaving enough headroom for the
 16 KiB asset budget. Adding both targets to the automated build matrix remains
 tracked as `fw-test-ci-build-matrix`.
+
+## Phase 8 Status: Configuration Interface
+
+The embedded interface loads `/api/config`, renders every configuration field
+in Connection, Hardware and sensors, Telemetry, and Automation and light
+groups, and saves the complete document through `PUT /api/config`. It removes
+the read-only `HasWiFiPassword`/`HasApiToken` hints before saving and leaves
+blank redacted secret fields untouched, preserving the firmware's established
+secret-preservation behavior. An optional authorization token is retained only
+in browser local storage and sent as `X-Authorization`; restart is a distinct,
+confirmed action. The first cut intentionally excludes live LED/button/sensor
+controls per Decision 4.

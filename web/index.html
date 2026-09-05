@@ -1,14 +1,75 @@
-<!DOCTYPE HTML>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-    <title>IoT Multi Device Configuration</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Enlightened configuration</title>
+  <style>
+    :root{color-scheme:dark;font:16px system-ui,sans-serif;background:#111;color:#eee}
+    body{max-width:880px;margin:auto;padding:1rem}h1{margin-bottom:0}small,#status{color:#bbb}
+    fieldset{border:1px solid #555;border-radius:.5rem;margin:1rem 0;padding:1rem}
+    legend{font-weight:bold}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.75rem}
+    label{display:grid;gap:.25rem}input{box-sizing:border-box;width:100%;padding:.45rem;border:1px solid #666;border-radius:.25rem;background:#222;color:inherit}
+    input[type=checkbox]{width:auto;justify-self:start}button{padding:.6rem .9rem;border:0;border-radius:.25rem;background:#2476cc;color:#fff;font:inherit;cursor:pointer}
+    button.danger{background:#a33}button:disabled{opacity:.6;cursor:wait}.nested{grid-column:1/-1;border-top:1px solid #444;padding-top:.75rem}.error{color:#ff8b8b}.ok{color:#8fdb8f}
+  </style>
 </head>
 <body>
-    <h2>IoT Multi Device Configuration</h2>
-    <p>Firmware: %fwversion%</p>
-    <textarea disabled cols="80" rows="22">%devconfig%</textarea>
-    <br>
-    <a href="/restart" class="button">Restart</a>
+  <h1>Enlightened</h1>
+  <small id="summary">Loading configuration...</small>
+  <p id="status" role="status"></p>
+  <form id="config-form">
+    <fieldset><legend>Authorization</legend><label>Authorization token <input id="authorization" type="password" autocomplete="current-password" placeholder="Required only when the device has a token"></label></fieldset>
+    <div id="fields"></div>
+    <p><button id="save" type="submit">Save changes</button> <button id="refresh" type="button">Refresh</button> <button id="restart" class="danger" type="button">Restart device</button></p>
+  </form>
+<script>
+(() => {
+  const form=document.querySelector('#config-form'), fields=document.querySelector('#fields'), status=document.querySelector('#status');
+  const token=document.querySelector('#authorization'), key=`enlightened-token:${location.origin}`;
+  const groups={
+    Connection:['IsConfigured','ServerAddress','SensorID','WiFiName','WiFiPassword','ApiToken','IsOfflineMode','ShowWebpage'],
+    'Hardware and sensors':['DhtPin','SerialRX','SerialTX','AnalogSensorPin0','AnalogSensorPin1','WindSensorPin','RainfallSensorPin','LEDPin','OneWirePin','Button1','Button2','Button2GetURL','NumberOfLEDs','FindSensors'],
+    Telemetry:['UseMQTT','MQTTTopic','MQTTPort','DeepSleepTime','BufferedValues','MeasureInterval'],
+    'Automation and light':['SunriseSettings','LightLow','LightMedium','LightHigh']
+  };
+  let config={};
+  token.value=localStorage.getItem(key)||'';
+  const label=name=>name.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());
+  const setStatus=(text,kind='')=>{status.textContent=text;status.className=kind};
+  const headers=()=>token.value?{'Content-Type':'application/json','X-Authorization':token.value}:{'Content-Type':'application/json'};
+  const get=(path)=>path.reduce((value,key)=>value[key],config);
+  const set=(path,value)=>{let target=config;path.slice(0,-1).forEach(key=>target=target[key]);target[path[path.length-1]]=value};
+  function field(name,path) {
+    const value=get(path), wrap=document.createElement('label'), input=document.createElement('input');
+    wrap.append(label(name)); input.dataset.path=JSON.stringify(path);
+    if(typeof value==='boolean'){input.type='checkbox';input.checked=value}
+    else {input.type=(name==='WiFiPassword'||name==='ApiToken')?'password':typeof value==='number'?'number':'text';input.value=value??'';if(name==='WiFiPassword'||name==='ApiToken')input.placeholder='Leave blank to keep stored value'}
+    input.addEventListener('change',()=>set(path,input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value));
+    wrap.append(input); return wrap;
+  }
+  function addValue(container,name,path) {
+    const value=get(path);
+    if(value&&typeof value==='object'&&!Array.isArray(value)){const nested=document.createElement('div');nested.className='nested grid';nested.append(...Object.keys(value).filter(key=>!key.startsWith('Has')).map(key=>addValue(nested,key,path.concat(key))));const title=document.createElement('strong');title.textContent=label(name);nested.prepend(title);return nested}
+    return field(name,path);
+  }
+  function render() {
+    fields.replaceChildren();
+    Object.entries(groups).forEach(([title,names])=>{const section=document.createElement('fieldset'), grid=document.createElement('div');section.innerHTML=`<legend>${title}</legend>`;grid.className='grid';names.filter(name=>name in config).forEach(name=>grid.append(addValue(grid,name,[name])));section.append(grid);fields.append(section)});
+    document.querySelector('#summary').textContent=`Firmware: ${config.SensorID||'device'} | complete configuration loaded`;
+  }
+  async function load() {
+    setStatus('Loading configuration...');
+    const response=await fetch('/api/config'); if(!response.ok)throw new Error(`Load failed (${response.status})`);
+    config=await response.json();render();setStatus('Configuration loaded. Hardware, network, and LED topology changes require a restart.','ok');
+  }
+  form.addEventListener('submit',async event=>{event.preventDefault();const save=document.querySelector('#save');save.disabled=true;setStatus('Saving...');
+    try{const payload=JSON.parse(JSON.stringify(config));delete payload.HasWiFiPassword;delete payload.HasApiToken;const response=await fetch('/api/config',{method:'PUT',headers:headers(),body:JSON.stringify(payload)});if(!response.ok)throw new Error(`Save failed (${response.status})`);config=await response.json();if(payload.ApiToken)localStorage.setItem(key,payload.ApiToken);render();setStatus('Saved. Restart the device to apply hardware, network, or LED topology changes.','ok')}
+    catch(error){setStatus(error.message,'error')}finally{save.disabled=false}});
+  document.querySelector('#restart').addEventListener('click',async()=>{if(!confirm('Restart this device now?'))return;setStatus('Restarting...');try{const response=await fetch('/restart',{headers:headers()});if(!response.ok)throw new Error(`Restart failed (${response.status})`);setStatus('Restart requested. The device may take up to 30 seconds to reconnect.','ok')}catch(error){setStatus(error.message,'error')}});
+  document.querySelector('#refresh').addEventListener('click',()=>load().catch(error=>setStatus(error.message,'error')));
+  load().catch(error=>setStatus(error.message,'error'));
+})();
+</script>
 </body>
 </html>
