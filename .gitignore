@@ -11,5 +11,6 @@ lib/*
 !include/README*
 !lib/README*
 src/version_generated.h
+src/web_assets.generated.h
 platformio.ini
 serial-out.log
