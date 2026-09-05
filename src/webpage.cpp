@@ -152,24 +152,67 @@ namespace webpage
   void CWebPage::beginServer()
   {
     Serial.println("Webpage: Begin Server.");
-    m_Server.on("/api/led", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+    registerOptionsRoutes();
+    registerConfigRoutes();
+    registerLedRoutes();
+    registerCommandRoutes();
+    registerStatusRoutes();
+    m_Server.onNotFound([](AsyncWebServerRequest *req)
+                        { req->send(404); });
+    m_Server.begin();
+  }
+
+  void CWebPage::registerConfigRoutes()
+  {
+    // Config Post (restarts on success). The config is only staged here;
+    // loop() applies and persists it before acting on the restart flag.
+    m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
-                  addCorsHeaders(response);
-                  request->send(response); });
-    m_Server.on("/api/version", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
+                  String input = getInput(request);
+                  Serial.printf("Input is: %s\n", input.c_str());
+                  String staged;
+                  if (!configman::stageConfig(input.c_str(), &staged))
+                  {
+                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
+                    return;
+                  }
+                  sendJson(request, 200, staged);
+                  Serial.println("restart triggered");
+                  m_RestartTriggered->store(true); },
+                nullptr, collectBody);
+    /// Config PUT (no restart)
+    m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
-                  addCorsHeaders(response);
-                  request->send(response); });
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
+                  String input = getInput(request);
+                  Serial.printf("Input is: %s\n", input.c_str());
+                  String staged;
+                  if (!configman::stageConfig(input.c_str(), &staged))
+                  {
+                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
+                    return;
+                  }
+                  sendJson(request, 200, staged); },
+                nullptr, collectBody);
+    // Config Get
+    m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  Serial.println("get /api/config");
+                  const auto& config = configman::getConfig();
+                  sendJson(request, 200, configman::serializeConfig(&config)); });
+  }
+
+  void CWebPage::registerLedRoutes()
+  {
     m_Server.on("/api/led", HTTP_GET, [](AsyncWebServerRequest *request)
                 { sendJson(request, 200, m_LedService->get()); });
     m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
@@ -219,7 +262,10 @@ namespace webpage
                   }
                   sendJson(request, 200, answer); },
                 nullptr, collectBody);
+  }
 
+  void CWebPage::registerCommandRoutes()
+  {
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   if (!isAuthorized(request))
@@ -244,83 +290,6 @@ namespace webpage
                   Serial.println(answer);
                   m_ButtonPressed2->store(true); });
 
-
-    // Config Post (restarts on success). The config is only staged here;
-    // loop() applies and persists it before acting on the restart flag.
-    m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
-                {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
-                  String input = getInput(request);
-                  Serial.printf("Input is: %s\n", input.c_str());
-                  String staged;
-                  if (!configman::stageConfig(input.c_str(), &staged))
-                  {
-                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
-                    return;
-                  }
-                  sendJson(request, 200, staged);
-                  Serial.println("restart triggered");
-                  m_RestartTriggered->store(true); },
-                nullptr, collectBody);
-    /// Config PUT (no restart)
-    m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
-                {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
-                  String input = getInput(request);
-                  Serial.printf("Input is: %s\n", input.c_str());
-                  String staged;
-                  if (!configman::stageConfig(input.c_str(), &staged))
-                  {
-                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
-                    return;
-                  }
-                  sendJson(request, 200, staged); },
-                nullptr, collectBody);
-    // Config Get
-    m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  Serial.println("get /api/config");
-                  const auto& config = configman::getConfig();
-                  sendJson(request, 200, configman::serializeConfig(&config)); });
-
-    // Version Get
-    m_Server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  String answer = getFirmwareVersion();
-                  Serial.println("get version " + answer);
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
-                  addCorsHeaders(response);
-                  request->send(response); });
-
-    // Time Get
-    m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
-                { 
-                auto hoursAndMinutes = m_TimeHelper->getHoursAndMinutes();
-                int weekday = m_TimeHelper->getWeekDay();
-                String answer = String(hoursAndMinutes.first) + ":" + String(hoursAndMinutes.second) 
-                  + " (weekday " + String(weekday) + ")";
-                Serial.println("get time " + answer);
-                AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
-                addCorsHeaders(response);
-                request->send(response); });
-
-    m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-      Serial.println("get web page");
-#ifdef ESP8266
-                  request->send_P(200, "text/html", index_html, processor); });
-#else
-                  request->send(200, "text/html", index_html, processor); });
-#endif
-
     // Restart
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
@@ -336,11 +305,67 @@ namespace webpage
                   response->addHeader("Access-Control-Allow-Methods", "GET");
                   response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
                   request->send(response);
-                  Serial.println("restart triggered");                 
+                  Serial.println("restart triggered");
                   m_RestartTriggered->store(true); });
-    m_Server.onNotFound([](AsyncWebServerRequest *req)
-                        { req->send(404); });
-    m_Server.begin();
+  }
+
+  void CWebPage::registerStatusRoutes()
+  {
+    // Version Get
+    m_Server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  String answer = getFirmwareVersion();
+                  Serial.println("get version " + answer);
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
+                  addCorsHeaders(response);
+                  request->send(response); });
+
+    // Time Get
+    m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                auto hoursAndMinutes = m_TimeHelper->getHoursAndMinutes();
+                int weekday = m_TimeHelper->getWeekDay();
+                String answer = String(hoursAndMinutes.first) + ":" + String(hoursAndMinutes.second)
+                  + " (weekday " + String(weekday) + ")";
+                Serial.println("get time " + answer);
+                AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
+                addCorsHeaders(response);
+                request->send(response); });
+
+    m_Server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
+                {
+      Serial.println("get web page");
+#ifdef ESP8266
+                  request->send_P(200, "text/html", index_html,
+                                  [this](const String &var)
+                                  { return processor(var); }); });
+#else
+                  request->send(200, "text/html", index_html,
+                                [this](const String &var)
+                                { return processor(var); }); });
+#endif
+  }
+
+  void CWebPage::registerOptionsRoutes()
+  {
+    m_Server.on("/api/led", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                { sendJson(request, 200, ""); });
+    m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                { sendJson(request, 200, ""); });
+    m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                { sendJson(request, 200, ""); });
+    m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                { sendJson(request, 200, ""); });
+    m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
+                  addCorsHeaders(response);
+                  request->send(response); });
+    m_Server.on("/api/version", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                {
+                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
+                  addCorsHeaders(response);
+                  request->send(response); });
   }
 
   String CWebPage::processor(const String &var)
