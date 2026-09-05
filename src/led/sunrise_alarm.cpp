@@ -1,4 +1,5 @@
 #include "sunrise_alarm.h"
+#include "domain/deadline.h"
 
 using namespace sunrise;
 
@@ -51,7 +52,7 @@ bool CSunriseAlarm::run()
         startSunrise();
         return true;
     }
-    if (m_IsAlarmActive && millis() > m_AlarmEndTime)
+    if (m_IsAlarmActive && timing::deadlineReached(millis(), m_AlarmEndTime))
     {
         Serial.printf("Stop Sunrise: %ld:%ld ", currentTime.first, currentTime.second);
         stopSunrise();

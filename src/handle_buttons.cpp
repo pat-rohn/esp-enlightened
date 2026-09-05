@@ -4,6 +4,7 @@
 #include "led/button_inputs.h"
 #include "mqtt_events.h"
 #include "config.h"
+#include "domain/deadline.h"
 
 light_level level = light_level::off;
 unsigned long buttonResetTime = millis();
@@ -34,7 +35,7 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
         leds->setColor(configman::getConfig().LightLow.Red, configman::getConfig().LightLow.Green, configman::getConfig().LightLow.Blue);
         leds->applyModeAndColor();
     }
-    else if (millis() > buttonResetTime)
+    else if (timing::deadlineReached(millis(), buttonResetTime))
     {
         Serial.println("turn off");
         leds->m_LEDMode = LedStrip::LEDModes::off;

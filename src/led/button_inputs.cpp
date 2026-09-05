@@ -1,4 +1,5 @@
 #include "button_inputs.h"
+#include "domain/deadline.h"
 
 namespace button_inputs
 {
@@ -9,7 +10,7 @@ namespace button_inputs
 
     IRAM_ATTR void button1Pressed()
     {
-        if (button1.pressed || millis() < buttonTime1 + debounceTime)
+        if (button1.pressed || !timing::deadlineReached(millis(), buttonTime1 + debounceTime))
         {
             return;
         }
@@ -19,7 +20,7 @@ namespace button_inputs
 
     IRAM_ATTR void button2Pressed()
     {
-        if (button2.pressed || millis() < buttonTime2 + debounceTime)
+        if (button2.pressed || !timing::deadlineReached(millis(), buttonTime2 + debounceTime))
         {
             return;
         }
