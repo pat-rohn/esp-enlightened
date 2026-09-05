@@ -30,6 +30,7 @@ namespace configman
                                                            ServerAddress(c->ServerAddress),
                                                            WiFiName(c->WiFiName),
                                                            WiFiPassword(c->WiFiPassword),
+                                                           ApiToken(c->ApiToken),
                                                            FindSensors(c->FindSensors),
                                                            IsOfflineMode(c->IsOfflineMode),
                                                            SensorID(c->SensorID),
@@ -63,6 +64,7 @@ namespace configman
                                      ServerAddress(""),
                                      WiFiName("Enlighted"),
                                      WiFiPassword("enlighten-me"),
+                                     ApiToken(""),
                                      FindSensors(false),
                                      IsOfflineMode(true),
                                      SensorID("Test1"),
@@ -211,7 +213,8 @@ namespace configman
     {
         Serial.println("Save config.");
         config = Configuration(c);
-        String confStr = serializeConfig(c);
+        // Flash persistence needs the real secrets, not the API-facing redacted form.
+        String confStr = serializeConfig(c, /*revealSecrets=*/true);
         return writeFileLFS(kPathToConfig, confStr.c_str());
     }
 
@@ -226,6 +229,7 @@ namespace configman
         }
         if (serialized != nullptr)
         {
+            // This becomes the HTTP response body; keep secrets redacted.
             *serialized = serializeConfig(&res.second);
         }
         Configuration *fresh = new Configuration(&res.second);
@@ -242,7 +246,8 @@ namespace configman
             return false;
         }
         config = *pending;
-        String confStr = serializeConfig(pending);
+        // Flash persistence needs the real secrets, not the API-facing redacted form.
+        String confStr = serializeConfig(pending, /*revealSecrets=*/true);
         if (!writeFileLFS(kPathToConfig, confStr.c_str()))
         {
             Serial.println("Failed to write config.");
@@ -300,7 +305,7 @@ namespace configman
         return writeFile(LittleFS, path, message);
     }
 
-    String serializeConfig(const Configuration *config)
+    String serializeConfig(const Configuration *config, bool revealSecrets)
     {
         Serial.println("Serialize config...");
         JsonDocument doc;
@@ -308,7 +313,14 @@ namespace configman
         doc["ServerAddress"] = config->ServerAddress;
         doc["SensorID"] = config->SensorID;
         doc["WiFiName"] = config->WiFiName;
-        doc["WiFiPassword"] = config->WiFiPassword;
+        // [D5] Never leak the plaintext password/token in responses or logs;
+        // only the flash-persistence path (revealSecrets=true) needs it.
+        // "HasWiFiPassword"/"HasApiToken" let a UI show a placeholder without
+        // exposing the value.
+        doc["WiFiPassword"] = revealSecrets ? config->WiFiPassword : String("");
+        doc["HasWiFiPassword"] = config->WiFiPassword.length() > 0;
+        doc["ApiToken"] = revealSecrets ? config->ApiToken : String("");
+        doc["HasApiToken"] = config->ApiToken.length() > 0;
         doc["DhtPin"] = config->DhtPin;
         doc["SerialRX"] = config->SerialRX;
         doc["SerialTX"] = config->SerialTX;
@@ -435,7 +447,13 @@ namespace configman
         res.second.ServerAddress = doc["ServerAddress"].as<String>();
         res.second.SensorID = doc["SensorID"].as<String>();
         res.second.WiFiName = doc["WiFiName"].as<String>();
-        res.second.WiFiPassword = doc["WiFiPassword"].as<String>();
+        // A redacted GET response (empty WiFiPassword/ApiToken, see [D5]) must
+        // not be able to wipe the stored secret on the next save: keep the
+        // previous value when the incoming field is blank.
+        String incomingPassword = doc["WiFiPassword"].as<String>();
+        res.second.WiFiPassword = incomingPassword.length() > 0 ? incomingPassword : config.WiFiPassword;
+        String incomingApiToken = doc["ApiToken"].as<String>();
+        res.second.ApiToken = incomingApiToken.length() > 0 ? incomingApiToken : config.ApiToken;
         // Missing pin fields must fall back to -1 (disabled), not 0 (a valid GPIO)
         res.second.DhtPin = doc["DhtPin"] | -1;
         JsonVariant serialRX = doc["SerialRX"];
@@ -554,21 +572,22 @@ namespace configman
         }
         else
         {
-            res.second.LightLow.Red = lightLow["Red"];
-            res.second.LightLow.Green = lightLow["Green"];
-            res.second.LightLow.Blue = lightLow["Blue"];
+            // Each field falls back to its own default independently, so a
+            // payload that only sets LightLow (e.g. from an older or partial
+            // client) doesn't zero out LightMedium/LightHigh.
+            res.second.LightLow.Red = lightLow["Red"] | 32;
+            res.second.LightLow.Green = lightLow["Green"] | 4;
+            res.second.LightLow.Blue = lightLow["Blue"] | 0;
 
             JsonVariant LightMedium = doc["LightMedium"];
-
-            res.second.LightMedium.Red = LightMedium["Red"];
-            res.second.LightMedium.Green = LightMedium["Green"];
-            res.second.LightMedium.Blue = LightMedium["Blue"];
+            res.second.LightMedium.Red = LightMedium["Red"] | 64;
+            res.second.LightMedium.Green = LightMedium["Green"] | 32;
+            res.second.LightMedium.Blue = LightMedium["Blue"] | 4;
 
             JsonVariant LightHigh = doc["LightHigh"];
-
-            res.second.LightHigh.Red = LightHigh["Red"];
-            res.second.LightHigh.Green = LightHigh["Green"];
-            res.second.LightHigh.Blue = LightHigh["Blue"];
+            res.second.LightHigh.Red = LightHigh["Red"] | 128;
+            res.second.LightHigh.Green = LightHigh["Green"] | 64;
+            res.second.LightHigh.Blue = LightHigh["Blue"] | 24;
         }
         res.first = true;
         Serial.println("Success: Deserialized config");
@@ -596,49 +615,70 @@ namespace configman
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Monday] = deserializeDaySetting(doc["Monday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Monday] = deserializeDaySetting(doc["Monday"]);
+                }
                 break;
             case weekday_t::Tuesday:
                 if (!doc["Tuesday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Tuesday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Tuesday] = deserializeDaySetting(doc["Tuesday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Tuesday] = deserializeDaySetting(doc["Tuesday"]);
+                }
                 break;
             case weekday_t::Wednesday:
                 if (!doc["Wednesday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Wednesday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Wednesday] = deserializeDaySetting(doc["Wednesday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Wednesday] = deserializeDaySetting(doc["Wednesday"]);
+                }
                 break;
             case weekday_t::Thursday:
                 if (!doc["Thursday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Thursday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Thursday] = deserializeDaySetting(doc["Thursday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Thursday] = deserializeDaySetting(doc["Thursday"]);
+                }
                 break;
             case weekday_t::Friday:
                 if (!doc["Friday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Friday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Friday] = deserializeDaySetting(doc["Friday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Friday] = deserializeDaySetting(doc["Friday"]);
+                }
                 break;
             case weekday_t::Saturday:
                 if (!doc["Saturday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Saturday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Saturday] = deserializeDaySetting(doc["Saturday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Saturday] = deserializeDaySetting(doc["Saturday"]);
+                }
                 break;
             case weekday_t::Sunday:
                 if (!doc["Sunday"].is<JsonVariant>())
                 {
                     res.DaySettings[weekday_t::Sunday] = configman::AlarmWeekday();
                 }
-                res.DaySettings[weekday_t::Sunday] = deserializeDaySetting(doc["Sunday"]);
+                else
+                {
+                    res.DaySettings[weekday_t::Sunday] = deserializeDaySetting(doc["Sunday"]);
+                }
                 break;
 
             default:
