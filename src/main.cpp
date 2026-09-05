@@ -1,7 +1,9 @@
 #include <Arduino.h>
 #include <array>
 #include <map>
+#include <memory>
 #include <time.h>
+#include <utility>
 #include "events.h"
 #include "ArduinoMqttClient.h"
 #include "handle_buttons.h"
@@ -42,22 +44,37 @@ uint8_t kLEDOFF = 0x0;
 #include "led/sunrise_alarm.h"
 #include "mqtt_events.h"
 
-CTimeHelper *timeHelper = new CTimeHelper();
+namespace
+{
+  // Arduino's ESP32 toolchain still defaults to C++11, which predates
+  // std::make_unique.
+  template <typename T, typename... Args>
+  std::unique_ptr<T> make_unique(Args &&...args)
+  {
+    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+  }
+}
 
-timeseries::CTimeseries *timeSeries;
-LedStrip *ledStrip;
-CLEDService *ledService;
-webpage::CWebPage *webPage;
-sunrise::CSunriseAlarm *sunriseAlarm;
-logging::CLogger *logger;
+std::unique_ptr<CTimeHelper> timeHelper = make_unique<CTimeHelper>();
 
-// webpage triggers
-std::atomic<bool> restartTriggered;
-std::atomic<bool> buttonPressed1;
-std::atomic<bool> buttonPressed2;
+std::unique_ptr<timeseries::CTimeseries> timeSeries;
+std::unique_ptr<LedStrip> ledStrip;
+std::unique_ptr<CLEDService> ledService;
+std::unique_ptr<webpage::CWebPage> webPage;
+std::unique_ptr<sunrise::CSunriseAlarm> sunriseAlarm;
+std::unique_ptr<logging::CLogger> logger;
+
+struct RuntimeCommands
+{
+  std::atomic<bool> restartTriggered{false};
+  std::atomic<bool> buttonPressed1{false};
+  std::atomic<bool> buttonPressed2{false};
+};
+
+RuntimeCommands runtimeCommands;
 
 WiFiClient wifiClient;
-MqttClient *mqttClient;
+std::unique_ptr<MqttClient> mqttClient;
 
 bool hasSensors = false;
 
@@ -215,31 +232,34 @@ void connectToMqtt()
 void configureDevice()
 {
   Serial.println("configureDevice");
-  delete timeSeries;
-  delete ledStrip;
-  delete ledService;
-  delete sunriseAlarm;
-  delete mqttClient;
-  mqttClient = new MqttClient(wifiClient);
+  // Routes retain non-owning service pointers, so destroy the server before
+  // replacing the services it references.
+  webPage.reset();
+  timeSeries.reset();
+  sunriseAlarm.reset();
+  ledService.reset();
+  ledStrip.reset();
+  mqttClient.reset();
+  mqttClient = make_unique<MqttClient>(wifiClient);
 
   if (!configman::getConfig().IsOfflineMode)
   {
     connectToMqtt();
-    mqtt_events::setup(mqttClient, configman::getConfig().MQTTTopic);
+    mqtt_events::setup(mqttClient.get(), configman::getConfig().MQTTTopic);
     if (configman::getConfig().UseMQTT)
     {
-      timeSeries = new ts_mqtt::CTimeseriesMQTT(configman::getConfig().MQTTTopic, configman::getConfig().ServerAddress, timeHelper, mqttClient);
+      timeSeries = make_unique<ts_mqtt::CTimeseriesMQTT>(configman::getConfig().MQTTTopic, configman::getConfig().ServerAddress, timeHelper.get(), mqttClient.get());
     }
     else
     {
-      timeSeries = new ts_http::CTimeseriesHttp(configman::getConfig().ServerAddress, timeHelper);
+      timeSeries = make_unique<ts_http::CTimeseriesHttp>(configman::getConfig().ServerAddress, timeHelper.get());
     }
   }
 
-  ledStrip = new LedStrip(configman::getConfig().LEDPin, configman::getConfig().NumberOfLEDs);
-  ledService = new CLEDService(ledStrip);
+  ledStrip = make_unique<LedStrip>(configman::getConfig().LEDPin, configman::getConfig().NumberOfLEDs);
+  ledService = make_unique<CLEDService>(ledStrip.get());
   // always created so alarm settings can be activated at runtime via config save
-  sunriseAlarm = new sunrise::CSunriseAlarm(ledStrip, timeHelper);
+  sunriseAlarm = make_unique<sunrise::CSunriseAlarm>(ledStrip.get(), timeHelper.get());
   sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
   if (configman::getConfig().AlarmSettings.IsActivated)
   {
@@ -248,16 +268,14 @@ void configureDevice()
   button_inputs::button1.pin = configman::getConfig().Button1;
   button_inputs::button2.pin = configman::getConfig().Button2;
   button_inputs::start();
-  delete webPage;
-  webPage = new webpage::CWebPage();
-  restartTriggered.store(false);
-  webPage->setLEDService(ledService);
-  webPage->setTimeHelper(timeHelper);
-  webPage->setTriggerFlag(&restartTriggered);
-
-  buttonPressed1.store(false);
-  buttonPressed2.store(false);
-  webPage->setButtonsPressed(&buttonPressed1, &buttonPressed2);
+  webPage = make_unique<webpage::CWebPage>();
+  runtimeCommands.restartTriggered.store(false);
+  runtimeCommands.buttonPressed1.store(false);
+  runtimeCommands.buttonPressed2.store(false);
+  webPage->setLEDService(ledService.get());
+  webPage->setTimeHelper(timeHelper.get());
+  webPage->setTriggerFlag(&runtimeCommands.restartTriggered);
+  webPage->setButtonsPressed(&runtimeCommands.buttonPressed1, &runtimeCommands.buttonPressed2);
 }
 
 unsigned long lastColorChange = 0;
@@ -410,7 +428,7 @@ void setup()
   {
     configman::readConfig();
   }
-  logger = new logging::CLogger(configman::getConfig().ServerAddress, configman::getConfig().SensorID);
+  logger = make_unique<logging::CLogger>(configman::getConfig().ServerAddress, configman::getConfig().SensorID);
 
   logger->m_IsOnline = !configman::getConfig().IsOfflineMode;
 
@@ -473,7 +491,7 @@ void setup()
     // a CTimeseriesMQTT and the downcast would be invalid.
     if (timeSeries != nullptr && !configman::getConfig().UseMQTT)
     {
-      static_cast<ts_http::CTimeseriesHttp *>(timeSeries)->initDevice(deviceDesc);
+      static_cast<ts_http::CTimeseriesHttp *>(timeSeries.get())->initDevice(deviceDesc);
     }
   }
 
@@ -549,7 +567,7 @@ void checkWebpageTriggers()
       sunriseAlarm->applySettings(configman::getConfig().AlarmSettings);
     }
   }
-  if (restartTriggered.load())
+  if (runtimeCommands.restartTriggered.load())
   {
     Serial.println("----------------------------- RESTART -----------------------------\n\n");
 
@@ -557,19 +575,18 @@ void checkWebpageTriggers()
     vTaskDelay(pdMS_TO_TICKS(50));
 #endif
     ESP.restart();
-    // restartTriggered.store(false);
   }
-  if (buttonPressed1.load())
+  if (runtimeCommands.buttonPressed1.load())
   {
     Serial.println("----------------------------- BUTTON1 PRESSED -----------------------------\n\n");
-    handleButton1(sunriseAlarm, ledStrip);
-    buttonPressed1.store(false);
+    handleButton1(sunriseAlarm.get(), ledStrip.get());
+    runtimeCommands.buttonPressed1.store(false);
   }
-  if (buttonPressed2.load())
+  if (runtimeCommands.buttonPressed2.load())
   {
     Serial.println("----------------------------- BUTTON2 PRESSED -----------------------------\n\n");
     handleButton2();
-    buttonPressed2.store(false);
+    runtimeCommands.buttonPressed2.store(false);
   }
 }
 
@@ -584,7 +601,7 @@ void loop()
   // maybe the related to this? https://github.com/espressif/arduino-esp32/issues/2493
   vTaskDelay(pdMS_TO_TICKS(1));
 #endif
-  handleButtons(sunriseAlarm, ledStrip);
+  handleButtons(sunriseAlarm.get(), ledStrip.get());
   handleMQTT();
 
   if (millis() - lastLoopTime < nextInterval)
