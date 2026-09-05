@@ -263,26 +263,45 @@ and only then the new interface itself.
 
 0. **Fix the bugs this interface would otherwise inherit or make worse**
    *(maps to `DESGIN.md [P0]`/`[P2]`; do this before or alongside step 1, not
-   after)*
+   after)* — **done**, see `BUGS.md`'s archive table for resolution notes.
    - Security, because a friendlier UI increases exposure: add the
      pre-shared-token check (`X-Authorization`, HTTP 401 otherwise) on
      mutating endpoints and drop wildcard CORS on them `[D2]`; redact the
      WiFi password from `serializeConfig()` output and stop the periodic
      Serial dump of the full config while in AP mode `[D5]`.
+     — Auth check (`isAuthorized()`) added to `/api/led`, `/api/button1`,
+     `/api/button2`, `/api/config` (POST/PUT), and `/restart`; a new
+     `Configuration.ApiToken` field gates it, defaulting to empty (i.e. no
+     enforcement) so the companion `enlightened` app — which sends no
+     `X-Authorization` header — is not broken by default. `serializeConfig()`
+     now takes a `revealSecrets` flag (default `false`) that redacts
+     `WiFiPassword`/`ApiToken` on GET/HTTP responses while flash
+     persistence still writes real values; `deserializeConfig()` treats a
+     blank incoming secret as "keep the previous value" so a redacted
+     GET-then-PUT round trip doesn't wipe the password. **CORS wildcard on
+     mutating endpoints was intentionally left as-is** — see `BUGS.md` D2 —
+     since removing it risks breaking the same unauthenticated companion app
+     and needs its own decision once that app can send an auth header.
    - Setup-mode correctness the UI depends on: fix AP addressing to use
      `WiFi.softAPConfig()`/`WiFi.softAPIP()` instead of the station-mode
-     `WiFi.config()`/`WiFi.localIP()` `[M2]`.
+     `WiFi.config()`/`WiFi.localIP()` `[M2]`. — done; added a `currentIP()`
+     helper used everywhere the code previously called `WiFi.localIP()`
+     while potentially in AP mode.
    - Config deserialization gaps a "load then re-save whole document" UI
      would otherwise silently propagate: per-field light-color defaults
-     `[M6]` and the missing-day alarm default `[M1]`.
+     `[M6]` and the missing-day alarm default `[M1]`. — done.
    - If LED controls are in scope (Decision 4): fix the unescaped `Message`
      echo in the `/api/led` JSON response `[M13]` and the uninitialized
-     sunrise start time on `Mode: 4` `[B19]`.
+     sunrise start time on `Mode: 4` `[B19]`. — done for both; note B19's
+     fix closes the uninitialized-read UB but not the separate issue that an
+     API-triggered sunrise is inert while `AlarmSettings.IsActivated` is
+     true (documented as a caveat in `BUGS.md`, not in scope here).
    - Not required to unblock the UI, but cheap to fold into the same pass
      since it touches the same file: the legacy `/get` endpoint's
      unauthenticated GET-based config submit `[M5]` should be retired once
      the new interface's `PUT` flow replaces it, rather than kept as a
-     second unauthenticated write path.
+     second unauthenticated write path. — done; `/get` route removed and the
+     broken inline HTML form/iframe replaced with a read-only config view.
 
 1. **Establish a regression baseline**
    - Capture representative configuration JSON documents, including legacy

@@ -36,6 +36,13 @@ reopened as B4 and M3. New findings are numbered continuing the old scheme
 | B15 | Any HTTP status treated as success (buffered data destroyed) | fixed 2026-07-16 — `ts_http.cpp` and `logging.cpp` now require 2xx |
 | D1 | Definitions in headers (ODR) — `events.h`, `button_inputs.h`, `handle_buttons.h` | fixed for those files; sweep was incomplete, see M3 |
 | D4 | `getConfig()` deep-copies on every call | commit `5dc0bbd` |
+| M1 | `deserializeSunrise` missing-day guard was dead (default silently overwritten) | fixed — added `else` clauses so a missing day now keeps `AlarmWeekday()` default |
+| M2 | AP setup used STA `WiFi.config()`; `WiFi.localIP()` reported 0.0.0.0 in AP mode | fixed — `createAccesPoint()` now uses `WiFi.softAPConfig()`, `isAccessPoint` is only set after `softAP()` succeeds, and a new `currentIP()` helper returns `WiFi.softAPIP()` while in AP mode |
+| M6 | Light color deserialization had no per-field defaults | fixed — `LightLow`/`LightMedium`/`LightHigh` now use the `\| default` pattern per channel |
+| M13 | `/api/led` GET response JSON hand-built without escaping `Message` | fixed — response now built with `ArduinoJson`/`serializeJson()` |
+| M5 | Embedded HTML closed `</body></html>` mid-page; config form GET-submitted whole JSON, always reported success | fixed — retired the legacy `/get` endpoint and the broken inline form/iframe; `index_html` is now a read-only view (config edits go through `PUT /api/config`) |
+| B19 | Sunrise mode via `/api/led` never ramps (`m_SunriseStartTime` uninitialized) | fixed — `m_SunriseStartTime` is initialized in the constructor and reset in `applyModeAndColor()`'s sunrise case; the noted "brightness reports >100 during sunrise" and the `AlarmSettings.IsActivated` vs. API-triggered sunrise interaction are unchanged, see updated caveats |
+| D5 | WiFi password printed to Serial in unconfigured state | fixed — removed the periodic full `serializeConfig()` dump in the AP-mode loop; `serializeConfig()` also now redacts `WiFiPassword`/`ApiToken` by default (see D2) so any future debug dump is safe by default too |
 
 ---
 
@@ -171,21 +178,6 @@ cast, build the template once.
 
 ---
 
-### B19 — Sunrise mode via `/api/led` never ramps (`m_SunriseStartTime` uninitialized)
-
-- **Files:** `src/led/ledstrip.cpp` L3–19, L50–53, L190–212; `src/led/leds_service.cpp` L72–75
-- **Status:** [ ] open
-
-`m_SunriseStartTime` is only set by `CSunriseAlarm::startSunrise()`. A `POST /api/led`
-with `Mode: 4` reads the uninitialized member (UB) — `timeFactor` clamps to max and the
-strip jumps straight to "risen". Adjacent: `apply()` sets the requested brightness, then
-`applyModeAndColor()` overwrites `m_Factor = 0`; and if `AlarmSettings.IsActivated`, the
-main loop never calls `runModeAction()`, so an API sunrise doesn't animate at all.
-Fix: set `m_SunriseStartTime = millis()` in the sunrise case and initialize it in the
-constructor.
-
----
-
 ### B20 — MQTT `set`/`switch` topics are never parsed but replay stale LED state
 
 - **File:** `src/mqtt_events.cpp` L39–45, L111–128
@@ -258,14 +250,20 @@ device logs "No Values" forever. Its names are also never added to `m_SensorName
 ### D2 — No authentication on the configuration web API
 
 - **File:** `src/webpage.cpp`
-- **Status:** [ ] open — *worse than originally noted*
+- **Status:** [~] partially fixed — auth added but opt-in; CORS unchanged
 
-`POST/PUT /api/config` accept arbitrary JSON from any client and every endpoint sends
-`Access-Control-Allow-Origin: *`. That means not only LAN clients but **any web page open
-in a browser on the same LAN** can read the WiFi password (`GET /api/config`) or
-reconfigure/restart the device (browser-driven CSRF). Fix as originally planned
-(pre-shared token in `X-Authorization`, HTTP 401 otherwise) *and* drop the wildcard CORS
-on mutating endpoints.
+Added an opt-in `Configuration.ApiToken` + `X-Authorization` check (`isAuthorized()`/
+`sendUnauthorized()`) gating `/api/led` (POST/PUT), `/api/button1`, `/api/button2`,
+`/api/config` (POST/PUT), and `/restart`. **Left off by default** (empty token ⇒
+`isAuthorized()` returns `true` unconditionally) because the companion `enlightened`
+Android app sends no `X-Authorization` header today — see `WEB_INTERFACE_WORKBOOK.md`
+"Companion App: `enlightened`" section. `GET`/`PUT /api/config` also now redact
+`WiFiPassword`/`ApiToken` by default (`serializeConfig(..., revealSecrets=false)`), closing
+the credential-leak half of this bug independent of whether a token is configured.
+Still open: every endpoint (including mutating ones) still sends
+`Access-Control-Allow-Origin: *`; dropping/restricting that for mutating endpoints was
+deferred as a separate decision since it risks breaking the same companion app pending
+its own auth-header support.
 
 ---
 
@@ -279,19 +277,6 @@ connected it just logs "MQTT: Not connected" and **drops the value** (L28–32) 
 buffering at all, unlike the HTTP backend. Fix options unchanged: implement batching in a
 proper `sendData()` override, or document the difference and at least buffer while
 disconnected.
-
----
-
-### D5 — WiFi password printed to Serial in unconfigured state
-
-- **File:** `src/main.cpp` L604–605, L616–617
-- **Status:** [ ] open (nuanced)
-
-Still present. Nuance from re-review: inside the `isAccessPoint` block the print shows the
-**AP credentials** the user needs to join the setup network — arguably intentional.
-However `serializeConfig(&config)` at L616–617 dumps the *entire* config including the
-password on every 15 s iteration regardless. Keep the AP-credentials hint if desired, drop
-the full config dump (or redact the password in `serializeConfig`).
 
 ---
 
@@ -311,19 +296,15 @@ logic handle it.
 
 | ID | File / lines | Issue |
 | --- | --- | --- |
-| M1 | `src/config.cpp` L574–580 (×7 days) | `deserializeSunrise` missing-day guard is dead: the default assignment is unconditionally overwritten on the next line — missing days parse as 0:00 instead of the 8:30 default. Add `break`/`else`. |
-| M2 | `src/main.cpp` L137–157, L448, L615 | AP setup uses `WiFi.config()` (STA static IP) instead of `WiFi.softAPConfig()`; works only by coincidence of defaults. `WiFi.localIP()` in AP mode is 0.0.0.0 — the setup prints and the `;ip:` device description show the wrong IP (use `WiFi.softAPIP()`). `isAccessPoint = true` is set before `softAP()` can fail. |
 | M3 | `src/chip_info.h` L7; `src/sensors/one_wire.h` | ODR sweep (D1) incomplete: `getChipInfo()` is a non-inline definition in a header; `one_wire.h` defines globals/functions with no include guard and no `inline`. Latent link errors on second inclusion. Also `chip_info.h` reports "WiFi/BT" from `CHIP_FEATURE_BT` alone. |
 | M4 | `src/config.cpp` L125–145, L163–200 | `readConfigAsString()` and `setConfig()` are dead code (no callers); `readConfig()`/`readConfigAsString()` retry by unbounded recursion after writing a default config — worn flash that acks writes but fails reads recurses to stack overflow. Retry a bounded N times. |
 | M5 | `src/webpage.cpp` L98–118 | Embedded HTML closes `</body></html>` mid-page (form/iframe outside, second close later). Config form submits the whole JSON as a GET query string — URL-encoding can exceed the request-line buffer, silently truncating; `submitConfig()` shows success regardless of outcome. |
-| M6 | `src/config.cpp` L537–551 | Light color deserialization has no per-field defaults: a config with only `LightLow` turns `LightMedium`/`LightHigh` black (null → 0) instead of using defaults. Use the `\| default` pattern used elsewhere. |
 | M7 | `src/main.cpp` L307–319 | `triggerEvents()` (WindSpeed > 4.0 → `CallEvent`) is never called — the wind-speed relay trigger silently does nothing. |
 | M8 | `src/main.cpp` L73, L359 | `sensorOffsets` is never populated — the calibration feature is inert; `operator[]` just default-inserts 0.0 per name. |
 | M9 | `src/led/ledstrip.cpp` L3, L47; `src/main.cpp` L229 | `LedStrip` constructed with default `NumberOfLEDs = -1` → `uint16_t` 65535 → Adafruit_NeoPixel tries to malloc ~197 KB (silently fails without PSRAM, pins ~192 KB with). Repeats via `updateLength()` on every "off". Guard with `max(0, n)` or skip creation when `<= 0`. |
 | M10 | `src/led/ledstrip.cpp` L100–117 | `updateLEDs` change detection compares scaled vs stored *unscaled* values — skip works only at factor 1.0 (where it can wrongly suppress a needed frame); elsewhere `show()` runs every tick (each briefly disables interrupts). |
 | M11 | `src/led/ledstrip.cpp` L214–221 | `showError()` never shows red (`m_LedColor` is write-only) and would block 5–20 s. Currently dead code — fix or delete. |
 | M12 | `src/handle_buttons.cpp` L88–97; `src/led/button_inputs.cpp` L35; `src/sensors/sensors.cpp` L117 | Presses arriving during a slow handler (blocking `CallEvent` HTTP) are erased (`pressed = false` after handler); noisy releases > 200 ms later count as a second press. `pin > 0` checks make GPIO 0 unusable for buttons and one-wire (sentinel is −1; should be `>= 0`). |
-| M13 | `src/led/leds_service.cpp` L83–96 | `/api/led` GET response JSON is hand-built without escaping the echoed `Message` — a `"` or `\` in the request message yields invalid JSON. Brightness can also report 105–120 during a sunrise (factor up to 1.2). Serialize with ArduinoJson. |
 | M14 | `src/led/sunrise_alarm.cpp` L44–58 | Alarm triggers on minute equality gated only by `!m_IsAlarmActive`: a sub-minute `SunriseLightTime` restarts the alarm repeatedly within the trigger minute; conversely a loop stall across the whole minute (blocking MQTT/HTTP) skips the alarm entirely. Track "already fired this minute". |
 | M15 | `src/handle_buttons.cpp` L14–25 | Silencing the sunrise via button returns before `sendStateTopic()` — Home Assistant keeps showing the lamp ON until something else republishes. |
 | M16 | `src/sensors/windsensor.cpp` L32–36 | `getSpeed()` divides by `(millis() - lastTime) / 1000.0` — two calls within the same millisecond yield inf/NaN marked valid. Latent (single caller today). |
@@ -397,6 +378,13 @@ redesign (see [DESIGN.md](DESIGN.md)).
   required or the pin floats and fires spuriously.
 - On ESP32-S3 R8 modules, GPIO 33–37 conflict with octal PSRAM (`qio_opi`) — see the
   warning in `platformio.ini` (boot loop: `assert failed: ets_timer_arm`).
+- While `AlarmSettings.IsActivated` is true, `loop()` calls `sunriseAlarm->run()` instead of
+  `ledStrip->runModeAction()` (main.cpp L689–697). A `POST /api/led` with `Mode: 4` sets
+  `m_LEDMode`/`m_SunriseStartTime` but nothing ever calls `runModeAction()`/`sunriseMode()`
+  to animate it until the alarm's own state machine happens to call `run()`/
+  `runModeAction()` itself — the API-triggered sunrise is silently inert while a schedule is
+  active. Not fixed as part of B19 (that only closed the uninitialized-read UB); would need
+  a decision on whether the API should be allowed to override an active schedule at all.
 
 ---
 
