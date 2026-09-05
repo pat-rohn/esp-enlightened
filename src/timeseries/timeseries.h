@@ -76,6 +76,7 @@ namespace timeseries
     public:
         virtual void newValue(const String &name, const double &value) = 0;
         virtual bool sendData() { return true; };
+        virtual bool initDevice(const DeviceDesc &) { return true; };
 
     protected:
         String convertValue(double value);

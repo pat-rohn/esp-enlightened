@@ -487,11 +487,9 @@ void setup()
     {
       deviceDesc.Sensors = sensor::getSensorNames();
     }
-    // initDevice only exists on the HTTP backend; with UseMQTT the object is
-    // a CTimeseriesMQTT and the downcast would be invalid.
-    if (timeSeries != nullptr && !configman::getConfig().UseMQTT)
+    if (timeSeries != nullptr)
     {
-      static_cast<ts_http::CTimeseriesHttp *>(timeSeries.get())->initDevice(deviceDesc);
+      timeSeries->initDevice(deviceDesc);
     }
   }
 
