@@ -3,8 +3,9 @@
 ## Purpose
 
 Plan a configuration-first web interface for an Enlightened device and a
-low-risk refactoring path for the firmware. This workbook is intentionally
-planning-only: it makes no production-code or API changes.
+low-risk refactoring path for the firmware. This workbook began as
+planning-only; its Phase 0 stabilization work is now implemented while the
+remaining phases continue to guide implementation.
 
 This workbook is a companion to [DESGIN.md](DESGIN.md) (architecture
 decisions and improvement roadmap) and [BUGS.md](BUGS.md) (concrete
@@ -21,15 +22,15 @@ not inherit:
 
 | Endpoint | Current behavior | Interface use | Known issues |
 | --- | --- | --- | --- |
-| `GET /api/config` | Returns the complete serialized configuration | Load the editable settings | Includes the plaintext WiFi password with no auth check `[D2]`; any browser tab on the LAN can read it because of wildcard CORS `[D2]` |
-| `PUT /api/config` | Validates and stages configuration without restart | Save changes | Same unauthenticated-write exposure `[D2]`; only `AlarmSettings` is re-applied live — WiFi/pin/LED config changes silently do nothing until a manual restart (see Caveats in BUGS.md) |
-| `POST /api/config` | Validates, stages, then requests a restart | Save-and-restart, if retained | Same exposure as `PUT` |
-| `GET /restart` | Requests a restart and returns a redirect page | Explicit restart action | — |
+| `GET /api/config` | Returns serialized configuration with blank `WiFiPassword`/`ApiToken` plus `HasWiFiPassword`/`HasApiToken` | Load the editable settings | Redacted secret fields require a full-document client to preserve blank values on PUT; CORS remains permissive `[D2]` |
+| `PUT /api/config` | Validates and stages configuration without restart | Primary save action | Requires `X-Authorization` once `ApiToken` is configured; only `AlarmSettings` is re-applied live — WiFi/pin/LED config changes need an explicit restart |
+| `POST /api/config` | Validates, stages, then requests a restart | Legacy save-and-restart compatibility endpoint | Requires `X-Authorization` once `ApiToken` is configured; not the new UI's primary path |
+| `GET /restart` | Requests a restart and returns a redirect page | Explicit restart action | Requires `X-Authorization` once `ApiToken` is configured |
 | `GET /api/version` | Returns firmware version | Device status | — |
 | `GET /api/time` | Returns device time | Device status | — |
-| `GET/POST/PUT /api/led` | Reads/sets LED mode, color, brightness | Optional live LED preview/control (Decision 4) | Hand-built JSON response doesn't escape the echoed `Message` field — invalid JSON on a `"`/`\` in the request `[M13]`; `Mode: 4` (sunrise) can read an uninitialized start time and jump straight to "risen" `[B19]` |
+| `GET/POST/PUT /api/led` | Reads/sets LED mode, color, brightness | Deferred from configuration v1 (Decision 4) | JSON escaping and sunrise start initialization fixed in Phase 0; mutation requires `X-Authorization` once configured |
 | `GET /api/button1`, `/api/button2` | Simulates a physical button press | Not planned for v1 | — |
-| `GET /get` | Legacy query-string config submit used by the current HTML form | Superseded by `PUT /api/config` | Submits the whole config as a URL — can exceed the request-line buffer and truncate silently `[M5]` |
+| `GET /get` | Retired | None | Removed in Phase 0 `[M5]` |
 
 The current embedded page (`src/webpage.cpp` inline HTML) is **not** a
 reliable visual or structural reference: its `</body></html>` closes mid-page
@@ -45,15 +46,14 @@ split (below) should generalize, not replace.
 
 ### Security posture that gates this work
 
-Per `DESGIN.md` decision 8 and `BUGS.md` `[D2]`, there is currently **no
-authentication on any endpoint** and CORS is `Access-Control-Allow-Origin: *`
-on every response, including mutating ones. This is flagged in `DESGIN.md` as
-"worse than originally noted": any web page open in a browser on the same LAN
-can read the WiFi password or reconfigure/restart the device via CSRF, not
-just a deliberate LAN client. Shipping a nicer web interface on top of this
-without addressing it just makes the attack surface more attractive and more
-discoverable. See Decision 3 and Phase 0 below — this is treated as a
-blocking prerequisite, not an optional hardening pass.
+Phase 0 added an opt-in `ApiToken` check to mutating routes and redacts
+configuration secrets by default. A configured token must be sent as
+`X-Authorization`; an empty token preserves existing-device behavior during
+migration. CORS is still `Access-Control-Allow-Origin: *` on every response,
+including mutating ones. That must be narrowed before a browser-hosted
+configuration UI is treated as security-complete; it is not a reason to delay
+the configuration-first interface now that the companion app can send a
+configured token.
 
 ## Companion App: `enlightened`
 
@@ -65,28 +65,19 @@ Its own README states it is "Compatible with esp-enlightened", and
 Current State table above (`GET/PUT /api/config`, `GET/POST /api/led`,
 `GET /api/button{1,2}`, `GET /api/time`, `GET /restart`) with plain
 `http://<device-address>` requests. This means any change to the API surface
-here is a change to a live client, not a hypothetical one. Two concrete
-findings from reading its source:
+here is a change to a live client, not a hypothetical one. Phase 0 updated
+that client in lockstep:
 
-- **It sends no `Authorization`/`X-Authorization` header at all.** The
-  planned Phase 0 fix for `[D2]` (require a pre-shared token on mutating
-  endpoints) will break this app's config-save, LED-control, and
-  restart-device features unless the app is updated in lockstep, or the
-  firmware accepts a transitional unauthenticated grace mode. This must be
-  sequenced explicitly, not assumed away by "existing API clients ... remain
-  compatible" in the acceptance checklist.
-- **Its `DeviceSettings` model (`src/app/settings.ts`) is missing fields that
-  the firmware serializes and deserializes:** `AnalogSensorPin0`,
-  `AnalogSensorPin1`, `OneWirePin`, `DeepSleepTime`, `BufferedValues`, and
-  `MeasureInterval` all exist in `config.h`/`config.cpp` but have no
-  counterpart in the app's TypeScript interface. Since the app always PUTs
-  its full in-memory `DeviceSettings` object back (`saveDeviceSettings()` /
-  `applyDeviceSettings()` in `ledcontrol.service.ts`), saving settings from
-  the phone app today silently resets those six fields to firmware defaults
-  on every save — a real, currently-live version of the "must submit the
-  complete configuration shape" risk called out in Validation Rules below,
-  not just a risk for the new web interface. Worth a note back to the
-  `enlightened` project regardless of this workbook's own scope.
+- **Token support is now coordinated.** `Device` has an optional locally
+  stored `ApiToken`, and `LedcontrolService` sends it as `X-Authorization`
+  when set. The token is kept locally because firmware GET responses redact
+  it; empty-token devices remain compatible during migration.
+- **The full configuration model is now preserved.**
+  `DeviceSettings` includes `AnalogSensorPin0`, `AnalogSensorPin1`,
+  `OneWirePin`, `DeepSleepTime`, `BufferedValues`, and `MeasureInterval`, so
+  saving from the phone app no longer resets those firmware fields to
+  defaults. It also models the redacted secret indicators and exposes the
+  newly added fields in its settings view.
 
 Both points argue for treating the new embedded web interface and the
 `enlightened` app as two clients of one contract: any endpoint/schema change
@@ -105,16 +96,12 @@ reference, not as a runtime dependency:
 - Plain web controls and no external font, JavaScript, CSS, or CDN dependency;
   setup must work when the device access point has no internet connection.
 - The device password is editable but never rendered in static HTML or logged
-  by the page script. This also requires a server-side fix: `GET /api/config`
-  currently returns the WiFi password in plaintext and the AP-mode loop dumps
-  the full serialized config (password included) to Serial every 15 s
-  `[D5]`. The UI cannot "not log" a value the firmware already exposes
-  unconditionally — redacting/omitting the password in `serializeConfig()`
-  unless explicitly requested is a prerequisite, not a UI-only concern.
-- If Decision 3 (below) requires authentication, the page needs a lightweight
-  token-entry affordance (e.g. a single password-style field gating all
-  actions, sent as `X-Authorization`) rather than a full login flow, matching
-  the pre-shared-token approach in `DESGIN.md [P2]`.
+  by the page script. Firmware now redacts `WiFiPassword`/`ApiToken` from
+  `GET /api/config` and removes the former AP-mode full-config Serial dump
+  `[D5]`; the interface preserves a blank secret field on save.
+- The page needs a lightweight token-entry affordance (a single password-style
+  field, retained only locally and sent as `X-Authorization`) rather than a
+  full login flow, matching the pre-shared-token approach in `DESGIN.md [P2]`.
 
 
 ### Information Architecture
@@ -272,16 +259,17 @@ and only then the new interface itself.
      — Auth check (`isAuthorized()`) added to `/api/led`, `/api/button1`,
      `/api/button2`, `/api/config` (POST/PUT), and `/restart`; a new
      `Configuration.ApiToken` field gates it, defaulting to empty (i.e. no
-     enforcement) so the companion `enlightened` app — which sends no
-     `X-Authorization` header — is not broken by default. `serializeConfig()`
+     enforcement) so existing installations remain compatible during
+     migration; the companion `enlightened` app now sends
+     `X-Authorization` when its locally stored token is set. `serializeConfig()`
      now takes a `revealSecrets` flag (default `false`) that redacts
      `WiFiPassword`/`ApiToken` on GET/HTTP responses while flash
      persistence still writes real values; `deserializeConfig()` treats a
      blank incoming secret as "keep the previous value" so a redacted
      GET-then-PUT round trip doesn't wipe the password. **CORS wildcard on
      mutating endpoints was intentionally left as-is** — see `BUGS.md` D2 —
-     since removing it risks breaking the same unauthenticated companion app
-     and needs its own decision once that app can send an auth header.
+     and remains a required security follow-up before the browser UI is
+     considered hardened.
    - Setup-mode correctness the UI depends on: fix AP addressing to use
      `WiFi.softAPConfig()`/`WiFi.softAPIP()` instead of the station-mode
      `WiFi.config()`/`WiFi.localIP()` `[M2]`. — done; added a `currentIP()`
@@ -308,9 +296,9 @@ and only then the new interface itself.
      documents with absent optional fields.
    - Add host-testable tests for deserialize/serialize round trips, rejected
      invalid JSON, defaults, and staged configuration replacement.
-   - Document the API response status and body for every endpoint, including
-     `/api/led`, `/api/button1`, `/api/button2`, and legacy `/get`, which the
-     original endpoint table in this workbook omitted.
+   - Document the API response status and body for every remaining endpoint,
+     including `/api/led`, `/api/button1`, and `/api/button2`; verify that
+     retired `/get` returns 404.
 
 2. **Untangle configuration**
    - Move configuration types, defaulting, validation, and serialization into
@@ -372,37 +360,39 @@ and only then the new interface itself.
 - [ ] `PUT /api/config` applies the configuration without an unexpected
       restart; restart is explicit; fields that are not live-applied are
       clearly marked as restart-required in the UI.
-- [ ] Mutating endpoints require the pre-shared token and reject
-      cross-origin writes; only safe `GET`s keep permissive CORS `[D2]`.
+- [ ] Mutating endpoints require the configured pre-shared token. Restrict
+      cross-origin writes before declaring the browser UI security-complete;
+      only safe `GET`s may keep permissive CORS `[D2]`.
 - [ ] Existing API clients, including the companion application, remain
       compatible — verified against `enlightened`'s actual
-      `ledcontrol.service.ts`, not assumed; in particular its lack of any
-      `Authorization` header must be resolved (grace mode, coordinated app
-      update, or documented breaking change) before the `[D2]` auth fix
-      ships, and its `DeviceSettings` model should be updated to include
-      `AnalogSensorPin0/1`, `OneWirePin`, `DeepSleepTime`, `BufferedValues`,
-      and `MeasureInterval` so saving from the app stops silently resetting
-      them.
+      `ledcontrol.service.ts`, not assumed. The Phase 0 companion-app update
+      supports `X-Authorization` and preserves `AnalogSensorPin0/1`,
+      `OneWirePin`, `DeepSleepTime`, `BufferedValues`, and `MeasureInterval`;
+      contract coverage must prevent that pairing from regressing.
 - [ ] Builds for the supported ESP32 and ESP8266 environments within existing
       flash/RAM budgets.
 
-## Decisions Needed Before Implementation
+## Decisions Resolved for Implementation
 
-1. Should `Save and restart` be a primary workflow or should configuration
-   always save without a restart? (Constrained by the fact that today only
-   `AlarmSettings` applies live — see Current State.)
-2. Which pin fields should be hidden, disabled, or marked advanced for each
-   target board?
-3. Is an unauthenticated configuration page acceptable on a station network,
-   or should setup mode be the only configuration mode? **Given `[D2]`'s
-   severity (any LAN-adjacent browser tab can read the WiFi password or
-   trigger a restart today), the recommendation is to require the
-   pre-shared-token auth fix in Phase 0 regardless of which answer is
-   chosen** — it is a prerequisite for exposing a nicer, more discoverable
-   UI either way, not an optional extra tied to one answer. This decision
-   also determines whether the `enlightened` companion app needs a
-   coordinated update before the token check is enforced, since it currently
-   sends no auth header (see Companion App section above).
-4. Should the web page include LED controls and current sensor readings, or
-   stay strictly configuration-focused in the first release? If yes, `[M13]`
-   and `[B19]` must be fixed first (see Phase 0).
+1. **Save is primary; restart is explicit.** The interface uses
+   `PUT /api/config` and clearly marks all hardware, WiFi, and LED topology
+   settings as restart-required. It provides a separate restart action after
+   a successful save. `POST /api/config` remains only for API compatibility,
+   not as the interface's default action.
+2. **Pins are advanced, not silently hidden.** The main form shows identity,
+   network, telemetry, behavior, and alarm controls. GPIO/pin and LED
+   topology settings belong in a collapsed Advanced Hardware section,
+   preserving every serialized field while warning that values are
+   board-specific and require a restart. The UI must not claim a pin is safe
+   across boards; `platformio.ini` board notes remain authoritative.
+3. **Token-enabled configuration is the station-network policy.** Setup mode
+   remains usable without a token for first-time configuration. Once an
+   operator sets `ApiToken`, every mutating request must carry
+   `X-Authorization`, and the UI/app retains the token locally because GET
+   responses redact it. The companion `enlightened` app is updated in
+   lockstep. Restricting wildcard CORS on mutating routes remains an
+   outstanding security follow-up before treating the browser UI as hardened.
+4. **Configuration-focused v1.** Do not add live LED controls, button
+   simulation, or sensor dashboards to the first embedded interface. Preserve
+   the API for the companion app and return to live status/control only after
+   the configuration flow and CORS policy are tested.
