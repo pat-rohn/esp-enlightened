@@ -4,8 +4,8 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-#include <ArduinoJson.h>
 #include "domain/configuration.h"
+#include "domain/configuration_codec.h"
 
 namespace configman
 {
@@ -42,15 +42,10 @@ namespace configman
 
     std::pair<bool, Configuration> deserializeConfig(const char *configStr);
     SunriseSettings deserializeSunrise(const JsonDocument &doc);
-    AlarmWeekday deserializeDaySetting(JsonVariantConst doc);
-
-    // revealSecrets controls whether WiFiPassword/ApiToken are included as
-    // plaintext. Internal persistence (flash writes) must pass true; any
-    // response that leaves the device (HTTP API bodies, Serial logs) must
-    // use the default false. See [D5] in BUGS.md.
-    String serializeConfig(const Configuration *config, bool revealSecrets = false);
-    JsonDocument serializeSunrise(const SunriseSettings *config);
-    JsonDocument serializeDaySettings(const AlarmWeekday *config);
+    using configuration::deserializeDaySetting;
+    using configuration::serializeConfig;
+    using configuration::serializeDaySettings;
+    using configuration::serializeSunrise;
 
 }
 

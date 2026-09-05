@@ -27,6 +27,7 @@ namespace ArduinoJson
 }
 
 #include "../../../src/config_store.cpp"
+#include "../../../src/domain/configuration_codec.cpp"
 #include "../../../src/config.cpp"
 
 namespace
@@ -138,4 +139,26 @@ void test_redacted_secrets_preserve_existing_values_and_stay_redacted()
   TEST_ASSERT_TRUE(responseDocument["HasWiFiPassword"].as<bool>());
   TEST_ASSERT_EQUAL_STRING("", responseDocument["ApiToken"].as<const char *>());
   TEST_ASSERT_TRUE(responseDocument["HasApiToken"].as<bool>());
+}
+
+void test_domain_codec_uses_supplied_secret_values()
+{
+  configuration::Configuration existing;
+  existing.WiFiPassword = "stored-password";
+  existing.ApiToken = "stored-token";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"WiFiPassword":"","ApiToken":""})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("stored-password", result.second.WiFiPassword.c_str());
+  TEST_ASSERT_EQUAL_STRING("stored-token", result.second.ApiToken.c_str());
+
+  const String persisted = configuration::serializeConfig(&result.second, true);
+  JsonDocument document;
+  TEST_ASSERT_TRUE(deserializeJson(document, persisted.c_str()) ==
+                   DeserializationError::Ok);
+  TEST_ASSERT_EQUAL_STRING("stored-password",
+                           document["WiFiPassword"].as<const char *>());
+  TEST_ASSERT_EQUAL_STRING("stored-token", document["ApiToken"].as<const char *>());
 }
