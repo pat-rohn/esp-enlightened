@@ -35,6 +35,26 @@ namespace webpage
       request->send(response);
     }
 
+    // [D2] Pre-shared token gate for mutating endpoints. An empty ApiToken
+    // (the default) means auth is not configured yet, so existing clients
+    // that send no header (e.g. the companion app) keep working; setting a
+    // token is how an operator opts into requiring it.
+    bool isAuthorized(AsyncWebServerRequest *request)
+    {
+      const String &token = configman::getConfig().ApiToken;
+      if (token.length() == 0)
+      {
+        return true;
+      }
+      const AsyncWebHeader *header = request->getHeader("X-Authorization");
+      return header != nullptr && header->value() == token;
+    }
+
+    void sendUnauthorized(AsyncWebServerRequest *request)
+    {
+      sendJson(request, 401, "{\"Message\": \"Error: unauthorized\"}");
+    }
+
     // Body handler: accumulates a raw request body chunk by chunk into
     // request->_tempObject, which the library frees when the request is destroyed.
     void collectBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
@@ -77,6 +97,12 @@ namespace webpage
     }
   }
 
+  // [M5] Previous version closed </body></html> mid-page (a stray form/
+  // iframe lived outside it) and submitted the whole config as a URL via
+  // the now-retired /get endpoint, reporting success unconditionally. This
+  // is a read-only placeholder until the interface in
+  // WEB_INTERFACE_WORKBOOK.md replaces it; it no longer offers a (broken)
+  // edit form. Use PUT /api/config to change settings in the meantime.
   const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
 <html>
@@ -84,34 +110,14 @@ namespace webpage
 <head>
     <title>IoT Multi Device Configuration</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <script>
-        function submitConfig() {
-          console.log("submit config")
-          alert("Save config to Device");
-          setTimeout(function () { document.location.reload(false); }, 500);
-        }
-        
-    </script>
 </head>
 
 <body>
     <h2>IoT Multi Device Configuration</h2>
     <p>Firmware: %fwversion%</p>
-
-  </body></html>
-    <form action="/get" target="hidden-form">
-        <br>
-        <textarea disabled cols="80" rows="22">%devconfig%</textarea>
-        <br>
-        <textarea id="configuration" name="configuration" cols="80" rows="22"></textarea> 
-        <br>
-        <input type="submit" value="Submit" onclick="submitConfig()">
-    </form>
-     <a href="/restart" class="button">Restart </a>
-
+    <textarea disabled cols="80" rows="22">%devconfig%</textarea>
     <br>
-
-    <iframe style="display:none" name="hidden-form"></iframe>
+    <a href="/restart" class="button">Restart</a>
 </body>
 
 </html>
@@ -168,6 +174,11 @@ namespace webpage
                 { sendJson(request, 200, m_LedService->get()); });
     m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   String input = getInput(request);
                   if (input.isEmpty())
                   {
@@ -186,6 +197,11 @@ namespace webpage
                 nullptr, collectBody);
     m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   Serial.printf("PUT set led\n");
                   String input = getInput(request);
                   if (input.isEmpty())
@@ -206,6 +222,11 @@ namespace webpage
 
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   String answer = "{\"msg\": \"button 1 pressed\"}";
                   sendJson(request, 200, answer);
                   Serial.println(answer);
@@ -213,15 +234,26 @@ namespace webpage
 
     m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   String answer = "{\"msg\": \"button 2 pressed\"}";
                   sendJson(request, 200, answer);
                   Serial.println(answer);
                   m_ButtonPressed2->store(true); });
 
+
     // Config Post (restarts on success). The config is only staged here;
     // loop() applies and persists it before acting on the restart flag.
     m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
                   String staged;
@@ -237,6 +269,11 @@ namespace webpage
     /// Config PUT (no restart)
     m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
                   String staged;
@@ -287,6 +324,11 @@ namespace webpage
     // Restart
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
+                  if (!isAuthorized(request))
+                  {
+                    sendUnauthorized(request);
+                    return;
+                  }
                   String answer = "<html><head><meta http-equiv=\"refresh\" content=\"10;url=/\" /></head><body><h1>Redirecting in 10 seconds...</h1></body></html>";
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/html", answer);
                   response->addHeader("Content-type", "text/html");
@@ -296,26 +338,6 @@ namespace webpage
                   request->send(response);
                   Serial.println("restart triggered");                 
                   m_RestartTriggered->store(true); });
-    // Send a GET request to <ESP_IP>/get?configuration=<inputMessage>
-    m_Server.on("/get", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-
-        Serial.println("get config");
-        String inputMessage;
-          // GET inputString value on <ESP_IP>/get?configuration=<inputMessage>
-        if (request->hasParam("configuration")) {
-          inputMessage = request->getParam("configuration")->value();
-          if (configman::stageConfig(inputMessage.c_str())) {
-            Serial.println("Config staged, applied by main loop");
-          } else {
-            Serial.println("Config invalid - not written");
-          }
-        } else{
-          inputMessage = "Unknown param";
-        }
-        Serial.println(inputMessage);
-        request->send(200, "text/html", "HTTP GET request sent to your ESP on input field (" + inputMessage + ") with value: " + inputMessage + "<br><a href=\"/\">Return to Home Page</a>"); });
-
     m_Server.onNotFound([](AsyncWebServerRequest *req)
                         { req->send(404); });
     m_Server.begin();
