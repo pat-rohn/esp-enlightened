@@ -41,6 +41,13 @@ namespace webpage
     public:
         void beginServer();
 
+    private:
+        void registerConfigRoutes();
+        void registerLedRoutes();
+        void registerCommandRoutes();
+        void registerStatusRoutes();
+        void registerOptionsRoutes();
+
     public:
         static void setLEDService(CLEDService *ledService);
         static void setTimeHelper(CTimeHelper *timeHelper);
