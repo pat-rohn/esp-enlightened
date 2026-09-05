@@ -1,6 +1,7 @@
 
 
 #include "config.h"
+#include "config_store.h"
 
 #include <atomic>
 
@@ -97,35 +98,7 @@ namespace configman
 
     void begin()
     {
-        Serial.println("LittleFS.begin()");
-#ifdef ESP8266
-        if (!LittleFS.begin())
-        {
-            Serial.println("Failed to mount LittleFS");
-        }
-        else
-        {
-            Serial.println("LittleFS succesfully mounted");
-        }
-#endif
-#ifdef ESP32
-        if (!LittleFS.begin(false))
-        {
-            Serial.println("Failed to mount LittleFS");
-            if (!LittleFS.begin(true))
-            {
-                Serial.println("Failed to format LittleFS");
-            }
-            else
-            {
-                Serial.println("LittleFS formatted successfully");
-            }
-        }
-        else
-        {
-            Serial.println("LittleFS succesfully mounted");
-        }
-#endif
+        configstore::begin();
     }
 
     const Configuration& getConfig()
@@ -139,7 +112,7 @@ namespace configman
 
     Configuration readConfig()
     {
-        String configStr = readFileLFS(kPathToConfig);
+        String configStr = configstore::read(kPathToConfig);
         if (configStr.length() <= 0)
         {
             Serial.println("No config was stored");
@@ -173,7 +146,7 @@ namespace configman
     String readConfigAsString()
     {
         Serial.println("readConfigAsString");
-        auto configStr = readFileLFS(kPathToConfig);
+        auto configStr = configstore::read(kPathToConfig);
         auto res = deserializeConfig(configStr.c_str());
         if (configStr.isEmpty() || !res.first)
         {
@@ -215,7 +188,7 @@ namespace configman
         config = Configuration(c);
         // Flash persistence needs the real secrets, not the API-facing redacted form.
         String confStr = serializeConfig(c, /*revealSecrets=*/true);
-        return writeFileLFS(kPathToConfig, confStr.c_str());
+        return configstore::write(kPathToConfig, confStr.c_str());
     }
 
     bool stageConfig(const char *configStr, String *serialized)
@@ -248,61 +221,12 @@ namespace configman
         config = *pending;
         // Flash persistence needs the real secrets, not the API-facing redacted form.
         String confStr = serializeConfig(pending, /*revealSecrets=*/true);
-        if (!writeFileLFS(kPathToConfig, confStr.c_str()))
+        if (!configstore::write(kPathToConfig, confStr.c_str()))
         {
             Serial.println("Failed to write config.");
         }
         delete pending;
         return true;
-    }
-
-    String readFile(fs::FS &fs, const char *path)
-    {
-        Serial.printf("Reading file: %s\r\n", path);
-        File file = fs.open(path, "r");
-        if (!file || file.isDirectory())
-        {
-            Serial.println("- empty file or failed to open file");
-            return String();
-        }
-        String fileContent;
-        while (file.available())
-        {
-            fileContent += String((char)file.read());
-        }
-        // Serial.println(fileContent);
-        return fileContent;
-    }
-
-    String readFileLFS(const char *path)
-    {
-        return readFile(LittleFS, path);
-    }
-
-    bool writeFile(fs::FS &fs, const char *path, const char *message)
-    {
-        Serial.printf("Writing file: %s\r\n", path);
-        File file = fs.open(path, "w");
-        if (!file)
-        {
-            Serial.println("- failed to open file for writing");
-            return false;
-        }
-        if (file.print(message))
-        {
-            Serial.println("- file written");
-        }
-        else
-        {
-            Serial.println("- write failed");
-            return false;
-        }
-        return true;
-    }
-
-    bool writeFileLFS(const char *path, const char *message)
-    {
-        return writeFile(LittleFS, path, message);
     }
 
     String serializeConfig(const Configuration *config, bool revealSecrets)

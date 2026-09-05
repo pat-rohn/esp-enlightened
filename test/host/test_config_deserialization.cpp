@@ -26,6 +26,7 @@ namespace ArduinoJson
   };
 }
 
+#include "../../../src/config_store.cpp"
 #include "../../../src/config.cpp"
 
 namespace

@@ -3,12 +3,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#include "LittleFS.h"
-#ifdef ESP32
-#else
-#include <Hash.h>
-#include <FS.h>
-#endif
+#include <Arduino.h>
 #include <map>
 #include <ArduinoJson.h>
 
@@ -145,12 +140,6 @@ namespace configman
     // Apply + persist a staged config. Must only be called from loop().
     // Returns true if a staged config was applied.
     bool applyStagedConfig();
-
-    String readFileLFS(const char *path);
-    String readFile(fs::FS &fs, const char *path);
-
-    bool writeFile(fs::FS &fs, const char *path, const char *message);
-    bool writeFileLFS(const char *path, const char *message);
 
     std::pair<bool, Configuration> deserializeConfig(const char *configStr);
     SunriseSettings deserializeSunrise(const JsonDocument &doc);
