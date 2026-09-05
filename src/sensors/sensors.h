@@ -1,3 +1,6 @@
+#ifndef SENSORS_H
+#define SENSORS_H
+
 #include <vector>
 #include <Arduino.h>
 #include <map>
@@ -33,6 +36,7 @@ namespace sensor
         SensorData() : name("Unknown"), value(-9999), isValid(false), unit("1")
         {
         }
+
     };
 
     bool sensorsInit(int serialRX, int serialTX, int oneWirePin);
@@ -63,3 +67,5 @@ namespace sensor
     void scd40printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2);
 
 }
+
+#endif

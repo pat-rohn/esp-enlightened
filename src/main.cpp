@@ -4,7 +4,6 @@
 #include <memory>
 #include <time.h>
 #include <utility>
-#include "events.h"
 #include "ArduinoMqttClient.h"
 #include "handle_buttons.h"
 #include "logging.h"
@@ -39,6 +38,7 @@ uint8_t kLEDOFF = 0x0;
 
 #include "sensors/sensors.h"
 #include "led/leds_service.h"
+#include "led/sensor_color_policy.h"
 #include "led/button_inputs.h"
 #include "webpage.h"
 #include "led/sunrise_alarm.h"
@@ -278,10 +278,6 @@ void configureDevice()
   webPage->setButtonsPressed(&runtimeCommands.buttonPressed1, &runtimeCommands.buttonPressed2);
 }
 
-unsigned long lastColorChange = 0;
-double co2TestVal = 400;
-double tempTestVal = 15;
-
 String getDeepSleepWakeMessage(unsigned long deepSleepSeconds)
 {
   time_t now = time(nullptr);
@@ -299,51 +295,6 @@ String getDeepSleepWakeMessage(unsigned long deepSleepSeconds)
   return String(wakeTimeBuffer);
 }
 
-void colorUpdate(const std::map<String, sensor::SensorData> &values)
-{
-  if (ledStrip->m_LEDMode != LedStrip::LEDModes::pulse)
-  {
-    Serial.printf("Changed to pulse mode. Mode was %d\n", int(ledStrip->m_LEDMode));
-    ledStrip->m_LEDMode = LedStrip::LEDModes::pulse;
-  }
-
-  // Serial.print("co2TestVal: ");
-  // Serial.println(co2TestVal);
-  // ledStrip->setCO2Color(co2TestVal);
-  // co2TestVal += 100;
-  // tempTestVal += 1.0;
-  // ledStrip->setTemperatureColor(tempTestVal);
-  // return;
-
-  if (values.empty())
-  {
-    Serial.println("No Sensors");
-    return;
-  }
-  if (values.count("CO2") && values.at("CO2").isValid)
-  {
-    ledStrip->setCO2Color(values.at("CO2").value);
-  }
-  else if (values.count("Temperature"))
-  {
-    ledStrip->setTemperatureColor(values.at("Temperature").value);
-  }
-}
-
-void triggerEvents(const std::map<String, sensor::SensorData> &values)
-{
-  colorUpdate(values);
-  if (values.count("WindSpeed"))
-  {
-    Serial.println("Check for windspeed");
-    if (values.at("WindSpeed").value > 4.0)
-    {
-      Serial.println("TODO: Windspeed high, trigger event");
-      CallEvent(configman::getConfig().Button2GetURL);
-    }
-  }
-}
-
 bool measureAndSendSensorData()
 {
   if (millis() - lastUpdate < (unsigned long)configman::getConfig().MeasureInterval * 1000)
@@ -356,7 +307,7 @@ bool measureAndSendSensorData()
 
   if (configman::getConfig().NumberOfLEDs > 0 && !configman::getConfig().AlarmSettings.IsActivated)
   {
-    colorUpdate(values);
+    led::applySensorColor(*ledStrip, values);
   }
   else
   {
