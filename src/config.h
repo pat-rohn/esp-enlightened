@@ -154,7 +154,7 @@ namespace configman
 
     std::pair<bool, Configuration> deserializeConfig(const char *configStr);
     SunriseSettings deserializeSunrise(const JsonDocument &doc);
-    AlarmWeekday deserializeDaySetting(const JsonDocument &doc);
+    AlarmWeekday deserializeDaySetting(JsonVariantConst doc);
 
     // revealSecrets controls whether WiFiPassword/ApiToken are included as
     // plaintext. Internal persistence (flash writes) must pass true; any

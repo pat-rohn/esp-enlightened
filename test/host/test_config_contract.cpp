@@ -5,6 +5,11 @@
 #include <unity.h>
 
 void test_arduinojson_deserializes_and_serializes_on_host();
+void test_config_rejects_invalid_json();
+void test_legacy_config_uses_documented_defaults();
+void test_partial_light_config_defaults_each_omitted_channel();
+void test_missing_sunrise_day_uses_alarm_weekday_default();
+void test_redacted_secrets_preserve_existing_values_and_stay_redacted();
 
 namespace
 {
@@ -76,6 +81,11 @@ int main()
 {
   UNITY_BEGIN();
   RUN_TEST(test_arduinojson_deserializes_and_serializes_on_host);
+  RUN_TEST(test_config_rejects_invalid_json);
+  RUN_TEST(test_legacy_config_uses_documented_defaults);
+  RUN_TEST(test_partial_light_config_defaults_each_omitted_channel);
+  RUN_TEST(test_missing_sunrise_day_uses_alarm_weekday_default);
+  RUN_TEST(test_redacted_secrets_preserve_existing_values_and_stay_redacted);
   RUN_TEST(test_current_config_fixture_has_the_complete_public_contract);
   RUN_TEST(test_legacy_minimal_config_fixture_remains_a_valid_document);
   RUN_TEST(test_partial_light_fixture_preserves_the_m6_regression_case);
