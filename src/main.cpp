@@ -69,6 +69,13 @@ IPAddress gateway(192, 168, 4, 1);
 
 bool isAccessPoint = false;
 
+// [M2] Pick the address that actually applies to the current mode: station
+// IP is meaningless in AP mode (reports 0.0.0.0) and vice versa.
+IPAddress currentIP()
+{
+  return isAccessPoint ? WiFi.softAPIP() : WiFi.localIP();
+}
+
 std::map<String, float> sensorOffsets;
 
 unsigned long lastUpdate = millis();
@@ -136,23 +143,27 @@ bool tryConnect(std::string ssid, std::string password)
 void createAccesPoint()
 {
   WiFi.disconnect();
-  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS))
-  {
-    Serial.println("STA Failed to configure");
-    ESP.restart();
-  }
-  Serial.print("Has access point:");
-  Serial.println(WiFi.localIP());
-  isAccessPoint = true;
   if (!WiFi.mode(WIFI_AP))
   {
     Serial.print("mode failed.");
+  }
+  // [M2] AP-mode addressing must use the AP-specific API, not the
+  // station-mode WiFi.config(): softAPConfig() sets the address the AP
+  // actually serves, and WiFi.localIP() would report 0.0.0.0 here.
+  if (!WiFi.softAPConfig(local_IP, gateway, subnet))
+  {
+    Serial.println("AP failed to configure");
+    ESP.restart();
   }
   if (!WiFi.softAP(configman::getConfig().WiFiName.c_str(), configman::getConfig().WiFiPassword.c_str()))
   {
     Serial.print("softAP failed.");
     ESP.restart();
   }
+  // Only mark the AP as up once softAP() actually succeeded.
+  isAccessPoint = true;
+  Serial.print("Has access point:");
+  Serial.println(WiFi.softAPIP());
 }
 
 void startLedControl()
@@ -442,7 +453,7 @@ void setup()
   desc += "ESP32;";
 #endif
   desc += "fw:" + getFirmwareVersion();
-  desc += ";ip:" + WiFi.localIP().toString();
+  desc += ";ip:" + currentIP().toString();
 
   if (hasSensors)
   {
@@ -483,11 +494,11 @@ void setup()
                                 ledStrip->m_Factor);
   }
   Serial.println("Succesfully set up");
-  Serial.println(WiFi.localIP());
+  Serial.println(currentIP());
   String initMsg = "IoT Device setup: ";
   initMsg += getChipInfo();
   initMsg += " - FW: " + getFirmwareVersion();
-  initMsg += " - IP: " + WiFi.localIP().toString();
+  initMsg += " - IP: " + currentIP().toString();
   if (hasSensors)
   {
     initMsg += " - Descr: " + desc;
@@ -616,9 +627,9 @@ void loop()
       Serial.println(WiFi.gatewayIP().toString());
     }
     Serial.print("\nIP Address: ");
-    Serial.println(WiFi.localIP());
-    const auto &config = configman::getConfig();
-    Serial.println(configman::serializeConfig(&config));
+    Serial.println(currentIP());
+    // [D5] Do not dump the full config (WiFi password included) to Serial on
+    // every tick; the AP-credentials hint above is enough to get connected.
     Serial.println("--------------------------------");
     return;
   }
