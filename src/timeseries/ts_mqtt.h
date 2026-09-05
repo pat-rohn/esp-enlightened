@@ -33,8 +33,8 @@ namespace ts_mqtt
         void newValue(const String &name, const double &value);
 
     private:
-        String m_Host;
         String m_Topic;
+        MqttClient *m_Client;
     };
 
 }
