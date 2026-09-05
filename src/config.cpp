@@ -1,5 +1,3 @@
-
-
 #include "config.h"
 #include "config_store.h"
 
@@ -24,6 +22,7 @@ namespace configman
     {
         return config;
     }
+
     void setConfig(Configuration newConfig)
     {
         config = newConfig;
@@ -46,7 +45,6 @@ namespace configman
             return readConfig();
         }
 
-        // Serial.printf("Stored config: \n%s\n", configStr.c_str());
         auto res = deserializeConfig(configStr.c_str());
         if (!res.first)
         {
@@ -79,35 +77,16 @@ namespace configman
             delay(1000);
             return readConfigAsString();
         }
-        JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, configStr.c_str());
-        if (err.code() != DeserializationError::Code::Ok)
-        {
-            return String(err.code());
-        }
-
-        Serial.println("make pretty...");
-        size_t needed = measureJsonPretty(doc) + 1;
-        Serial.printf("Allocate %d memory\n", needed);
-        char *buffer = (char *)malloc(needed);
-        if (!buffer)
-        {
-            Serial.printf("Can't allocate so much memory (%d)", needed);
-            return String("{}");
-        }
-        serializeJsonPretty(doc, buffer, needed);
-        String result(buffer);
-        free(buffer);
-        return result;
+        return configuration::prettyPrintConfig(configStr.c_str());
     }
 
-    bool saveConfig(const Configuration *c)
+    bool saveConfig(const Configuration *newConfig)
     {
         Serial.println("Save config.");
-        config = Configuration(c);
-        // Flash persistence needs the real secrets, not the API-facing redacted form.
-        String confStr = serializeConfig(c, /*revealSecrets=*/true);
-        return configstore::write(kPathToConfig, confStr.c_str());
+        config = Configuration(newConfig);
+        String configStr = configuration::serializeConfig(
+            newConfig, /*revealSecrets=*/true);
+        return configstore::write(kPathToConfig, configStr.c_str());
     }
 
     bool stageConfig(const char *configStr, String *serialized)
@@ -121,11 +100,9 @@ namespace configman
         }
         if (serialized != nullptr)
         {
-            // This becomes the HTTP response body; keep secrets redacted.
-            *serialized = serializeConfig(&res.second);
+            *serialized = configuration::serializeConfig(&res.second);
         }
         Configuration *fresh = new Configuration(&res.second);
-        // A not-yet-applied staging is superseded; exchange keeps the handoff race-free.
         delete stagedConfig.exchange(fresh);
         return true;
     }
@@ -138,9 +115,9 @@ namespace configman
             return false;
         }
         config = *pending;
-        // Flash persistence needs the real secrets, not the API-facing redacted form.
-        String confStr = serializeConfig(pending, /*revealSecrets=*/true);
-        if (!configstore::write(kPathToConfig, confStr.c_str()))
+        String configStr = configuration::serializeConfig(
+            pending, /*revealSecrets=*/true);
+        if (!configstore::write(kPathToConfig, configStr.c_str()))
         {
             Serial.println("Failed to write config.");
         }
@@ -148,412 +125,13 @@ namespace configman
         return true;
     }
 
-    String serializeConfig(const Configuration *config, bool revealSecrets)
-    {
-        Serial.println("Serialize config...");
-        JsonDocument doc;
-        doc["IsConfigured"] = config->IsConfigured;
-        doc["ServerAddress"] = config->ServerAddress;
-        doc["SensorID"] = config->SensorID;
-        doc["WiFiName"] = config->WiFiName;
-        // [D5] Never leak the plaintext password/token in responses or logs;
-        // only the flash-persistence path (revealSecrets=true) needs it.
-        // "HasWiFiPassword"/"HasApiToken" let a UI show a placeholder without
-        // exposing the value.
-        doc["WiFiPassword"] = revealSecrets ? config->WiFiPassword : String("");
-        doc["HasWiFiPassword"] = config->WiFiPassword.length() > 0;
-        doc["ApiToken"] = revealSecrets ? config->ApiToken : String("");
-        doc["HasApiToken"] = config->ApiToken.length() > 0;
-        doc["DhtPin"] = config->DhtPin;
-        doc["SerialRX"] = config->SerialRX;
-        doc["SerialTX"] = config->SerialTX;
-        doc["AnalogSensorPin0"] = config->AnalogSensorPin0;
-        doc["AnalogSensorPin1"] = config->AnalogSensorPin1;
-        doc["WindSensorPin"] = config->WindSensorPin;
-        doc["RainfallSensorPin"] = config->RainfallSensorPin;
-        doc["LEDPin"] = config->LEDPin;
-        doc["OneWirePin"] = config->OneWirePin;
-        doc["Button1"] = config->Button1;
-        doc["Button2"] = config->Button2;
-        doc["Button2GetURL"] = config->Button2GetURL;
-        doc["NumberOfLEDs"] = config->NumberOfLEDs;
-        doc["FindSensors"] = config->FindSensors;
-        doc["IsOfflineMode"] = config->IsOfflineMode;
-        doc["ShowWebpage"] = config->ShowWebpage;
-        doc["UseMQTT"] = config->UseMQTT;
-        doc["MQTTTopic"] = config->MQTTTopic;
-        doc["MQTTPort"] = config->MQTTPort;
-        doc["DeepSleepTime"] = config->DeepSleepTime;
-        doc["BufferedValues"] = config->BufferedValues;
-        doc["MeasureInterval"] = config->MeasureInterval;
-
-        doc["SunriseSettings"] = serializeSunrise(&config->AlarmSettings);
-        JsonDocument docLightLow;
-        docLightLow["Red"] = config->LightLow.Red;
-        docLightLow["Green"] = config->LightLow.Green;
-        docLightLow["Blue"] = config->LightLow.Blue;
-        doc["LightLow"] = docLightLow;
-
-        JsonDocument docLightMedium;
-        docLightMedium["Red"] = config->LightMedium.Red;
-        docLightMedium["Green"] = config->LightMedium.Green;
-        docLightMedium["Blue"] = config->LightMedium.Blue;
-        doc["LightMedium"] = docLightMedium;
-
-        JsonDocument docLightHigh;
-        docLightHigh["Red"] = config->LightHigh.Red;
-        docLightHigh["Green"] = config->LightHigh.Green;
-        docLightHigh["Blue"] = config->LightHigh.Blue;
-        doc["LightHigh"] = docLightHigh;
-
-        Serial.println("make pretty...");
-        size_t needed = measureJsonPretty(doc) + 1;
-        Serial.printf("Allocate %d memory\n", needed);
-        char *buffer = (char *)malloc(needed);
-        if (!buffer)
-        {
-            Serial.printf("Can't allocate so much memory (%d)", needed);
-            return String("{}");
-        }
-        serializeJsonPretty(doc, buffer, needed);
-        String result(buffer);
-        free(buffer);
-        return result;
-    }
-
-    JsonDocument serializeSunrise(const SunriseSettings *config)
-    {
-        JsonDocument doc;
-        for (int weekDayN = weekday_t::Monday; weekDayN <= weekday_t::Sunday; weekDayN++)
-        {
-            doc["IsActivated"] = config->IsActivated;
-            doc["SunriseLightTime"] = config->SunriseLightTime;
-            weekday_t weekDay = static_cast<weekday_t>(weekDayN);
-            switch (weekDay)
-            {
-            case weekday_t::Monday:
-                doc["Monday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Monday));
-                break;
-            case weekday_t::Tuesday:
-                doc["Tuesday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Tuesday));
-                break;
-            case weekday_t::Wednesday:
-                doc["Wednesday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Wednesday));
-                break;
-            case weekday_t::Thursday:
-                doc["Thursday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Thursday));
-                break;
-            case weekday_t::Friday:
-                doc["Friday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Friday));
-                break;
-            case weekday_t::Saturday:
-                doc["Saturday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Saturday));
-                break;
-            case weekday_t::Sunday:
-                doc["Sunday"] = serializeDaySettings(&config->DaySettings.at(weekday_t::Sunday));
-                break;
-
-            default:
-                break;
-            }
-        }
-
-        return doc;
-    }
-
-    JsonDocument serializeDaySettings(const AlarmWeekday *config)
-    {
-        JsonDocument doc;
-        doc["AlarmTime"] = std::to_string(config->AlarmTime.Hours) + ":" + std::to_string(config->AlarmTime.Minutes);
-        doc["IsActive"] = config->IsActive;
-
-        return doc;
-    }
-
     std::pair<bool, Configuration> deserializeConfig(const char *configStr)
     {
-        std::pair<bool, Configuration> res = std::pair<bool, Configuration>(false, Configuration());
-        JsonDocument doc;
-        DeserializationError err = deserializeJson(doc, configStr);
-        if (err.code() != DeserializationError::Code::Ok)
-        {
-            Serial.printf("Deserializing failed %d\n", err.code());
-            Serial.print(configStr);
-            return res;
-        }
-        if (!doc["IsConfigured"].is<bool>())
-        {
-            Serial.printf("No valid config %s\n", configStr);
-            return res;
-        }
-        res.second.IsConfigured = doc["IsConfigured"];
-        res.second.ServerAddress = doc["ServerAddress"].as<String>();
-        res.second.SensorID = doc["SensorID"].as<String>();
-        res.second.WiFiName = doc["WiFiName"].as<String>();
-        // A redacted GET response (empty WiFiPassword/ApiToken, see [D5]) must
-        // not be able to wipe the stored secret on the next save: keep the
-        // previous value when the incoming field is blank.
-        String incomingPassword = doc["WiFiPassword"].as<String>();
-        res.second.WiFiPassword = incomingPassword.length() > 0 ? incomingPassword : config.WiFiPassword;
-        String incomingApiToken = doc["ApiToken"].as<String>();
-        res.second.ApiToken = incomingApiToken.length() > 0 ? incomingApiToken : config.ApiToken;
-        // Missing pin fields must fall back to -1 (disabled), not 0 (a valid GPIO)
-        res.second.DhtPin = doc["DhtPin"] | -1;
-        JsonVariant serialRX = doc["SerialRX"];
-        if (serialRX.isNull())
-        {
-            Serial.println("Serial Pins not configured");
-            res.second.SerialRX = -1;
-            res.second.SerialTX = -1;
-        }
-        else
-        {
-            res.second.SerialRX = doc["SerialRX"] | -1;
-            res.second.SerialTX = doc["SerialTX"] | -1;
-        }
-        JsonVariant analogSensorPin0 = doc["AnalogSensorPin0"];
-        if (analogSensorPin0.isNull())
-        {
-            res.second.AnalogSensorPin0 = -1;
-        }
-        else
-        {
-            res.second.AnalogSensorPin0 = doc["AnalogSensorPin0"];
-        }
-        JsonVariant analogSensorPin1 = doc["AnalogSensorPin1"];
-        if (analogSensorPin1.isNull())
-        {
-            res.second.AnalogSensorPin1 = -1;
-        }
-        else
-        {
-            res.second.AnalogSensorPin1 = doc["AnalogSensorPin1"];
-        }
-        res.second.WindSensorPin = doc["WindSensorPin"] | -1;
-        res.second.RainfallSensorPin = doc["RainfallSensorPin"] | -1;
-        res.second.LEDPin = doc["LEDPin"] | -1;
-        JsonVariant oneWire = doc["OneWirePin"];
-        if (oneWire.isNull())
-        {
-            Serial.println("One wire does not exist (yet?)");
-            res.second.OneWirePin = -1;
-            res.second.DeepSleepTime = -1;
-            res.second.BufferedValues = 3;
-            res.second.MeasureInterval = 30;
-        }
-        else
-        {
-            res.second.OneWirePin = doc["OneWirePin"] | -1;
-            res.second.DeepSleepTime = doc["DeepSleepTime"] | -1;
-            res.second.BufferedValues = doc["BufferedValues"] | 3;
-            res.second.MeasureInterval = doc["MeasureInterval"] | 30;
-        }
-        JsonVariant button1 = doc["Button1"];
-        if (button1.isNull())
-        {
-            Serial.println("Button configs do not exist (yet?)");
-            res.second.Button1 = -1;
-            res.second.Button2 = -1;
-        }
-        else
-        {
-            res.second.Button1 = doc["Button1"] | -1;
-            res.second.Button2 = doc["Button2"] | -1;
-        }
-
-        JsonVariant button2GetURL = doc["Button2GetURL"];
-        if (button2GetURL.isNull())
-        {
-            res.second.Button2GetURL = "http://192.168.1.125/relay/0?turn=toggle";
-            Serial.println("Button 2 get URL set to " + res.second.Button2GetURL);
-        }
-        else
-        {
-            res.second.Button2GetURL = doc["Button2GetURL"].as<String>();
-        }
-
-        res.second.NumberOfLEDs = doc["NumberOfLEDs"] | -1;
-        res.second.FindSensors = doc["FindSensors"] | false;
-        res.second.IsOfflineMode = doc["IsOfflineMode"] | true;
-        res.second.ShowWebpage = doc["ShowWebpage"] | true;
-
-        JsonVariant UseMQTT = doc["UseMQTT"];
-        if (UseMQTT.isNull())
-        {
-            Serial.println("UseMQTT did not exist");
-            res.second.UseMQTT = false;
-            res.second.MQTTPort = 1883;
-            res.second.MQTTTopic = "/myplace/myroom/";
-        }
-        else
-        {
-            res.second.UseMQTT = doc["UseMQTT"];
-            res.second.MQTTPort = doc["MQTTPort"] | 1883;
-            res.second.MQTTTopic = doc["MQTTTopic"].as<String>();
-        }
-
-        JsonVariant sunriseSettings = doc["SunriseSettings"];
-        if (!sunriseSettings.isNull())
-        {
-            auto resSunrise = deserializeSunrise(sunriseSettings);
-            res.second.AlarmSettings = resSunrise;
-        }
-        else
-        {
-            // No save/re-read here: deserializeConfig() runs on the async web
-            // task too, where mutating the global config or flash is unsafe.
-            Serial.println("Warning: Alarm clock does not exist, using defaults");
-            res.second.AlarmSettings = SunriseSettings();
-        }
-        JsonVariant lightLow = doc["LightLow"];
-        if (lightLow.isNull())
-        {
-            Serial.println("Light settings do not exist (yet?)");
-            res.second.LightLow = Light(32, 4, 0);
-            res.second.LightMedium = Light(64, 32, 4);
-            res.second.LightHigh = Light(128, 64, 24);
-        }
-        else
-        {
-            // Each field falls back to its own default independently, so a
-            // payload that only sets LightLow (e.g. from an older or partial
-            // client) doesn't zero out LightMedium/LightHigh.
-            res.second.LightLow.Red = lightLow["Red"] | 32;
-            res.second.LightLow.Green = lightLow["Green"] | 4;
-            res.second.LightLow.Blue = lightLow["Blue"] | 0;
-
-            JsonVariant LightMedium = doc["LightMedium"];
-            res.second.LightMedium.Red = LightMedium["Red"] | 64;
-            res.second.LightMedium.Green = LightMedium["Green"] | 32;
-            res.second.LightMedium.Blue = LightMedium["Blue"] | 4;
-
-            JsonVariant LightHigh = doc["LightHigh"];
-            res.second.LightHigh.Red = LightHigh["Red"] | 128;
-            res.second.LightHigh.Green = LightHigh["Green"] | 64;
-            res.second.LightHigh.Blue = LightHigh["Blue"] | 24;
-        }
-        res.first = true;
-        Serial.println("Success: Deserialized config");
-        return res;
+        return configuration::deserializeConfig(configStr, config);
     }
 
     SunriseSettings deserializeSunrise(const JsonDocument &doc)
     {
-        SunriseSettings res = SunriseSettings();
-
-        res.SunriseLightTime = doc["SunriseLightTime"];
-        res.IsActivated = doc["IsActivated"];
-        if (res.IsActivated)
-        {
-            Serial.print("\n Sunrise is activated ");
-        }
-        for (int weekDayN = weekday_t::Monday; weekDayN <= weekday_t::Sunday; weekDayN++)
-        {
-            weekday_t weekDay = static_cast<weekday_t>(weekDayN);
-
-            switch (weekDay)
-            {
-            case weekday_t::Monday:
-                if (!doc["Monday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Monday] = deserializeDaySetting(doc["Monday"]);
-                }
-                break;
-            case weekday_t::Tuesday:
-                if (!doc["Tuesday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Tuesday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Tuesday] = deserializeDaySetting(doc["Tuesday"]);
-                }
-                break;
-            case weekday_t::Wednesday:
-                if (!doc["Wednesday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Wednesday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Wednesday] = deserializeDaySetting(doc["Wednesday"]);
-                }
-                break;
-            case weekday_t::Thursday:
-                if (!doc["Thursday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Thursday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Thursday] = deserializeDaySetting(doc["Thursday"]);
-                }
-                break;
-            case weekday_t::Friday:
-                if (!doc["Friday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Friday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Friday] = deserializeDaySetting(doc["Friday"]);
-                }
-                break;
-            case weekday_t::Saturday:
-                if (!doc["Saturday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Saturday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Saturday] = deserializeDaySetting(doc["Saturday"]);
-                }
-                break;
-            case weekday_t::Sunday:
-                if (!doc["Sunday"].is<JsonObjectConst>())
-                {
-                    res.DaySettings[weekday_t::Sunday] = configman::AlarmWeekday();
-                }
-                else
-                {
-                    res.DaySettings[weekday_t::Sunday] = deserializeDaySetting(doc["Sunday"]);
-                }
-                break;
-
-            default:
-                break;
-            }
-        }
-
-        return res;
-    }
-
-    AlarmWeekday deserializeDaySetting(JsonVariantConst doc)
-    {
-        AlarmWeekday daySetting = AlarmWeekday();
-
-        daySetting.IsActive = doc["IsActive"];
-
-        String alarmTime = doc["AlarmTime"].as<String>();
-        int index = alarmTime.lastIndexOf(':');
-        int length = alarmTime.length();
-        if (length < 2)
-        {
-            Serial.printf("Invalid alarm time %s\n", alarmTime.c_str());
-            daySetting.AlarmTime = configman::Time();
-        }
-        else
-        {
-            String minutes = alarmTime.substring(index + 1, length);
-            String hours = alarmTime.substring(0, index);
-
-            daySetting.AlarmTime = Time(hours.toInt(), minutes.toInt());
-        }
-
-        return daySetting;
+        return configuration::deserializeSunrise(doc.as<JsonVariantConst>());
     }
 }
