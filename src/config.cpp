@@ -611,7 +611,7 @@ namespace configman
             switch (weekDay)
             {
             case weekday_t::Monday:
-                if (!doc["Monday"].is<JsonVariant>())
+                if (!doc["Monday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Monday] = configman::AlarmWeekday();
                 }
@@ -621,7 +621,7 @@ namespace configman
                 }
                 break;
             case weekday_t::Tuesday:
-                if (!doc["Tuesday"].is<JsonVariant>())
+                if (!doc["Tuesday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Tuesday] = configman::AlarmWeekday();
                 }
@@ -631,7 +631,7 @@ namespace configman
                 }
                 break;
             case weekday_t::Wednesday:
-                if (!doc["Wednesday"].is<JsonVariant>())
+                if (!doc["Wednesday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Wednesday] = configman::AlarmWeekday();
                 }
@@ -641,7 +641,7 @@ namespace configman
                 }
                 break;
             case weekday_t::Thursday:
-                if (!doc["Thursday"].is<JsonVariant>())
+                if (!doc["Thursday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Thursday] = configman::AlarmWeekday();
                 }
@@ -651,7 +651,7 @@ namespace configman
                 }
                 break;
             case weekday_t::Friday:
-                if (!doc["Friday"].is<JsonVariant>())
+                if (!doc["Friday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Friday] = configman::AlarmWeekday();
                 }
@@ -661,7 +661,7 @@ namespace configman
                 }
                 break;
             case weekday_t::Saturday:
-                if (!doc["Saturday"].is<JsonVariant>())
+                if (!doc["Saturday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Saturday] = configman::AlarmWeekday();
                 }
@@ -671,7 +671,7 @@ namespace configman
                 }
                 break;
             case weekday_t::Sunday:
-                if (!doc["Sunday"].is<JsonVariant>())
+                if (!doc["Sunday"].is<JsonObjectConst>())
                 {
                     res.DaySettings[weekday_t::Sunday] = configman::AlarmWeekday();
                 }
@@ -689,7 +689,7 @@ namespace configman
         return res;
     }
 
-    AlarmWeekday deserializeDaySetting(const JsonDocument &doc)
+    AlarmWeekday deserializeDaySetting(JsonVariantConst doc)
     {
         AlarmWeekday daySetting = AlarmWeekday();
 

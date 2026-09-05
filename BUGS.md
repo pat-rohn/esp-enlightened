@@ -36,7 +36,7 @@ reopened as B4 and M3. New findings are numbered continuing the old scheme
 | B15 | Any HTTP status treated as success (buffered data destroyed) | fixed 2026-07-16 — `ts_http.cpp` and `logging.cpp` now require 2xx |
 | D1 | Definitions in headers (ODR) — `events.h`, `button_inputs.h`, `handle_buttons.h` | fixed for those files; sweep was incomplete, see M3 |
 | D4 | `getConfig()` deep-copies on every call | commit `5dc0bbd` |
-| M1 | `deserializeSunrise` missing-day guard was dead (default silently overwritten) | fixed — added `else` clauses so a missing day now keeps `AlarmWeekday()` default |
+| M1 | `deserializeSunrise` missing-day guard was dead (default silently overwritten) | fixed — added `else` clauses and check day objects as `JsonObjectConst`, so present days deserialize and absent days retain `AlarmWeekday()` defaults |
 | M2 | AP setup used STA `WiFi.config()`; `WiFi.localIP()` reported 0.0.0.0 in AP mode | fixed — `createAccesPoint()` now uses `WiFi.softAPConfig()`, `isAccessPoint` is only set after `softAP()` succeeds, and a new `currentIP()` helper returns `WiFi.softAPIP()` while in AP mode |
 | M6 | Light color deserialization had no per-field defaults | fixed — `LightLow`/`LightMedium`/`LightHigh` now use the `\| default` pattern per channel |
 | M13 | `/api/led` GET response JSON hand-built without escaping `Message` | fixed — response now built with `ArduinoJson`/`serializeJson()` |
