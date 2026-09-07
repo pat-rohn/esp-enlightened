@@ -17,6 +17,7 @@ namespace webpage
 
   CLEDService *m_LedService;
   CTimeHelper *m_TimeHelper;
+  sunrise::CSunriseAlarm *m_SunriseAlarm;
   std::atomic<bool> *m_RestartTriggered;
   std::atomic<bool> *m_ButtonPressed1;
   std::atomic<bool> *m_ButtonPressed2;
@@ -137,6 +138,11 @@ namespace webpage
   void CWebPage::setLEDService(CLEDService *ledService)
   {
     m_LedService = ledService;
+  }
+
+  void CWebPage::setSunriseAlarm(sunrise::CSunriseAlarm *sunriseAlarm)
+  {
+    m_SunriseAlarm = sunriseAlarm;
   }
 
   void CWebPage::setTimeHelper(CTimeHelper *timeHelper)
@@ -286,6 +292,46 @@ namespace webpage
                   m_ButtonPressed2->store(true); });
 
     // Restart
+    // Test the sunrise now, without touching the stored schedule [F11].
+    //
+    // Ungated, like /api/led and /api/buttonN: this is light control, and the
+    // token gate deliberately never blocks that. It changes no configuration.
+    m_Server.on("/api/alarm/test", HTTP_POST, [](AsyncWebServerRequest *request)
+                {
+                  if (m_SunriseAlarm == nullptr)
+                  {
+                    sendJsonMessage(request, 503, "Alarm is not available on this device");
+                    return;
+                  }
+                  if (configman::getConfig().NumberOfLEDs <= 0)
+                  {
+                    sendJsonMessage(request, 409,
+                                    "No LEDs are configured, so there is nothing to show");
+                    return;
+                  }
+
+                  // A short run by default: long enough to see the ramp, short
+                  // enough not to strand anyone waiting for it to finish.
+                  double seconds = 30.0;
+                  if (request->hasParam("seconds"))
+                  {
+                    const double requested = request->getParam("seconds")->value().toDouble();
+                    if (requested < 1.0 || requested > 600.0)
+                    {
+                      sendJsonMessage(request, 400, "seconds must be between 1 and 600");
+                      return;
+                    }
+                    seconds = requested;
+                  }
+
+                  m_SunriseAlarm->startTest(seconds);
+                  JsonDocument doc;
+                  doc["Message"] = "Sunrise test started";
+                  doc["DurationSeconds"] = seconds;
+                  String body;
+                  serializeJson(doc, body);
+                  sendJson(request, 200, body); });
+
     m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
                   if (!isAuthorized(request))
@@ -327,6 +373,57 @@ namespace webpage
                 addCorsHeaders(response);
                 request->send(response); });
 
+    // Status Get [F3]
+    //
+    // One cheap call behind a client's connection indicator and its clock
+    // warning. Read-only, so ungated like GET /api/config. Deliberately does
+    // not compute the next alarm: the client already has the schedule, and
+    // ESP8266 flash headroom is worth more than duplicated date arithmetic.
+    m_Server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request)
+                {
+                  JsonDocument doc;
+                  doc["Version"] = getFirmwareVersion();
+                  doc["UpTimeSeconds"] = millis() / 1000;
+                  doc["FreeHeap"] = ESP.getFreeHeap();
+
+                  const auto &config = configman::getConfig();
+                  doc["SensorID"] = config.SensorID;
+
+                  JsonObject wifi = doc["WiFi"].to<JsonObject>();
+                  wifi["Connected"] = WiFi.status() == WL_CONNECTED;
+                  wifi["SSID"] = WiFi.SSID();
+                  wifi["RSSI"] = WiFi.RSSI();
+                  wifi["IP"] = WiFi.localIP().toString();
+
+                  // The device owns the alarm, so a client cannot tell whether
+                  // a schedule will actually fire without knowing that the
+                  // device's clock is both set and correct [F9]. IsSynced
+                  // reports whether NTP ever answered; Local is what the alarm
+                  // is compared against.
+                  JsonObject time = doc["Time"].to<JsonObject>();
+                  if (m_TimeHelper != nullptr)
+                  {
+                    const auto hoursAndMinutes = m_TimeHelper->getHoursAndMinutes();
+                    time["IsSynced"] = m_TimeHelper->isTimeSet();
+                    time["Local"] = configuration::formatTimeOfDay(
+                        configman::Time(hoursAndMinutes.first, hoursAndMinutes.second));
+                    time["Weekday"] = m_TimeHelper->getWeekDay();
+                    time["Utc"] = m_TimeHelper->getTimestamp();
+                  }
+                  else
+                  {
+                    time["IsSynced"] = false;
+                  }
+
+                  JsonObject alarm = doc["Alarm"].to<JsonObject>();
+                  alarm["IsActivated"] = config.AlarmSettings.IsActivated;
+                  alarm["IsRunning"] =
+                      m_SunriseAlarm != nullptr && m_SunriseAlarm->isRunning();
+
+                  String body;
+                  serializeJson(doc, body);
+                  sendJson(request, 200, body); });
+
     m_Server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
                 {
       Serial.println("get web page");
@@ -356,6 +453,10 @@ namespace webpage
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
                   addCorsHeaders(response);
                   request->send(response); });
+    m_Server.on("/api/status", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                { sendJson(request, 200, ""); });
+    m_Server.on("/api/alarm/test", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                { sendJson(request, 200, ""); });
     m_Server.on("/api/version", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
                 {
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");

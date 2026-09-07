@@ -19,8 +19,17 @@ namespace sunrise
         bool run();
         void interruptAlarm();
 
+        // Runs the sunrise now, over `durationSeconds`, without touching the
+        // stored schedule [F11]. Verifying wiring, brightness and colour
+        // otherwise means setting an alarm a few minutes ahead and waiting.
+        void startTest(double durationSeconds);
+
+        // True while a sunrise is playing, scheduled or test. The main loop
+        // needs this to know whether the strip is currently the alarm's.
+        bool isRunning() const { return m_IsAlarmActive; }
+
     private:
-        void startSunrise();
+        void beginSunrise(double durationSeconds);
         void stopSunrise();
 
     private:

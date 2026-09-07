@@ -6,6 +6,7 @@
 #include <Arduino.h>
 #include "timehelper.h"
 #include "led/leds_service.h"
+#include "led/sunrise_alarm.h"
 #include <ESPAsyncWebServer.h>
 #include <atomic>
 #include <memory>
@@ -51,6 +52,7 @@ namespace webpage
     public:
         static void setLEDService(CLEDService *ledService);
         static void setTimeHelper(CTimeHelper *timeHelper);
+        static void setSunriseAlarm(sunrise::CSunriseAlarm *sunriseAlarm);
         static void setTriggerFlag(std::atomic<bool> *restartTriggered);
         static void setButtonsPressed(std::atomic<bool> *buttonPressed1, std::atomic<bool> *buttonPressed2);
         static String processor(const String &var);
