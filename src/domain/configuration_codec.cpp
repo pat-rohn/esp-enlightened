@@ -165,10 +165,19 @@ namespace configuration
         parsed.WiFiPassword = incomingPassword.length() > 0
                                   ? incomingPassword
                                   : existingConfig.WiFiPassword;
+        // Clearing a token needs an explicit command: a blank ApiToken means
+        // "keep the stored one" (GET redacts it, so clients round-trip blanks),
+        // which otherwise leaves a stray token gating every mutating endpoint
+        // with no way back short of reflashing. A supplied non-empty token
+        // still wins over the flag, so a contradictory request keeps auth on
+        // rather than silently disabling it.
+        const bool clearApiToken = doc["ClearApiToken"] | false;
         const String incomingApiToken = doc["ApiToken"].as<String>();
         parsed.ApiToken = incomingApiToken.length() > 0
                               ? incomingApiToken
-                              : existingConfig.ApiToken;
+                              : clearApiToken
+                                    ? String("")
+                                    : existingConfig.ApiToken;
 
         parsed.DhtPin = doc["DhtPin"] | -1;
         const JsonVariant serialRX = doc["SerialRX"];
