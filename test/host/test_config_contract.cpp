@@ -13,6 +13,13 @@ void test_redacted_secrets_preserve_existing_values_and_stay_redacted();
 void test_domain_codec_uses_supplied_secret_values();
 void test_deadline_reached_before_rollover();
 void test_deadline_reached_after_millis_rollover();
+void test_body_chunk_fitting_the_declared_length_is_kept_whole();
+void test_body_split_across_chunks_is_reassembled_completely();
+void test_body_longer_than_content_length_is_clamped_to_the_buffer();
+void test_body_chunk_starting_past_the_declared_end_is_dropped();
+void test_final_body_chunk_overshooting_is_trimmed();
+void test_zero_length_body_writes_nothing();
+void test_writable_chunk_never_reaches_the_terminating_byte();
 
 namespace
 {
@@ -92,6 +99,13 @@ int main()
   RUN_TEST(test_domain_codec_uses_supplied_secret_values);
   RUN_TEST(test_deadline_reached_before_rollover);
   RUN_TEST(test_deadline_reached_after_millis_rollover);
+  RUN_TEST(test_body_chunk_fitting_the_declared_length_is_kept_whole);
+  RUN_TEST(test_body_split_across_chunks_is_reassembled_completely);
+  RUN_TEST(test_body_longer_than_content_length_is_clamped_to_the_buffer);
+  RUN_TEST(test_body_chunk_starting_past_the_declared_end_is_dropped);
+  RUN_TEST(test_final_body_chunk_overshooting_is_trimmed);
+  RUN_TEST(test_zero_length_body_writes_nothing);
+  RUN_TEST(test_writable_chunk_never_reaches_the_terminating_byte);
   RUN_TEST(test_current_config_fixture_has_the_complete_public_contract);
   RUN_TEST(test_legacy_minimal_config_fixture_remains_a_valid_document);
   RUN_TEST(test_partial_light_fixture_preserves_the_m6_regression_case);

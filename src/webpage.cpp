@@ -8,6 +8,7 @@
 #include "timehelper.h"
 #include "version.h"
 #include "web_assets.generated.h"
+#include "domain/request_body.h"
 #include <atomic>
 #include <memory>
 
@@ -58,6 +59,8 @@ namespace webpage
 
     // Body handler: accumulates a raw request body chunk by chunk into
     // request->_tempObject, which the library frees when the request is destroyed.
+    // Chunk bounds are peer controlled, so every write goes through
+    // http_body::writableChunk (see the reasoning there).
     void collectBody(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total)
     {
       if (index == 0)
@@ -68,10 +71,23 @@ namespace webpage
           Serial.printf("Failed to allocate %u bytes for request body\n", (unsigned)(total + 1));
         }
       }
-      if (request->_tempObject != nullptr)
+      if (request->_tempObject == nullptr)
       {
-        memcpy(static_cast<uint8_t *>(request->_tempObject) + index, data, len);
+        return;
       }
+      const size_t writable = http_body::writableChunk(index, len, total);
+      if (writable < len)
+      {
+        Serial.printf("Request body exceeds Content-Length (%u); dropped %u bytes\n",
+                      (unsigned)total, (unsigned)(len - writable));
+      }
+      if (writable == 0)
+      {
+        return;
+      }
+      // calloc zeroed the trailing byte and writableChunk never reaches it, so
+      // the accumulated body stays NUL-terminated for getInput()'s String.
+      memcpy(static_cast<uint8_t *>(request->_tempObject) + index, data, writable);
     }
 
     // Raw request body if one was sent, otherwise the value of the last posted
