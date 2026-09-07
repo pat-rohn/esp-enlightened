@@ -31,6 +31,22 @@ void CSunriseAlarm::applySettings(const configman::SunriseSettings &settings)
 
 bool CSunriseAlarm::run()
 {
+    // A sunrise that is already playing has to be advanced and stopped no
+    // matter what the schedule says -- a test alarm [F11] runs while the
+    // schedule is disarmed, and previously the activation guards below would
+    // have returned early and left it playing forever.
+    if (m_IsAlarmActive)
+    {
+        if (timing::deadlineReached(millis(), m_AlarmEndTime))
+        {
+            Serial.println("Stop Sunrise");
+            stopSunrise();
+            return false;
+        }
+        m_LedStrip->runModeAction();
+        return true;
+    }
+
     if (!m_Settings.IsActivated)
     {
         return false;
@@ -43,29 +59,21 @@ bool CSunriseAlarm::run()
     auto currentTime = m_TimeHelper->getHoursAndMinutes();
 
     auto alarmTime = m_Settings.DaySettings.at(weekday).AlarmTime;
-    if ((!m_IsAlarmActive && (alarmTime.Hours == currentTime.first &&
-                              alarmTime.Minutes == currentTime.second))) // ||  !m_IsAlarmActive  test alarm
+    if (alarmTime.Hours == currentTime.first && alarmTime.Minutes == currentTime.second)
     {
-
         Serial.printf("Activate Sunrise: %ld:%ld (%f)\n",
                       currentTime.first, currentTime.second, m_Settings.SunriseLightTime);
-        startSunrise();
-        return true;
-    }
-    if (m_IsAlarmActive && timing::deadlineReached(millis(), m_AlarmEndTime))
-    {
-        Serial.printf("Stop Sunrise: %ld:%ld ", currentTime.first, currentTime.second);
-        stopSunrise();
-        return false;
-    }
-    if (m_IsAlarmActive)
-    {
-        Serial.printf("Alarm active for %f s\n", double(millis() - m_LedStrip->m_SunriseStartTime) / 1000.0);
-        m_LedStrip->runModeAction();
+        beginSunrise(m_Settings.SunriseLightTime * 60.0);
         return true;
     }
 
     return false;
+}
+
+void CSunriseAlarm::startTest(double durationSeconds)
+{
+    Serial.printf("Test sunrise over %f s\n", durationSeconds);
+    beginSunrise(durationSeconds);
 }
 
 void CSunriseAlarm::interruptAlarm()
@@ -73,15 +81,17 @@ void CSunriseAlarm::interruptAlarm()
     m_AlarmEndTime = millis();
 }
 
-void CSunriseAlarm::startSunrise()
+// The light starts dark and reaches full brightness `durationSeconds` later,
+// so the sunrise *begins* at the alarm time rather than finishing there.
+void CSunriseAlarm::beginSunrise(double durationSeconds)
 {
     m_IsAlarmActive = true;
-    m_AlarmEndTime = millis() + m_Settings.SunriseLightTime * 60 * 1000;
+    m_AlarmEndTime = millis() + static_cast<unsigned long>(durationSeconds * 1000.0);
     m_LedStrip->m_Factor = 0.0;
     m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
     m_LedStrip->m_SunriseStartTime = millis();
     Serial.printf("Alarm start/end: %ld/%ld", m_LedStrip->m_SunriseStartTime, m_AlarmEndTime);
-    m_LedStrip->m_SunriseDuration = m_Settings.SunriseLightTime * 60;
+    m_LedStrip->m_SunriseDuration = durationSeconds;
     m_LedStrip->applyModeAndColor();
     m_LedStrip->runModeAction();
 }

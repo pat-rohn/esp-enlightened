@@ -275,6 +275,7 @@ void configureDevice()
   runtimeCommands.buttonPressed2.store(false);
   webPage->setLEDService(ledService.get());
   webPage->setTimeHelper(timeHelper.get());
+  webPage->setSunriseAlarm(sunriseAlarm.get());
   webPage->setTriggerFlag(&runtimeCommands.restartTriggered);
   webPage->setButtonsPressed(&runtimeCommands.buttonPressed1, &runtimeCommands.buttonPressed2);
 }
@@ -658,7 +659,14 @@ void loop()
     }
   }
 
-  if (configman::getConfig().AlarmSettings.IsActivated && sunriseAlarm != nullptr)
+  // The sunrise owns the strip while the schedule is armed, and also while a
+  // test sunrise [F11] is playing -- which can happen with the schedule off.
+  // Note the armed-but-idle case still skips runModeAction(), as before: a
+  // leftover animated mode must not play while waiting for the alarm.
+  const bool sunriseOwnsStrip =
+      sunriseAlarm != nullptr &&
+      (configman::getConfig().AlarmSettings.IsActivated || sunriseAlarm->isRunning());
+  if (sunriseOwnsStrip)
   {
     sunriseAlarm->run();
     // Serial.println(ESP.getFreeHeap());
