@@ -37,7 +37,11 @@ namespace webpage
       request->send(response);
     }
 
-    // [D2] Pre-shared token gate for mutating endpoints. An empty ApiToken
+    // [D2] Pre-shared token gate for configuration and lifecycle endpoints
+    // (/api/config writes, /restart). Light control -- /api/led and the
+    // /api/buttonN triggers -- is deliberately NOT gated: controlling the
+    // lights must keep working regardless of whether a token is configured.
+    // An empty ApiToken
     // (the default) means auth is not configured yet, so existing clients
     // that send no header (e.g. the companion app) keep working; setting a
     // token is how an operator opts into requiring it.
@@ -208,11 +212,6 @@ namespace webpage
                 { sendJson(request, 200, m_LedService->get()); });
     m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
                 {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
                   String input = getInput(request);
                   if (input.isEmpty())
                   {
@@ -231,11 +230,6 @@ namespace webpage
                 nullptr, collectBody);
     m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
                 {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
                   Serial.printf("PUT set led\n");
                   String input = getInput(request);
                   if (input.isEmpty())
@@ -259,11 +253,6 @@ namespace webpage
   {
     m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
                   String answer = "{\"msg\": \"button 1 pressed\"}";
                   sendJson(request, 200, answer);
                   Serial.println(answer);
@@ -271,11 +260,6 @@ namespace webpage
 
     m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
                   String answer = "{\"msg\": \"button 2 pressed\"}";
                   sendJson(request, 200, answer);
                   Serial.println(answer);
