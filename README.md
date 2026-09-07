@@ -21,17 +21,27 @@ The firmware runs an [ArduinoOTA](https://docs.platformio.org/en/latest/platform
 listener, so a device that is already on your WiFi can be reflashed without a USB cable.
 
 ### Enabling it
-OTA is password protected and reuses the `ApiToken` from the device configuration — the same
-token that guards the mutating REST endpoints. It is started only when **all** of these hold:
+OTA is started when **both** of these hold:
 
 - the device is in station mode (not the fallback access point),
-- `IsOfflineMode` is `false`,
-- `ApiToken` is not empty.
+- `IsOfflineMode` is `false`.
 
-Set `ApiToken` on the configuration page (or via `PUT /api/config`) and **restart** the device;
-OTA is only brought up during `setup()`. With no token you get `OTA disabled: configure ApiToken
-first` on the serial console, and `OTA enabled` once it is listening. The OTA hostname is the
-device's `SensorID`, advertised over mDNS, so give every device a unique `SensorID`.
+It is **not** gated on `ApiToken`. If a token is set, OTA reuses it as the upload password — the
+same token that guards the configuration endpoints — and the serial console reports `OTA enabled
+(password protected)`. If no token is set, OTA still listens, with no password, and says so
+loudly on the console.
+
+> **Security note:** with no `ApiToken` configured, any host that can reach the device on the
+> network can flash arbitrary firmware onto it. Set an `ApiToken` to require a password.
+
+OTA used to require a non-empty `ApiToken`, which made a stray token unrecoverable: the token
+gates the configuration endpoints, so clearing it took OTA down with it and left USB as the only way
+back in. Clearing a token is now an explicit `"ClearApiToken": true` in `PUT /api/config` (a blank
+`ApiToken` still means "keep the stored one", because `GET` redacts it).
+
+OTA is only brought up during `setup()`, so **restart** the device after changing `ApiToken`. The
+OTA hostname is the device's `SensorID`, advertised over mDNS, so give every device a unique
+`SensorID`.
 
 ### Uploading
 Point PlatformIO at the device instead of a serial port:

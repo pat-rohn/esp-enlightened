@@ -131,7 +131,12 @@ Ordered by value-for-effort. BUGS.md IDs in brackets.
   `Device` struct; reconfiguration = rebuild that struct.
 
 ### P2 — Security (small, high value)
-- Pre-shared token (`X-Authorization`) on all mutating endpoints, 401 otherwise [D2].
+- Pre-shared token (`X-Authorization`) on configuration and lifecycle endpoints
+  (`POST`/`PUT /api/config`, `/restart`), 401 otherwise [D2]. Light control
+  (`POST`/`PUT /api/led`, `/api/button1`, `/api/button2`) is deliberately left
+  open: controlling the lights must work whether or not a token is configured.
+  Anyone who can reach the device on the network can therefore change the
+  lights; only its configuration is protected.
 - Drop CORS `*` on mutating endpoints; keep it for GET if the web UI needs it.
 - Stop serializing the WiFi password into `GET /api/config` responses and serial dumps
   [D5]; redact in `serializeConfig` unless explicitly requested.
