@@ -4,7 +4,9 @@
 import argparse
 import json
 import re
+import socket
 import sys
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -124,6 +126,59 @@ def check_led(led: dict[str, Any]) -> None:
         raise ContractFailure("GET /api/led: Message must be a string")
 
 
+def oversized_body_survives(base_url: str) -> None:
+    """Declare a short Content-Length, then send far more than that.
+
+    ESPAsyncWebServer >= 3.11 clamps body chunks to Content-Length itself, but
+    3.6.x (the floor of our `^3.6.0` range) hands the handler whatever arrived.
+    webpage.cpp's collectBody sized its buffer from Content-Length, so on 3.6.0
+    this wrote ~1300 bytes into an 11 byte allocation and panicked the device
+    with LoadProhibited on corrupted heap metadata -- before any handler, and
+    therefore before isAuthorized, ever ran. The device must stay up.
+    """
+    host = re.sub(r"^https?://", "", base_url).split("/")[0]
+    port = 80
+    if ":" in host:
+        host, _, port_text = host.partition(":")
+        port = int(port_text)
+
+    head = (
+        f"PUT /api/config HTTP/1.1\r\nHost: {host}\r\n"
+        "Content-Type: application/json\r\nContent-Length: 10\r\n"
+        "Connection: close\r\n\r\n"
+    ).encode()
+    try:
+        connection = socket.create_connection((host, port), timeout=10)
+    except OSError as error:
+        raise ContractFailure(f"oversized body probe: cannot connect: {error}") from error
+    try:
+        connection.sendall(head + b"A" * 4000)
+        connection.settimeout(10)
+        # A device that clamps correctly either answers 401 (the library already
+        # trimmed the body) or never completes the request (the body overshot
+        # Content-Length, so the parser never reaches its end). Both are fine;
+        # a reboot is not.
+        connection.recv(4096)
+    except (socket.timeout, TimeoutError, OSError):
+        pass
+    finally:
+        connection.close()
+
+    # The device needs a moment if it is busy, but it must not have restarted.
+    for attempt in range(10):
+        try:
+            probe = request(base_url, "/api/version")
+            if probe.status == 200 and probe.body.strip():
+                return
+        except ContractFailure:
+            pass
+        time.sleep(1)
+    raise ContractFailure(
+        "oversized body probe: device stopped answering -- it likely crashed on "
+        "an over-declared Content-Length"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", required=True,
@@ -170,6 +225,8 @@ def main() -> int:
             raise ContractFailure("GET /api/time: unexpected response format")
 
         require_status(request(base_url, "/get", token=args.token), 404, "GET /get")
+
+        oversized_body_survives(base_url)
 
         if args.mutations:
             require_status(

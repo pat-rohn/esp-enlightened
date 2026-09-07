@@ -23,6 +23,17 @@ The default suite is read-only. It checks:
 | `GET /api/version` | 200 non-empty text |
 | `GET /api/time` | 200 `H:M (weekday N)` text |
 | `GET /get` | 404 (the legacy endpoint is retired) |
+| `PUT /api/config` with an over-declared `Content-Length` | device stays up (no reboot) |
+
+The last row is a regression probe: it declares `Content-Length: 10` and then
+sends 4000 bytes. `collectBody` sizes its buffer from `Content-Length`, and
+ESPAsyncWebServer 3.6.x (the floor of our `^3.6.0` range) forwards whatever the
+peer sent, so before the bounds check this wrote ~1300 bytes into an 11 byte
+allocation and panicked the device with `LoadProhibited` on corrupted heap
+metadata — reachable without a token, because the body is collected before any
+handler runs `isAuthorized`. Library 3.11+ clamps chunks itself, so this probe
+only bites on the older resolution; the bounds arithmetic is covered on the
+host by `test/host/test_request_body.cpp`.
 
 `--mutations` additionally exercises safe validation paths: an invalid
 configuration POST and LED POST must return 400, while PUT re-submits the
