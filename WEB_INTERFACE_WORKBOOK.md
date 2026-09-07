@@ -23,8 +23,8 @@ not inherit:
 | Endpoint | Current behavior | Interface use | Known issues |
 | --- | --- | --- | --- |
 | `GET /api/config` | Returns serialized configuration with blank `WiFiPassword`/`ApiToken` plus `HasWiFiPassword`/`HasApiToken` | Load the editable settings | Redacted secret fields require a full-document client to preserve blank values on PUT; CORS remains permissive `[D2]` |
-| `PUT /api/config` | Validates and stages configuration without restart | Primary save action | Requires `X-Authorization` once `ApiToken` is configured; only `AlarmSettings` is re-applied live — WiFi/pin/LED config changes need an explicit restart |
-| `POST /api/config` | Validates, stages, then requests a restart | Legacy save-and-restart compatibility endpoint | Requires `X-Authorization` once `ApiToken` is configured; not the new UI's primary path |
+| `PUT /api/config` | Validates and stages configuration without restart | Primary save action | Requires `X-Authorization` once `ApiToken` is configured; only `AlarmSettings` is re-applied live — WiFi/pin/LED config changes need an explicit restart. Refusals answer 400 with the reason in `Message` |
+| `POST /api/config` | Validates, stages, then requests a restart | Legacy save-and-restart compatibility endpoint | Requires `X-Authorization` once `ApiToken` is configured; not the new UI's primary path. Refusals answer 400 with the reason in `Message` |
 | `GET /restart` | Requests a restart and returns a redirect page | Explicit restart action | Requires `X-Authorization` once `ApiToken` is configured |
 | `GET /api/version` | Returns firmware version | Device status | — |
 | `GET /api/time` | Returns device time | Device status | — |
@@ -78,6 +78,27 @@ that client in lockstep:
   saving from the phone app no longer resets those firmware fields to
   defaults. It also models the redacted secret indicators and exposes the
   newly added fields in its settings view.
+
+### Alarm times are `HH:MM`, and bad ones are refused `[F1]`
+
+Serialized day settings are zero-padded (`06:05`, never `6:5`), and parsing
+accepts `H:M` and `HH:MM` while refusing out-of-range values, non-digits, a
+missing or repeated colon, over-long fields and trailing junk. Unpadded input
+is still accepted on read, because configurations written by earlier builds
+carry it.
+
+Strictness depends on the caller, and any new interface must pick the right
+one:
+
+- **HTTP writes parse strictly.** A bad alarm time refuses the whole document
+  and `/api/config` answers 400 with the reason in `Message`, naming the
+  weekday and quoting the value. An interface must surface that message rather
+  than reporting success — the embedded page's current submit handler does the
+  opposite `[M5]`.
+- **The stored configuration parses leniently.** The offending day keeps its
+  previously stored time and the document still loads, because `config.cpp`
+  answers a failed load by overwriting the file with defaults, which would
+  discard the Wi-Fi credentials along with the bad field.
 
 Both points argue for treating the new embedded web interface and the
 `enlightened` app as two clients of one contract: any endpoint/schema change
