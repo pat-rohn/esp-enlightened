@@ -14,9 +14,22 @@ namespace ArduinoJson
       destination.set(source.c_str());
     }
 
+    // Must mirror ArduinoJson's own ::String converter (ConverterImpl.hpp,
+    // ARDUINOJSON_ENABLE_ARDUINO_STRING): a real string is copied, anything
+    // else is *serialized*, so null becomes "null" and 42 becomes "42".
+    // Routing through as<const char *>() instead yields nullptr -> "" and
+    // silently makes every non-string variant look absent on the host, which
+    // is how the stored-token-"null" lockout survived a green test suite.
     static String fromJson(JsonVariantConst source)
     {
-      return String(source.as<const char *>());
+      JsonString str = source.as<JsonString>();
+      if (str)
+      {
+        return String(str.c_str());
+      }
+      std::string serialized;
+      serializeJson(source, serialized);
+      return String(serialized);
     }
 
     static bool checkJson(JsonVariantConst source)
@@ -147,8 +160,9 @@ void test_redacted_secrets_preserve_existing_values_and_stay_redacted()
 // {"ApiToken":null}, and storing that as a literal token would switch the
 // auth gate on and lock every client out of every mutating endpoint with
 // 401 -- with no way back, since a blank token means "keep existing".
-// ArduinoJson 7 yields an empty String for a null variant, which gives the
-// behaviour we want; this test pins it so a library bump cannot regress it.
+// ArduinoJson 7 does NOT give this for free: as<String>() serializes a null
+// variant to the four characters "null", so the codec has to check
+// is<const char *>() before accepting a secret (see jsonString()).
 void test_null_secrets_are_treated_as_absent()
 {
   configuration::Configuration existing;
@@ -163,9 +177,27 @@ void test_null_secrets_are_treated_as_absent()
   TEST_ASSERT_EQUAL_STRING("", result.second.ApiToken.c_str());
 }
 
+// The case that actually locked a device out: a stored config written before
+// the ApiToken field existed has no "ApiToken" key at all. An absent key is
+// the same null variant as an explicit null, so it serialized to "null" and
+// became a 4-character token nobody had ever set -- 401 on every mutating
+// endpoint, and that string as the OTA password. legacy-minimal-config.json
+// is exactly this document.
+void test_absent_secret_keys_are_treated_as_absent()
+{
+  configuration::Configuration existing;
+  existing.WiFiPassword = "stored-password";
+  existing.ApiToken = "";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("stored-password", result.second.WiFiPassword.c_str());
+  TEST_ASSERT_EQUAL_STRING("", result.second.ApiToken.c_str());
+}
+
 // Same for a non-string scalar: a number must not become the token "42".
-// as<String>() on a numeric variant does render digits, so this one is a
-// genuine guard rather than a restatement of library behaviour.
 void test_non_string_secrets_are_treated_as_absent()
 {
   configuration::Configuration existing;

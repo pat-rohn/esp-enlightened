@@ -11,6 +11,7 @@ void test_partial_light_config_defaults_each_omitted_channel();
 void test_missing_sunrise_day_uses_alarm_weekday_default();
 void test_redacted_secrets_preserve_existing_values_and_stay_redacted();
 void test_null_secrets_are_treated_as_absent();
+void test_absent_secret_keys_are_treated_as_absent();
 void test_non_string_secrets_are_treated_as_absent();
 void test_clear_api_token_command_empties_the_stored_token();
 void test_absent_clear_flag_keeps_the_stored_token();
@@ -102,6 +103,7 @@ int main()
   RUN_TEST(test_missing_sunrise_day_uses_alarm_weekday_default);
   RUN_TEST(test_redacted_secrets_preserve_existing_values_and_stay_redacted);
   RUN_TEST(test_null_secrets_are_treated_as_absent);
+  RUN_TEST(test_absent_secret_keys_are_treated_as_absent);
   RUN_TEST(test_non_string_secrets_are_treated_as_absent);
   RUN_TEST(test_clear_api_token_command_empties_the_stored_token);
   RUN_TEST(test_absent_clear_flag_keeps_the_stored_token);

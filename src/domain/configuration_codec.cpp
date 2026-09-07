@@ -6,6 +6,23 @@ namespace configuration
 {
     namespace
     {
+        // as<String>() is not a safe reader for a JSON string field. On the
+        // device ARDUINOJSON_ENABLE_ARDUINO_STRING is on, and that converter
+        // falls back to serializeJson() for any non-string variant, so a null
+        // or absent key yields the four characters "null" and a number yields
+        // its digits. For a secret that is catastrophic: a config document
+        // without an "ApiToken" key (every config written before the field
+        // existed) boots with the token "null", which gates every mutating
+        // endpoint behind a 401 and makes it the OTA password too.
+        //
+        // The host tests cannot catch this on their own: they install a
+        // test-only Converter<String> that routes through as<const char *>(),
+        // which yields nullptr rather than "null".
+        String jsonString(JsonVariantConst field, const String &fallback)
+        {
+            return field.is<const char *>() ? field.as<String>() : fallback;
+        }
+
         const char *weekdayName(weekday_t weekday)
         {
             switch (weekday)
@@ -157,11 +174,11 @@ namespace configuration
 
         Configuration &parsed = result.second;
         parsed.IsConfigured = doc["IsConfigured"];
-        parsed.ServerAddress = doc["ServerAddress"].as<String>();
-        parsed.SensorID = doc["SensorID"].as<String>();
-        parsed.WiFiName = doc["WiFiName"].as<String>();
+        parsed.ServerAddress = jsonString(doc["ServerAddress"], String(""));
+        parsed.SensorID = jsonString(doc["SensorID"], existingConfig.SensorID);
+        parsed.WiFiName = jsonString(doc["WiFiName"], existingConfig.WiFiName);
 
-        const String incomingPassword = doc["WiFiPassword"].as<String>();
+        const String incomingPassword = jsonString(doc["WiFiPassword"], String(""));
         parsed.WiFiPassword = incomingPassword.length() > 0
                                   ? incomingPassword
                                   : existingConfig.WiFiPassword;
@@ -172,7 +189,7 @@ namespace configuration
         // still wins over the flag, so a contradictory request keeps auth on
         // rather than silently disabling it.
         const bool clearApiToken = doc["ClearApiToken"] | false;
-        const String incomingApiToken = doc["ApiToken"].as<String>();
+        const String incomingApiToken = jsonString(doc["ApiToken"], String(""));
         parsed.ApiToken = incomingApiToken.length() > 0
                               ? incomingApiToken
                               : clearApiToken
@@ -243,7 +260,7 @@ namespace configuration
         }
         else
         {
-            parsed.Button2GetURL = doc["Button2GetURL"].as<String>();
+            parsed.Button2GetURL = jsonString(doc["Button2GetURL"], existingConfig.Button2GetURL);
         }
 
         parsed.NumberOfLEDs = doc["NumberOfLEDs"] | -1;
@@ -263,7 +280,7 @@ namespace configuration
         {
             parsed.UseMQTT = doc["UseMQTT"];
             parsed.MQTTPort = doc["MQTTPort"] | 1883;
-            parsed.MQTTTopic = doc["MQTTTopic"].as<String>();
+            parsed.MQTTTopic = jsonString(doc["MQTTTopic"], existingConfig.MQTTTopic);
         }
 
         const JsonVariant sunriseSettings = doc["SunriseSettings"];
@@ -333,7 +350,7 @@ namespace configuration
         AlarmWeekday daySetting;
         daySetting.IsActive = doc["IsActive"];
 
-        const String alarmTime = doc["AlarmTime"].as<String>();
+        const String alarmTime = jsonString(doc["AlarmTime"], String(""));
         const int index = alarmTime.lastIndexOf(':');
         const int length = alarmTime.length();
         if (length < 2)
