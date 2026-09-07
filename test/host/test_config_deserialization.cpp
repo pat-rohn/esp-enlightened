@@ -178,6 +178,50 @@ void test_non_string_secrets_are_treated_as_absent()
   TEST_ASSERT_EQUAL_STRING("stored-token", result.second.ApiToken.c_str());
 }
 
+// An explicit ClearApiToken command must empty the stored token, which is
+// otherwise unreachable: a blank ApiToken means "keep existing", so a stray
+// token would gate every mutating endpoint forever.
+void test_clear_api_token_command_empties_the_stored_token()
+{
+  configuration::Configuration existing;
+  existing.ApiToken = "stored-token";
+  existing.WiFiPassword = "stored-password";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"ApiToken":"","ClearApiToken":true})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("", result.second.ApiToken.c_str());
+  // Clearing the token must not disturb the WiFi credentials.
+  TEST_ASSERT_EQUAL_STRING("stored-password", result.second.WiFiPassword.c_str());
+}
+
+// Absent flag (every existing client) keeps the blank-means-keep behaviour.
+void test_absent_clear_flag_keeps_the_stored_token()
+{
+  configuration::Configuration existing;
+  existing.ApiToken = "stored-token";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"ApiToken":""})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("stored-token", result.second.ApiToken.c_str());
+}
+
+// A contradictory request must keep auth on rather than silently disable it.
+void test_supplied_token_wins_over_the_clear_flag()
+{
+  configuration::Configuration existing;
+  existing.ApiToken = "stored-token";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"ApiToken":"fresh-token","ClearApiToken":true})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("fresh-token", result.second.ApiToken.c_str());
+}
+
 void test_domain_codec_uses_supplied_secret_values()
 {
   configuration::Configuration existing;
