@@ -141,6 +141,43 @@ void test_redacted_secrets_preserve_existing_values_and_stay_redacted()
   TEST_ASSERT_TRUE(responseDocument["HasApiToken"].as<bool>());
 }
 
+// A JSON null for a secret counts as "absent" (keep whatever is stored),
+// never as a value. This is load-bearing: the companion app's form binding
+// passes the raw input event through, so clearing the field sends
+// {"ApiToken":null}, and storing that as a literal token would switch the
+// auth gate on and lock every client out of every mutating endpoint with
+// 401 -- with no way back, since a blank token means "keep existing".
+// ArduinoJson 7 yields an empty String for a null variant, which gives the
+// behaviour we want; this test pins it so a library bump cannot regress it.
+void test_null_secrets_are_treated_as_absent()
+{
+  configuration::Configuration existing;
+  existing.WiFiPassword = "stored-password";
+  existing.ApiToken = "";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"WiFiPassword":null,"ApiToken":null})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("stored-password", result.second.WiFiPassword.c_str());
+  TEST_ASSERT_EQUAL_STRING("", result.second.ApiToken.c_str());
+}
+
+// Same for a non-string scalar: a number must not become the token "42".
+// as<String>() on a numeric variant does render digits, so this one is a
+// genuine guard rather than a restatement of library behaviour.
+void test_non_string_secrets_are_treated_as_absent()
+{
+  configuration::Configuration existing;
+  existing.ApiToken = "stored-token";
+
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"ApiToken":42})", existing);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_EQUAL_STRING("stored-token", result.second.ApiToken.c_str());
+}
+
 void test_domain_codec_uses_supplied_secret_values()
 {
   configuration::Configuration existing;
