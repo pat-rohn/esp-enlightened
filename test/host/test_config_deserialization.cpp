@@ -1,4 +1,5 @@
 #include <ArduinoJson.h>
+#include <cstring>
 #include <string>
 #include <unity.h>
 
@@ -242,4 +243,142 @@ void test_domain_codec_uses_supplied_secret_values()
   TEST_ASSERT_EQUAL_STRING("stored-password",
                            document["WiFiPassword"].as<const char *>());
   TEST_ASSERT_EQUAL_STRING("stored-token", document["ApiToken"].as<const char *>());
+}
+
+// --- [F1] Alarm time format and validation --------------------------------
+// The alarm runs on the device, so a time the firmware cannot read is the
+// worst defect in the system: the light comes on at the wrong hour, or never,
+// and nothing says so. These pin the parser, the padded output, and the
+// deliberate split between refusing an HTTP write and repairing stored data.
+
+void test_alarm_time_is_serialized_zero_padded()
+{
+  configman::AlarmWeekday day;
+  day.AlarmTime = configman::Time(6, 5);
+  day.IsActive = true;
+
+  const JsonDocument doc = configuration::serializeDaySettings(&day);
+
+  TEST_ASSERT_EQUAL_STRING("06:05", doc["AlarmTime"].as<const char *>());
+}
+
+void test_alarm_time_parser_accepts_padded_and_legacy_forms()
+{
+  configman::Time parsed;
+
+  // Padded, as the firmware now writes it.
+  TEST_ASSERT_TRUE(configuration::parseTimeOfDay("06:05", parsed));
+  TEST_ASSERT_EQUAL_INT(6, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(5, parsed.Minutes);
+
+  // Unpadded, as every configuration stored by an older build carries it.
+  TEST_ASSERT_TRUE(configuration::parseTimeOfDay("6:5", parsed));
+  TEST_ASSERT_EQUAL_INT(6, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(5, parsed.Minutes);
+
+  // Half-padded, and both ends of the range.
+  TEST_ASSERT_TRUE(configuration::parseTimeOfDay("6:05", parsed));
+  TEST_ASSERT_EQUAL_INT(6, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(5, parsed.Minutes);
+  TEST_ASSERT_TRUE(configuration::parseTimeOfDay("0:0", parsed));
+  TEST_ASSERT_EQUAL_INT(0, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(0, parsed.Minutes);
+  TEST_ASSERT_TRUE(configuration::parseTimeOfDay("23:59", parsed));
+  TEST_ASSERT_EQUAL_INT(23, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(59, parsed.Minutes);
+
+  // Surrounding blanks are tolerated, not treated as junk.
+  TEST_ASSERT_TRUE(configuration::parseTimeOfDay("  7:30 ", parsed));
+  TEST_ASSERT_EQUAL_INT(7, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(30, parsed.Minutes);
+}
+
+void test_alarm_time_parser_refuses_everything_else()
+{
+  configman::Time parsed(9, 9);
+  const char *rejected[] = {
+      "24:00",   // hour out of range
+      "23:60",   // minute out of range
+      "-1:00",   // no sign handling; the '-' is junk
+      "",        // empty
+      "6",       // no separator -- the old parser turned this into 08:30
+      "6:",      // no minutes
+      ":30",     // no hours
+      "6:5:7",   // lastIndexOf(':') used to read this as 06:07
+      "ab:cd",   // toInt() used to turn this into 00:00
+      "006:00",  // over-long field, silently truncated before
+      "6:000",
+      "6:5x",    // trailing junk
+      nullptr,
+  };
+
+  for (const char **candidate = rejected; *candidate != nullptr; ++candidate)
+  {
+    TEST_ASSERT_FALSE_MESSAGE(configuration::parseTimeOfDay(*candidate, parsed),
+                              *candidate);
+  }
+  // A refused parse leaves the caller's value alone.
+  TEST_ASSERT_EQUAL_INT(9, parsed.Hours);
+  TEST_ASSERT_EQUAL_INT(9, parsed.Minutes);
+
+  TEST_ASSERT_FALSE(configuration::parseTimeOfDay(nullptr, parsed));
+}
+
+void test_strict_mode_refuses_a_config_with_an_unreadable_alarm_time()
+{
+  configman::Configuration existing;
+  String error;
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"SunriseSettings":{"IsActivated":true,"Monday":{"AlarmTime":"25:99","IsActive":true}}})",
+      existing, configuration::ParseMode::Strict, &error);
+
+  TEST_ASSERT_FALSE(result.first);
+  // The message has to name the day and quote the offending value back, so the
+  // app can say which row the user needs to fix.
+  TEST_ASSERT_NOT_NULL(strstr(error.c_str(), "Monday"));
+  TEST_ASSERT_NOT_NULL(strstr(error.c_str(), "25:99"));
+}
+
+void test_lenient_mode_keeps_the_stored_alarm_time_and_still_loads()
+{
+  // Reading the device's own configuration must not fail over one field:
+  // config.cpp answers a failed load by overwriting the file with defaults,
+  // which would take the Wi-Fi credentials with it.
+  configman::Configuration existing;
+  existing.AlarmSettings.DaySettings[configman::Monday].AlarmTime =
+      configman::Time(6, 10);
+  existing.AlarmSettings.DaySettings[configman::Monday].IsActive = true;
+
+  String error;
+  const auto result = configuration::deserializeConfig(
+      R"({"IsConfigured":true,"SunriseSettings":{"IsActivated":true,"Monday":{"AlarmTime":"nonsense","IsActive":true}}})",
+      existing, configuration::ParseMode::Lenient, &error);
+
+  TEST_ASSERT_TRUE(result.first);
+  TEST_ASSERT_TRUE(error.isEmpty());
+  const auto &monday = result.second.AlarmSettings.DaySettings.at(configman::Monday);
+  TEST_ASSERT_EQUAL_INT(6, monday.AlarmTime.Hours);
+  TEST_ASSERT_EQUAL_INT(10, monday.AlarmTime.Minutes);
+  TEST_ASSERT_TRUE(monday.IsActive);
+}
+
+void test_a_valid_alarm_time_survives_a_serialize_parse_round_trip()
+{
+  configman::Configuration existing;
+  configman::AlarmWeekday day;
+  day.AlarmTime = configman::Time(6, 5);
+  day.IsActive = true;
+  existing.AlarmSettings.DaySettings[configman::Monday] = day;
+
+  const String serialized =
+      configuration::serializeConfig(&existing, /*revealSecrets=*/true);
+  String error;
+  const auto reparsed = configuration::deserializeConfig(
+      serialized.c_str(), configman::Configuration(),
+      configuration::ParseMode::Strict, &error);
+
+  TEST_ASSERT_TRUE_MESSAGE(reparsed.first, error.c_str());
+  const auto &monday = reparsed.second.AlarmSettings.DaySettings.at(configman::Monday);
+  TEST_ASSERT_EQUAL_INT(6, monday.AlarmTime.Hours);
+  TEST_ASSERT_EQUAL_INT(5, monday.AlarmTime.Minutes);
 }

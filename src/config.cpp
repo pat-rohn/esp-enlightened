@@ -108,10 +108,11 @@ namespace configman
         return configstore::write(kPathToConfig, configStr.c_str());
     }
 
-    bool stageConfig(const char *configStr, String *serialized)
+    bool stageConfig(const char *configStr, String *serialized, String *error)
     {
         Serial.println("Stage config.");
-        auto res = deserializeConfig(configStr);
+        auto res = deserializeConfig(
+            configStr, configuration::ParseMode::Strict, error);
         if (!res.first)
         {
             Serial.print("Invalid config.");
@@ -144,9 +145,10 @@ namespace configman
         return true;
     }
 
-    std::pair<bool, Configuration> deserializeConfig(const char *configStr)
+    std::pair<bool, Configuration> deserializeConfig(
+        const char *configStr, configuration::ParseMode mode, String *error)
     {
-        return configuration::deserializeConfig(configStr, config);
+        return configuration::deserializeConfig(configStr, config, mode, error);
     }
 
     SunriseSettings deserializeSunrise(const JsonDocument &doc)

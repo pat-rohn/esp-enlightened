@@ -25,6 +25,12 @@ void test_body_chunk_starting_past_the_declared_end_is_dropped();
 void test_final_body_chunk_overshooting_is_trimmed();
 void test_zero_length_body_writes_nothing();
 void test_writable_chunk_never_reaches_the_terminating_byte();
+void test_alarm_time_is_serialized_zero_padded();
+void test_alarm_time_parser_accepts_padded_and_legacy_forms();
+void test_alarm_time_parser_refuses_everything_else();
+void test_strict_mode_refuses_a_config_with_an_unreadable_alarm_time();
+void test_lenient_mode_keeps_the_stored_alarm_time_and_still_loads();
+void test_a_valid_alarm_time_survives_a_serialize_parse_round_trip();
 
 namespace
 {
@@ -116,6 +122,12 @@ int main()
   RUN_TEST(test_final_body_chunk_overshooting_is_trimmed);
   RUN_TEST(test_zero_length_body_writes_nothing);
   RUN_TEST(test_writable_chunk_never_reaches_the_terminating_byte);
+  RUN_TEST(test_alarm_time_is_serialized_zero_padded);
+  RUN_TEST(test_alarm_time_parser_accepts_padded_and_legacy_forms);
+  RUN_TEST(test_alarm_time_parser_refuses_everything_else);
+  RUN_TEST(test_strict_mode_refuses_a_config_with_an_unreadable_alarm_time);
+  RUN_TEST(test_lenient_mode_keeps_the_stored_alarm_time_and_still_loads);
+  RUN_TEST(test_a_valid_alarm_time_survives_a_serialize_parse_round_trip);
   RUN_TEST(test_current_config_fixture_has_the_complete_public_contract);
   RUN_TEST(test_legacy_minimal_config_fixture_remains_a_valid_document);
   RUN_TEST(test_partial_light_fixture_preserves_the_m6_regression_case);
