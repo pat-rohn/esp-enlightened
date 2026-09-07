@@ -16,6 +16,64 @@ build — PlatformIO downloads all `lib_deps` automatically.
 - Device will reboot
 
 
+## Over-the-Air (OTA) Updates
+The firmware runs an [ArduinoOTA](https://docs.platformio.org/en/latest/platforms/espressif32.html#over-the-air-ota-update)
+listener, so a device that is already on your WiFi can be reflashed without a USB cable.
+
+### Enabling it
+OTA is password protected and reuses the `ApiToken` from the device configuration — the same
+token that guards the mutating REST endpoints. It is started only when **all** of these hold:
+
+- the device is in station mode (not the fallback access point),
+- `IsOfflineMode` is `false`,
+- `ApiToken` is not empty.
+
+Set `ApiToken` on the configuration page (or via `PUT /api/config`) and **restart** the device;
+OTA is only brought up during `setup()`. With no token you get `OTA disabled: configure ApiToken
+first` on the serial console, and `OTA enabled` once it is listening. The OTA hostname is the
+device's `SensorID`, advertised over mDNS, so give every device a unique `SensorID`.
+
+### Uploading
+Point PlatformIO at the device instead of a serial port:
+
+```ini
+[env:my_device_ota]
+; ... same platform/board/build_flags as your USB env ...
+upload_protocol = espota
+upload_port = 192.168.1.50        ; or <SensorID>.local
+upload_flags =
+	--auth=<your ApiToken>
+```
+
+```console
+pio run -e my_device_ota -t upload
+```
+
+The default OTA ports are 3232 on ESP32 and 8266 on ESP8266; `espota` picks the right one per
+platform. A wrong token fails with `Authentication Failed`.
+
+### Caveats
+- **ESP8266 (1 MB modules such as `d1_mini_lite`) cannot use OTA.** ArduinoOTA stages the new
+  image in free flash before `eboot` copies it over, so the image must fit *next to* the running
+  one. The current firmware is ~511 KB of a 958 KB sketch region, leaving ~447 KB free — less
+  than it needs, so `Update.begin()` fails with `Not Enough Space`. Flash these boards over USB,
+  or move to a 2 MB+ module.
+- **ESP32 flash headroom is tight.** With the default two-slot partition table the app partition
+  is 1.25 MB and the current build already uses ~86 % of it. Switching to a single-slot table
+  (`huge_app.csv`) to gain room removes the second slot and disables OTA altogether. The 16 MB
+  layout in `src/default_16MB.csv` has plenty of space.
+- **No OTA in access-point mode.** A device that fell back to its own access point (e.g. wrong
+  WiFi credentials) can only be recovered over USB.
+- **`ApiToken` is a single shared secret.** Anyone who can reach the device with that token can
+  flash arbitrary firmware, and the configuration page keeps it in the browser's `localStorage`.
+  The image itself is neither signed nor encrypted and travels the LAN in plaintext — treat OTA
+  as trusted-network only.
+- **Deep sleep shrinks the window.** With `DeepSleepTime > 0` the device is only reachable during
+  the few seconds it is awake; keep retrying, or disable deep sleep while updating.
+- Uploading interrupts sensor readings and LED output for the duration of the transfer, and the
+  device reboots afterwards.
+
+
 ## Known Hardware Caveat
 On ESP32-S3 R8 modules, do **not** enable octal PSRAM (`qio_opi`) while using GPIO 33–37
 (e.g. buttons on 35/36) — those pins belong to the PSRAM bus and the device ends in a
