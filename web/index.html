@@ -19,7 +19,9 @@
   <small id="summary">Loading configuration...</small>
   <p id="status" role="status"></p>
   <form id="config-form">
-    <fieldset><legend>Authorization</legend><label>Authorization token <input id="authorization" type="password" autocomplete="current-password" placeholder="Required only when the device has a token"></label></fieldset>
+    <fieldset><legend>Authorization</legend><label>Authorization token <input id="authorization" type="password" autocomplete="current-password" placeholder="Required only when the device has a token"></label>
+      <p><small id="token-state"></small></p>
+      <p><button id="clear-token" class="danger" type="button" hidden>Clear stored token</button></p></fieldset>
     <div id="fields"></div>
     <p><button id="save" type="submit">Save changes</button> <button id="refresh" type="button">Refresh</button> <button id="restart" class="danger" type="button">Restart device</button></p>
   </form>
@@ -27,6 +29,7 @@
 (() => {
   const form=document.querySelector('#config-form'), fields=document.querySelector('#fields'), status=document.querySelector('#status');
   const token=document.querySelector('#authorization'), key=`enlightened-token:${location.origin}`;
+  const clearToken=document.querySelector('#clear-token'), tokenState=document.querySelector('#token-state');
   const groups={
     Connection:['IsConfigured','ServerAddress','SensorID','WiFiName','WiFiPassword','ApiToken','IsOfflineMode','ShowWebpage'],
     'Hardware and sensors':['DhtPin','SerialRX','SerialTX','AnalogSensorPin0','AnalogSensorPin1','WindSensorPin','RainfallSensorPin','LEDPin','OneWirePin','Button1','Button2','Button2GetURL','NumberOfLEDs','FindSensors'],
@@ -53,10 +56,18 @@
     if(value&&typeof value==='object'&&!Array.isArray(value)){const nested=document.createElement('div');nested.className='nested grid';nested.append(...Object.keys(value).filter(key=>!key.startsWith('Has')).map(key=>addValue(nested,key,path.concat(key))));const title=document.createElement('strong');title.textContent=label(name);nested.prepend(title);return nested}
     return field(name,path);
   }
+  async function put(extra) {
+    const payload=JSON.parse(JSON.stringify(config));delete payload.HasWiFiPassword;delete payload.HasApiToken;Object.assign(payload,extra);
+    const response=await fetch('/api/config',{method:'PUT',headers:headers(),body:JSON.stringify(payload)});
+    if(!response.ok)throw new Error(`Save failed (${response.status})`);
+    config=await response.json();render();return payload;
+  }
   function render() {
     fields.replaceChildren();
     Object.entries(groups).forEach(([title,names])=>{const section=document.createElement('fieldset'), grid=document.createElement('div');section.innerHTML=`<legend>${title}</legend>`;grid.className='grid';names.filter(name=>name in config).forEach(name=>grid.append(addValue(grid,name,[name])));section.append(grid);fields.append(section)});
     document.querySelector('#summary').textContent=`Firmware: ${config.SensorID||'device'} | complete configuration loaded`;
+    const hasToken=config.HasApiToken===true; clearToken.hidden=!hasToken;
+    tokenState.textContent=hasToken?'A token is set: configuration changes and OTA uploads both require it.':'No token set: any host on this network can configure this device.';
   }
   async function load() {
     setStatus('Loading configuration...');
@@ -64,9 +75,12 @@
     config=await response.json();render();setStatus('Configuration loaded. Hardware, network, and LED topology changes require a restart.','ok');
   }
   form.addEventListener('submit',async event=>{event.preventDefault();const save=document.querySelector('#save');save.disabled=true;setStatus('Saving...');
-    try{const payload=JSON.parse(JSON.stringify(config));delete payload.HasWiFiPassword;delete payload.HasApiToken;const response=await fetch('/api/config',{method:'PUT',headers:headers(),body:JSON.stringify(payload)});if(!response.ok)throw new Error(`Save failed (${response.status})`);config=await response.json();if(payload.ApiToken)localStorage.setItem(key,payload.ApiToken);render();setStatus('Saved. Restart the device to apply hardware, network, or LED topology changes.','ok')}
+    try{const payload=await put({});if(payload.ApiToken)localStorage.setItem(key,payload.ApiToken);setStatus('Saved. Restart the device to apply hardware, network, or LED topology changes.','ok')}
     catch(error){setStatus(error.message,'error')}finally{save.disabled=false}});
   document.querySelector('#restart').addEventListener('click',async()=>{if(!confirm('Restart this device now?'))return;setStatus('Restarting...');try{const response=await fetch('/restart',{headers:headers()});if(!response.ok)throw new Error(`Restart failed (${response.status})`);setStatus('Restart requested. The device may take up to 30 seconds to reconnect.','ok')}catch(error){setStatus(error.message,'error')}});
+  clearToken.addEventListener('click',async()=>{if(!confirm('Clear the stored token? Configuration changes and OTA uploads will no longer require one.'))return;clearToken.disabled=true;setStatus('Clearing token...');
+    try{await put({ApiToken:'',ClearApiToken:true});localStorage.removeItem(key);token.value='';setStatus('Token cleared.','ok')}
+    catch(error){setStatus(error.message,'error')}finally{clearToken.disabled=false}});
   document.querySelector('#refresh').addEventListener('click',()=>load().catch(error=>setStatus(error.message,'error')));
   load().catch(error=>setStatus(error.message,'error'));
 })();

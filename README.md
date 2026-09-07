@@ -37,7 +37,9 @@ loudly on the console.
 OTA used to require a non-empty `ApiToken`, which made a stray token unrecoverable: the token
 gates the configuration endpoints, so clearing it took OTA down with it and left USB as the only way
 back in. Clearing a token is now an explicit `"ClearApiToken": true` in `PUT /api/config` (a blank
-`ApiToken` still means "keep the stored one", because `GET` redacts it).
+`ApiToken` still means "keep the stored one", because `GET` redacts it). The configuration page
+exposes this as a **Clear stored token** button, which appears only while a token is set. It sends
+the same authorized request, so it retires a token you hold — a token you have lost still means USB.
 
 OTA is only brought up during `setup()`, so **restart** the device after changing `ApiToken`. The
 OTA hostname is the device's `SensorID`, advertised over mDNS, so give every device a unique
