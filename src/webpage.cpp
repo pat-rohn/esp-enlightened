@@ -37,6 +37,18 @@ namespace webpage
       request->send(response);
     }
 
+    // Sends {"Message": "..."} with the text properly escaped. Refusal reasons
+    // quote the client's own input back, so they must not be concatenated into
+    // a hand-written JSON literal.
+    void sendJsonMessage(AsyncWebServerRequest *request, int code, const String &message)
+    {
+      JsonDocument doc;
+      doc["Message"] = message;
+      String body;
+      serializeJson(doc, body);
+      sendJson(request, code, body);
+    }
+
     // [D2] Pre-shared token gate for configuration and lifecycle endpoints
     // (/api/config writes, /restart). Light control -- /api/led and the
     // /api/buttonN triggers -- is deliberately NOT gated: controlling the
@@ -171,9 +183,13 @@ namespace webpage
                   String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
                   String staged;
-                  if (!configman::stageConfig(input.c_str(), &staged))
+                  String error;
+                  if (!configman::stageConfig(input.c_str(), &staged, &error))
                   {
-                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
+                    sendJsonMessage(request, 400,
+                                    error.isEmpty()
+                                        ? String("Error: invalid configuration")
+                                        : String("Error: ") + error);
                     return;
                   }
                   sendJson(request, 200, staged);
@@ -191,9 +207,13 @@ namespace webpage
                   String input = getInput(request);
                   Serial.printf("Input is: %s\n", input.c_str());
                   String staged;
-                  if (!configman::stageConfig(input.c_str(), &staged))
+                  String error;
+                  if (!configman::stageConfig(input.c_str(), &staged, &error))
                   {
-                    sendJson(request, 400, "{\"Message\": \"Error: invalid configuration\"}");
+                    sendJsonMessage(request, 400,
+                                    error.isEmpty()
+                                        ? String("Error: invalid configuration")
+                                        : String("Error: ") + error);
                     return;
                   }
                   sendJson(request, 200, staged); },

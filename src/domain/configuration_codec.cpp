@@ -1,5 +1,6 @@
 #include "configuration_codec.h"
 
+#include <cstdio>
 #include <string>
 
 namespace configuration
@@ -20,6 +21,79 @@ namespace configuration
             default: return "";
             }
         }
+    }
+
+    String formatTimeOfDay(const Time &time)
+    {
+        char buffer[6];
+        snprintf(buffer, sizeof(buffer), "%02d:%02d", time.Hours, time.Minutes);
+        return String(buffer);
+    }
+
+    bool parseTimeOfDay(const char *text, Time &out)
+    {
+        if (text == nullptr)
+        {
+            return false;
+        }
+
+        const auto skipBlanks = [](const char *cursor)
+        {
+            while (*cursor == ' ' || *cursor == '\t')
+            {
+                ++cursor;
+            }
+            return cursor;
+        };
+
+        // Reads at most two digits, so "006:00" and "6:000" are refused rather
+        // than silently truncated by the conversion.
+        const auto readField = [](const char **cursor, int *value)
+        {
+            int digits = 0;
+            *value = 0;
+            while (**cursor >= '0' && **cursor <= '9')
+            {
+                if (++digits > 2)
+                {
+                    return false;
+                }
+                *value = *value * 10 + (**cursor - '0');
+                ++(*cursor);
+            }
+            return digits > 0;
+        };
+
+        const char *cursor = skipBlanks(text);
+
+        int hours = 0;
+        if (!readField(&cursor, &hours) || *cursor != ':')
+        {
+            return false;
+        }
+        ++cursor;
+
+        int minutes = 0;
+        if (!readField(&cursor, &minutes))
+        {
+            return false;
+        }
+
+        // Anything left over -- a second colon, a stray letter -- is a reason to
+        // refuse, not something to ignore. `lastIndexOf(':')` used to accept
+        // "6:5:7" as 06:07.
+        if (*skipBlanks(cursor) != '\0')
+        {
+            return false;
+        }
+
+        if (hours > 23 || minutes > 59)
+        {
+            return false;
+        }
+
+        out = Time(hours, minutes);
+        return true;
     }
 
     String serializeConfig(const Configuration *config, bool revealSecrets)
@@ -131,27 +205,41 @@ namespace configuration
     JsonDocument serializeDaySettings(const AlarmWeekday *config)
     {
         JsonDocument doc;
-        doc["AlarmTime"] = std::to_string(config->AlarmTime.Hours) + ":" +
-                           std::to_string(config->AlarmTime.Minutes);
+        // Zero-padded: an unpadded "6:5" is ambiguous to read, cannot be fed
+        // to a client-side time picker, and sorts wrongly as a string.
+        doc["AlarmTime"] = formatTimeOfDay(config->AlarmTime);
         doc["IsActive"] = config->IsActive;
         return doc;
     }
 
     std::pair<bool, Configuration> deserializeConfig(
-        const char *configStr, const Configuration &existingConfig)
+        const char *configStr, const Configuration &existingConfig,
+        ParseMode mode, String *error)
     {
         std::pair<bool, Configuration> result(false, Configuration());
+        if (error != nullptr)
+        {
+            *error = String();
+        }
         JsonDocument doc;
         const DeserializationError err = deserializeJson(doc, configStr);
         if (err.code() != DeserializationError::Code::Ok)
         {
             Serial.printf("Deserializing failed %d\n", err.code());
             Serial.print(configStr);
+            if (error != nullptr)
+            {
+                *error = String("Malformed JSON: ") + err.c_str();
+            }
             return result;
         }
         if (!doc["IsConfigured"].is<bool>())
         {
             Serial.printf("No valid config %s\n", configStr);
+            if (error != nullptr)
+            {
+                *error = String("Missing or non-boolean IsConfigured");
+            }
             return result;
         }
 
@@ -267,9 +355,11 @@ namespace configuration
         }
 
         const JsonVariant sunriseSettings = doc["SunriseSettings"];
+        String sunriseError;
         if (!sunriseSettings.isNull())
         {
-            parsed.AlarmSettings = deserializeSunrise(sunriseSettings);
+            parsed.AlarmSettings = deserializeSunrise(
+                sunriseSettings, existingConfig.AlarmSettings, mode, &sunriseError);
         }
         else
         {
@@ -302,12 +392,30 @@ namespace configuration
             parsed.LightHigh.Blue = lightHigh["Blue"] | 24;
         }
 
+        // In strict mode a bad alarm time refuses the document, so the client
+        // is told instead of the wrong time being stored. In lenient mode the
+        // day kept its previously stored time and the document still loads --
+        // refusing it here would make config.cpp replace the whole stored
+        // configuration, Wi-Fi credentials included, with defaults.
+        if (mode == ParseMode::Strict && !sunriseError.isEmpty())
+        {
+            Serial.printf("Rejecting config: %s\n", sunriseError.c_str());
+            if (error != nullptr)
+            {
+                *error = sunriseError;
+            }
+            return result;
+        }
+
         result.first = true;
         Serial.println("Success: Deserialized config");
         return result;
     }
 
-    SunriseSettings deserializeSunrise(JsonVariantConst doc)
+    SunriseSettings deserializeSunrise(JsonVariantConst doc,
+                                       const SunriseSettings &existing,
+                                       ParseMode mode,
+                                       String *error)
     {
         SunriseSettings result;
         result.SunriseLightTime = doc["SunriseLightTime"];
@@ -321,31 +429,52 @@ namespace configuration
         {
             const weekday_t weekday = static_cast<weekday_t>(weekdayNumber);
             const JsonVariantConst day = doc[weekdayName(weekday)];
-            result.DaySettings[weekday] = day.is<JsonObjectConst>()
-                                              ? deserializeDaySetting(day)
-                                              : AlarmWeekday();
+            const auto storedDay = existing.DaySettings.find(weekday);
+            const AlarmWeekday previous = storedDay == existing.DaySettings.end()
+                                              ? AlarmWeekday()
+                                              : storedDay->second;
+            if (!day.is<JsonObjectConst>())
+            {
+                result.DaySettings[weekday] = AlarmWeekday();
+                continue;
+            }
+            String dayError;
+            result.DaySettings[weekday] =
+                deserializeDaySetting(day, previous, mode, &dayError);
+            if (!dayError.isEmpty() && error != nullptr && error->isEmpty())
+            {
+                *error = String(weekdayName(weekday)) + ": " + dayError;
+            }
         }
         return result;
     }
 
-    AlarmWeekday deserializeDaySetting(JsonVariantConst doc)
+    AlarmWeekday deserializeDaySetting(JsonVariantConst doc,
+                                       const AlarmWeekday &existing,
+                                       ParseMode mode,
+                                       String *error)
     {
         AlarmWeekday daySetting;
         daySetting.IsActive = doc["IsActive"];
+        // Start from the value already stored, so a field we end up refusing to
+        // parse leaves the alarm where the user last set it.
+        daySetting.AlarmTime = existing.AlarmTime;
 
         const String alarmTime = doc["AlarmTime"].as<String>();
-        const int index = alarmTime.lastIndexOf(':');
-        const int length = alarmTime.length();
-        if (length < 2)
+        Time parsedTime;
+        if (parseTimeOfDay(alarmTime.c_str(), parsedTime))
         {
-            Serial.printf("Invalid alarm time %s\n", alarmTime.c_str());
-            daySetting.AlarmTime = Time();
+            daySetting.AlarmTime = parsedTime;
+            return daySetting;
         }
-        else
+
+        // An alarm time that cannot be read is the one field in this document
+        // worth failing over: storing the wrong one means the alarm goes off at
+        // the wrong time, or not at all, and nothing tells the user.
+        Serial.printf("Invalid alarm time '%s'\n", alarmTime.c_str());
+        if (mode == ParseMode::Strict && error != nullptr && error->isEmpty())
         {
-            const String minutes = alarmTime.substring(index + 1, length);
-            const String hours = alarmTime.substring(0, index);
-            daySetting.AlarmTime = Time(hours.toInt(), minutes.toInt());
+            *error = String("Invalid alarm time: ") + alarmTime;
         }
         return daySetting;
     }
