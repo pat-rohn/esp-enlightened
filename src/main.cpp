@@ -11,10 +11,13 @@
 #include "version.h"
 
 bool ledState = false;
+bool mdnsStarted = false;
+
 
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <ESP8266mDNS.h>
 
 uint8_t kLEDON = 0x0;
 uint8_t kLEDOFF = 0x1;
@@ -25,6 +28,7 @@ uint8_t kLEDOFF = 0x1;
 #include "WiFi.h"
 #include <HTTPClient.h>
 #include <esp_wifi.h>
+#include <ESPmDNS.h>
 
 uint8_t kLEDON = 0x1;
 uint8_t kLEDOFF = 0x0;
@@ -99,6 +103,33 @@ std::map<String, float> sensorOffsets;
 unsigned long lastUpdate = millis();
 int valueCounter = 0;
 
+// Announce the device on the local network [F2].
+//
+// Without this, finding a device is the user's problem: the app can only ask
+// for an IP address, which means reading it off a router admin page. With it
+// the device answers to <SensorID>.local and advertises an _enlightened._tcp
+// service that a client can browse for.
+void startMdns()
+{
+  const String &name = configman::getConfig().SensorID;
+  if (name.isEmpty())
+  {
+    return;
+  }
+  if (!MDNS.begin(name.c_str()))
+  {
+    Serial.println("mDNS failed to start");
+    return;
+  }
+  mdnsStarted = true;
+  // The generic HTTP service keeps the device visible to ordinary network
+  // browsers; the specific one lets a client find only Enlightened devices.
+  MDNS.addService("http", "tcp", 80);
+  MDNS.addService("enlightened", "tcp", 80);
+  MDNS.addServiceTxt("enlightened", "tcp", "version", getFirmwareVersion());
+  Serial.printf("mDNS: %s.local advertising _enlightened._tcp\n", name.c_str());
+}
+
 bool tryConnect(std::string ssid, std::string password)
 {
   if (ssid.empty() || ssid.c_str() == nullptr || ssid == "null")
@@ -142,6 +173,7 @@ bool tryConnect(std::string ssid, std::string password)
   }
   Serial.print("\nConnected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
+  startMdns();
   if (configman::getConfig().Button1 < 0)
   {
     digitalWrite(LED_BUILTIN, kLEDOFF);
@@ -606,6 +638,14 @@ void loop()
     Serial.println("--------------------------------");
     return;
   }
+#ifdef ESP8266
+  // The ESP8266 responder is cooperative and answers nothing unless pumped.
+  if (mdnsStarted)
+  {
+    MDNS.update();
+  }
+#endif /* ESP8266 */
+
   if (!isAccessPoint && !configman::getConfig().IsOfflineMode)
   {
     if (WiFi.status() != WL_CONNECTED)
