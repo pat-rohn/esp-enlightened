@@ -424,18 +424,23 @@ namespace webpage
                   serializeJson(doc, body);
                   sendJson(request, 200, body); });
 
-    m_Server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request)
+    // The page is the one route that is never token-gated: a browser cannot
+    // attach a header to a navigation, and this page is what lets an operator
+    // type the token in. It is a static asset and discloses nothing.
+    //
+    // Served pre-compressed, and deliberately with no template processor. The
+    // processor replaced every `%...%` pair in the body, which a control UI
+    // full of percentages (brightness, `width:100%`) would trip over
+    // constantly; its two placeholders were unused because the page fetches
+    // /api/config and /api/status instead. Content-Encoding also rules out
+    // template substitution, so the two decisions are the same decision.
+    m_Server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
                 {
-      Serial.println("get web page");
-#ifdef ESP8266
-                  request->send_P(200, "text/html", web_index_html,
-                                  [this](const String &var)
-                                  { return processor(var); }); });
-#else
-                  request->send(200, "text/html", web_index_html,
-                                [this](const String &var)
-                                { return processor(var); }); });
-#endif
+                  Serial.println("get web page");
+                  AsyncWebServerResponse *response = request->beginResponse(
+                      200, "text/html", web_index_html_gz, web_index_html_gz_len);
+                  response->addHeader("Content-Encoding", "gzip");
+                  request->send(response); });
   }
 
   void CWebPage::registerOptionsRoutes()
@@ -462,27 +467,5 @@ namespace webpage
                   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
                   addCorsHeaders(response);
                   request->send(response); });
-  }
-
-  String CWebPage::processor(const String &var)
-  {
-    Serial.println(var);
-    if (var == "devconfig")
-    {
-      Serial.println("get configuration");
-      const auto& config = configman::getConfig();
-      return configman::serializeConfig(&config);
-    }
-    else if (var == "fwversion")
-    {
-      return getFirmwareVersion();
-    }
-    else
-    {
-      Serial.println("there is nothing yet with the call " + var);
-      Serial.println(configman::kPathToConfig);
-      return "there is nothing yet with the call " + var;
-    }
-    return String();
   }
 }

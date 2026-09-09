@@ -55,7 +55,6 @@ namespace webpage
         static void setSunriseAlarm(sunrise::CSunriseAlarm *sunriseAlarm);
         static void setTriggerFlag(std::atomic<bool> *restartTriggered);
         static void setButtonsPressed(std::atomic<bool> *buttonPressed1, std::atomic<bool> *buttonPressed2);
-        static String processor(const String &var);
     };
 
 }
