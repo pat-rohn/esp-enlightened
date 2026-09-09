@@ -590,6 +590,15 @@ void loop()
   vTaskDelay(pdMS_TO_TICKS(1));
 #endif
   handleButtons(sunriseAlarm.get(), ledStrip.get());
+  // A web-triggered press must land as fast as a physical one. This used to sit
+  // below the interval gate, so /api/buttonN answered 200 and the light only
+  // changed on the next slow tick -- half a second normally, ten seconds while
+  // sensor discovery is backing off. Anything reading the light straight after
+  // the call got the state from before the press. Restart and staged config
+  // are handled here too and were just as late; applyStagedConfig() is an
+  // atomic exchange that returns immediately when nothing is staged, so this
+  // is cheap enough to run every iteration.
+  checkWebpageTriggers();
   handleMQTT();
 
   if (millis() - lastLoopTime < nextInterval)
@@ -609,10 +618,6 @@ void loop()
       nextInterval += 10000;
     }
   }
-  // Must run before the !IsConfigured early return: during first-time setup
-  // via the access point, config saves and /restart set flags that would
-  // otherwise never be consumed.
-  checkWebpageTriggers();
   if (!configman::getConfig().IsConfigured)
   {
     nextInterval = 15000;
