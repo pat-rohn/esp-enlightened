@@ -25,11 +25,29 @@ namespace webpage
 
   namespace
   {
+    // The wildcard origin stays, deliberately, and this is the reasoning [D2].
+    //
+    // The companion app is a Capacitor build served from http://localhost, so
+    // every request it makes to the device is cross-origin. Narrowing the
+    // origin would break it, and there is no fixed origin to narrow *to*: the
+    // device's own page is same-origin and needs no allowance at all.
+    //
+    // What actually protects the device is the token, and that is now uniform:
+    // with one set, a page on the open internet cannot read or change anything
+    // here, because it cannot produce the header. Without one the device is
+    // unprotected -- but so it is to anything else on the same network, which
+    // does not need a browser to reach it. So the wildcard costs nothing that
+    // is not already given away by having no token.
+    //
+    // Authorization is dropped from the allowed headers: this API has only
+    // ever read X-Authorization, and advertising a header nothing honours
+    // invites a client to send credentials that are silently ignored.
     void addCorsHeaders(AsyncWebServerResponse *response)
     {
       response->addHeader("Access-Control-Allow-Origin", "*");
-      response->addHeader("Access-Control-Allow-Methods", "GET, OPTIONS, POST, PUT");
-      response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
+      response->addHeader("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
+      response->addHeader("Access-Control-Allow-Headers",
+                          "Content-Type, Accept, X-Authorization");
     }
 
     void sendJson(AsyncWebServerRequest *request, int code, const String &body)

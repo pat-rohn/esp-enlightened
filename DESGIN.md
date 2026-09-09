@@ -15,7 +15,8 @@ weather station), selected at **runtime** by a JSON config stored in LittleFS
 ```
 main.cpp (setup/loop, global singletons)
 ├── configman        — config load/save/serialize (config.cpp, LittleFS JSON)
-├── webpage          — ESPAsyncWebServer: setup page, /api/config, /api/led, /restart, /api/version
+├── webpage          — ESPAsyncWebServer: control page (/), /api/status, /api/config,
+│                      /api/led, /api/alarm/test, /api/button/N, /restart
 ├── sensor           — auto-detection + polling of DHT22, BME/BMP280, SHT30, SGP30,
 │                      MH-Z19, SCD30, SCD40, DS18B20, wind/rain click counters
 ├── timeseries       — CTimeseries base with two backends:

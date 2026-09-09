@@ -11,14 +11,48 @@ build — PlatformIO downloads all `lib_deps` automatically.
 
 ## Configure Device
 - Access point will be created and device will have IP 192.168.4.1
-- Connect to http://192.168.4.1 and change configuration to your needs (JSON)
+- Connect to http://192.168.4.1 and set the device up on the **Settings** tab
 - To stay connected (on Android) configure static IP (e.g. 192.168.4.5/16 - 255.255.0.0) and use DNS1 0.0.0.0
 - Device will reboot
+
+## Device Web Page
+The device serves a control page at `/`: **Light**, **Alarm** and **Settings**
+tabs, with Light as the start page. It is one gzipped asset embedded in the
+firmware — no external fonts, scripts or styles, so it works from the device's
+own access point with no internet. Source is [web/index.html](web/index.html);
+`extra_scripts/web_assets.py` compresses it into `src/web_assets.generated.h`
+at build time.
+
+## HTTP API (version 2)
+`GET /api/status` reports `ApiVersion`, and a client should refuse a device
+that does not match rather than guessing from a 404.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/` | The page. The one route a token never gates — a browser cannot put a header on a navigation |
+| `GET` | `/api/status` | Everything live: version, uptime, WiFi, time, light, alarm, cached sensor readings |
+| `GET` | `/api/config` | Stored configuration; secrets omitted, `HasWiFiPassword`/`HasApiToken` say whether one is set |
+| `PUT` | `/api/config` | **Partial**: absent keys keep their stored value. Answers with the stored document plus `RestartRequired` |
+| `POST` | `/api/led` | **Partial**: `{"Brightness":40}` leaves colour and mode alone |
+| `POST` | `/api/alarm/test?seconds=` | Runs a sunrise now without touching the schedule |
+| `POST` | `/api/button/1`, `/api/button/2` | Acts as though the physical button was pressed |
+| `POST` | `/restart` | |
+
+**Authorization is uniform.** With an `ApiToken` set, every `/api/*` request and
+`/restart` must carry `X-Authorization`, reads included. With no token the
+device is unprotected, which is what makes first-time setup over the access
+point work.
+
+**Writes are partial**, so a client sends only what it is changing and cannot
+clobber fields it does not model. An absent secret keeps the stored one; an
+explicit `""` clears it.
 
 
 ## Over-the-Air (OTA) Updates
 The firmware runs an [ArduinoOTA](https://docs.platformio.org/en/latest/platforms/espressif32.html#over-the-air-ota-update)
 listener, so a device that is already on your WiFi can be reflashed without a USB cable.
+For the short version — what to install on a fresh machine and which build output to send —
+see [OTA_QUICKSTART.md](OTA_QUICKSTART.md).
 
 ### Enabling it
 OTA is started when **both** of these hold:
