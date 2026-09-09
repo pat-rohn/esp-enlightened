@@ -231,6 +231,36 @@ namespace sensor
     }
 #endif
 
+    namespace
+    {
+        std::map<String, SensorData> cachedValues;
+        unsigned long cachedAt = 0;
+        bool hasCachedValues = false;
+    }
+
+    void cacheValues(const std::map<String, SensorData> &values)
+    {
+        cachedValues = values;
+        cachedAt = millis();
+        hasCachedValues = true;
+    }
+
+    const std::map<String, SensorData> &getCachedValues()
+    {
+        return cachedValues;
+    }
+
+    long getCachedValuesAgeSeconds()
+    {
+        if (!hasCachedValues)
+        {
+            return -1;
+        }
+        // Unsigned subtraction, so this stays correct across the millis()
+        // rollover at ~49 days.
+        return static_cast<long>((millis() - cachedAt) / 1000);
+    }
+
     std::map<String, SensorData> getValues()
     {
         if (m_SensorTypes.empty())
@@ -343,6 +373,22 @@ namespace sensor
                 }
             }
         }
+#if ENABLE_DUMMY_SENSOR
+        // A synthetic CO2 reading, so the sensor strip, the /api/status
+        // Sensors block and setCO2Color() can all be exercised on a device
+        // with no sensors wired. Sweeps 450-1600 ppm over ten minutes, which
+        // crosses every colour threshold the policy cares about.
+        {
+            const double phase = (millis() % 600000UL) / 600000.0;
+            SensorData dummy;
+            dummy.name = "CO2";
+            dummy.value = 450.0 + 1150.0 * (phase < 0.5 ? phase * 2.0 : (1.0 - phase) * 2.0);
+            dummy.unit = "ppm";
+            dummy.isValid = true;
+            res[dummy.name] = dummy;
+        }
+#endif
+
         return res;
     }
 

@@ -20,30 +20,57 @@ bool CLEDService::apply(const String &ledString, String &response)
     response = get("Error: Failed to parse input");
     return false;
   }
-
-  if (!doc["Mode"].is<int>())
+  if (!doc.is<JsonObject>())
   {
-    response = get("Error: invalid or missing Mode");
+    response = get("Error: body must be a JSON object");
     return false;
   }
 
-  if (!doc["Brightness"].is<double>() && !doc["Brightness"].is<int>())
+  // Partial, like the configuration write: an absent field keeps what the
+  // strip is already showing. A brightness slider should not have to restate
+  // the colour, and requiring the full set is what made every client hold a
+  // complete mirror of the strip's state just to change one number.
+  const std::array<uint8_t, 3> current = m_LedStrip->getColor();
+  int mode = int(m_LedStrip->m_LEDMode);
+  double brightness = m_LedStrip->m_Factor * 100.0;
+  int red = current[0];
+  int green = current[1];
+  int blue = current[2];
+
+  struct Field
   {
-    response = get("Error: invalid or missing Brightness");
-    return false;
+    const char *name;
+    int *target;
+  };
+  const Field fields[] = {
+      {"Mode", &mode}, {"Red", &red}, {"Green", &green}, {"Blue", &blue}};
+  for (const Field &field : fields)
+  {
+    const JsonVariantConst value = doc[field.name];
+    if (value.isNull())
+    {
+      continue;
+    }
+    // is<double>() is true for any JSON number and false for strings and
+    // bools, so "abc" is refused rather than quietly becoming 0.
+    if (!value.is<double>())
+    {
+      response = get(String("Error: invalid ") + field.name);
+      return false;
+    }
+    *field.target = value.as<int>();
   }
 
-  if (!doc["Red"].is<int>() || !doc["Green"].is<int>() || !doc["Blue"].is<int>())
+  const JsonVariantConst brightnessValue = doc["Brightness"];
+  if (!brightnessValue.isNull())
   {
-    response = get("Error: invalid or missing RGB value");
-    return false;
+    if (!brightnessValue.is<double>())
+    {
+      response = get("Error: invalid Brightness");
+      return false;
+    }
+    brightness = brightnessValue.as<double>();
   }
-
-  const int mode = doc["Mode"].as<int>();
-  const double brightness = doc["Brightness"].as<double>();
-  const int red = doc["Red"].as<int>();
-  const int green = doc["Green"].as<int>();
-  const int blue = doc["Blue"].as<int>();
 
   if (mode < int(LedStrip::LEDModes::on) || mode > int(LedStrip::LEDModes::pulse))
   {
@@ -69,6 +96,7 @@ bool CLEDService::apply(const String &ledString, String &response)
     message = doc["Message"].as<const char *>();
   }
 
+  m_LedStrip->m_Owner = LedStrip::LEDOwner::manual;
   m_LedStrip->m_LEDMode = static_cast<LedStrip::LEDModes>(mode);
   m_LedStrip->m_Factor = brightness / 100.0;
   m_LedStrip->setColor(red, green, blue);
@@ -92,6 +120,7 @@ String CLEDService::get(String msg /*= "Success"*/)
   doc["Blue"] = color[2];
   doc["Brightness"] = int(m_LedStrip->m_Factor * 100);
   doc["Mode"] = int(m_LedStrip->m_LEDMode);
+  doc["Owner"] = LedStrip::ownerName(m_LedStrip->m_Owner);
   doc["Message"] = msg;
   String result;
   serializeJson(doc, result);

@@ -45,6 +45,15 @@ namespace sensor
     void findAndInitMHZ19();
 #endif
     std::map<String, SensorData> getValues();
+
+    // getValues() does real I2C/OneWire/serial I/O and is only ever safe to
+    // call from the main loop. The HTTP task must not touch the buses, so the
+    // loop caches what it last measured and /api/status serves that instead.
+    // Readings are at most MeasureInterval old, which is what they are anyway.
+    void cacheValues(const std::map<String, SensorData> &values);
+    const std::map<String, SensorData> &getCachedValues();
+    // Seconds since the cache was filled, or -1 when nothing has been measured.
+    long getCachedValuesAgeSeconds();
     std::array<SensorData, 3> getDHT22();
     std::array<SensorData, 3> getSCD30();
 #if USE_ALL_SENSORS

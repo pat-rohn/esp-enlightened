@@ -108,7 +108,8 @@ namespace configman
         return configstore::write(kPathToConfig, configStr.c_str());
     }
 
-    bool stageConfig(const char *configStr, String *serialized, String *error)
+    bool stageConfig(const char *configStr, String *serialized, String *error,
+                     bool *restartRequired)
     {
         Serial.println("Stage config.");
         auto res = deserializeConfig(
@@ -117,6 +118,10 @@ namespace configman
         {
             Serial.print("Invalid config.");
             return false;
+        }
+        if (restartRequired != nullptr)
+        {
+            *restartRequired = configuration::requiresRestart(config, res.second);
         }
         if (serialized != nullptr)
         {

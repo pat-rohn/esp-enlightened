@@ -28,6 +28,14 @@
 
 namespace webpage
 {
+    // Bumped on every breaking change to the HTTP contract. Reported in
+    // /api/status so a client on the wrong release can say so in words rather
+    // than surfacing a bare 404 from a route that no longer exists.
+    //
+    // 2: uniform token gate, partial writes, /api/status carries light and
+    //    sensors, /api/version + /api/time + GET /api/led removed.
+    constexpr int kApiVersion = 2;
+
 
     class CWebPage
     {

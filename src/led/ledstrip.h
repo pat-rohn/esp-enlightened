@@ -45,6 +45,33 @@ public:
         pulse = 5,
     };
 
+    // Who last wrote the strip. Four independent writers -- the HTTP light
+    // route, the sunrise loop, MQTT and the physical buttons -- drive this
+    // strip with no arbitration between them, so a client that moves a slider
+    // during a sunrise sees its change overwritten on the next loop with
+    // nothing to explain why. Reporting the owner in /api/status lets the UI
+    // say what is happening instead of leaving the user to guess.
+    enum class LEDOwner
+    {
+        manual = 0,
+        sunrise = 1,
+        mqtt = 2,
+        button = 3,
+        sensor = 4,
+    };
+
+    static const char *ownerName(LEDOwner owner)
+    {
+        switch (owner)
+        {
+        case LEDOwner::sunrise: return "sunrise";
+        case LEDOwner::mqtt: return "mqtt";
+        case LEDOwner::button: return "button";
+        case LEDOwner::sensor: return "sensor";
+        default: return "manual";
+        }
+    }
+
 private:
     struct FlameMode
     {
@@ -120,6 +147,7 @@ public:
     Adafruit_NeoPixel m_Pixels;
     LEDColor m_LedColor;
     LEDModes m_LEDMode;
+    LEDOwner m_Owner = LEDOwner::manual;
     double m_Factor;
     unsigned long m_SunriseStartTime;
     double m_SunriseDuration;

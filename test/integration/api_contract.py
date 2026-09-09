@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manual HTTP contract check for a running esp-enlightened device."""
+"""HTTP contract check for a running esp-enlightened device (API version 2)."""
 
 import argparse
 import json
@@ -13,42 +13,37 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
+API_VERSION = 2
+
+# Secrets are deliberately absent from this set: redacted output omits them
+# entirely rather than blanking them, so that feeding a GET straight back into
+# a PUT cannot clear what it could not disclose.
 REQUIRED_CONFIG_FIELDS = {
-    "IsConfigured",
-    "ServerAddress",
-    "SensorID",
-    "WiFiName",
-    "WiFiPassword",
-    "HasWiFiPassword",
-    "ApiToken",
-    "HasApiToken",
-    "DhtPin",
-    "SerialRX",
-    "SerialTX",
-    "AnalogSensorPin0",
-    "AnalogSensorPin1",
-    "WindSensorPin",
-    "RainfallSensorPin",
-    "LEDPin",
-    "OneWirePin",
-    "Button1",
-    "Button2",
-    "Button2GetURL",
-    "NumberOfLEDs",
-    "FindSensors",
-    "IsOfflineMode",
-    "ShowWebpage",
-    "UseMQTT",
-    "MQTTTopic",
-    "MQTTPort",
-    "DeepSleepTime",
-    "BufferedValues",
-    "MeasureInterval",
-    "SunriseSettings",
-    "LightLow",
-    "LightMedium",
-    "LightHigh",
+    "IsConfigured", "ServerAddress", "SensorID", "WiFiName",
+    "HasWiFiPassword", "HasApiToken",
+    "DhtPin", "SerialRX", "SerialTX", "AnalogSensorPin0", "AnalogSensorPin1",
+    "WindSensorPin", "RainfallSensorPin", "LEDPin", "OneWirePin",
+    "Button1", "Button2", "Button2GetURL", "NumberOfLEDs",
+    "FindSensors", "IsOfflineMode", "ShowWebpage",
+    "UseMQTT", "MQTTTopic", "MQTTPort",
+    "DeepSleepTime", "BufferedValues", "MeasureInterval",
+    "SunriseSettings", "LightLow", "LightMedium", "LightHigh",
 }
+
+# Every route the v2 contract removed. Each must be gone, not merely unused: a
+# route left behind is a second way to do something, and the reason the old API
+# had two write encodings and three ways to read the time.
+REMOVED_ROUTES = [
+    ("GET", "/api/version"),
+    ("GET", "/api/time"),
+    ("GET", "/api/led"),
+    ("PUT", "/api/led"),
+    ("POST", "/api/config"),
+    ("GET", "/api/button1"),
+    ("GET", "/api/button2"),
+    ("GET", "/restart"),
+    ("GET", "/get"),
+]
 
 
 @dataclass
@@ -75,17 +70,10 @@ def request(base_url: str, path: str, method: str = "GET",
     req = Request(f"{base_url}{path}", data=data, method=method, headers=headers)
     try:
         with urlopen(req, timeout=5) as response:
-            return Response(
-                response.status,
-                response.read(),
-                response.headers.get_content_type(),
-            )
+            return Response(response.status, response.read(),
+                            response.headers.get_content_type())
     except HTTPError as error:
-        return Response(
-            error.code,
-            error.read(),
-            error.headers.get_content_type(),
-        )
+        return Response(error.code, error.read(), error.headers.get_content_type())
     except URLError as error:
         raise ContractFailure(f"{method} {path}: connection failed: {error.reason}") from error
 
@@ -94,8 +82,7 @@ def require_status(response: Response, expected: int, description: str) -> None:
     if response.status != expected:
         raise ContractFailure(
             f"{description}: expected HTTP {expected}, got {response.status}: "
-            f"{response.body.decode('utf-8', errors='replace')}"
-        )
+            f"{response.body.decode('utf-8', errors='replace')}")
 
 
 def response_json(response: Response, description: str) -> dict[str, Any]:
@@ -108,22 +95,137 @@ def response_json(response: Response, description: str) -> dict[str, Any]:
     return value
 
 
-def check_config(config: dict[str, Any]) -> None:
+def check_config(config: dict[str, Any], description: str) -> None:
     missing = REQUIRED_CONFIG_FIELDS - config.keys()
     if missing:
-        raise ContractFailure(f"GET /api/config: missing fields: {', '.join(sorted(missing))}")
-    if config["WiFiPassword"] != "" or config["ApiToken"] != "":
-        raise ContractFailure("GET /api/config: secret fields must be redacted")
-    if not isinstance(config["HasWiFiPassword"], bool) or not isinstance(config["HasApiToken"], bool):
-        raise ContractFailure("GET /api/config: HasWiFiPassword/HasApiToken must be booleans")
+        raise ContractFailure(f"{description}: missing fields: {', '.join(sorted(missing))}")
+    for secret in ("WiFiPassword", "ApiToken"):
+        if secret in config:
+            raise ContractFailure(
+                f"{description}: {secret} must be omitted, not returned")
+    for flag in ("HasWiFiPassword", "HasApiToken"):
+        if not isinstance(config[flag], bool):
+            raise ContractFailure(f"{description}: {flag} must be a boolean")
 
 
-def check_led(led: dict[str, Any]) -> None:
-    for field in ("Red", "Green", "Blue", "Brightness", "Mode", "Message"):
-        if field not in led:
-            raise ContractFailure(f"GET /api/led: missing {field}")
-    if not isinstance(led["Message"], str):
-        raise ContractFailure("GET /api/led: Message must be a string")
+def check_status(status: dict[str, Any]) -> None:
+    if status.get("ApiVersion") != API_VERSION:
+        raise ContractFailure(
+            f"GET /api/status: ApiVersion is {status.get('ApiVersion')!r}, "
+            f"expected {API_VERSION}")
+    for field in ("Version", "UpTimeSeconds", "FreeHeap", "SensorID"):
+        if field not in status:
+            raise ContractFailure(f"GET /api/status: missing {field}")
+
+    for group, fields in (
+        ("WiFi", ("Connected", "SSID", "RSSI", "IP")),
+        ("Time", ("IsSynced",)),
+        ("Light", ("HasStrip",)),
+        ("Alarm", ("IsActivated", "IsRunning")),
+        ("Sensors", ("AgeSeconds", "Values")),
+    ):
+        if not isinstance(status.get(group), dict):
+            raise ContractFailure(f"GET /api/status: missing {group} object")
+        for field in fields:
+            if field not in status[group]:
+                raise ContractFailure(f"GET /api/status: missing {group}.{field}")
+
+    if status["Light"]["HasStrip"]:
+        for field in ("Red", "Green", "Blue", "Brightness", "Mode", "Owner"):
+            if field not in status["Light"]:
+                raise ContractFailure(f"GET /api/status: missing Light.{field}")
+        if status["Light"]["Owner"] not in (
+                "manual", "sunrise", "mqtt", "button", "sensor"):
+            raise ContractFailure(
+                f"GET /api/status: unknown Light.Owner {status['Light']['Owner']!r}")
+
+    values = status["Sensors"]["Values"]
+    if not isinstance(values, list):
+        raise ContractFailure("GET /api/status: Sensors.Values must be a list")
+    for value in values:
+        for field in ("Name", "Value", "Unit"):
+            if field not in value:
+                raise ContractFailure(f"GET /api/status: missing Sensors.Values[].{field}")
+
+
+def check_removed_routes(base_url: str, token: str | None) -> None:
+    for method, path in REMOVED_ROUTES:
+        require_status(request(base_url, path, method, token=token), 404,
+                       f"removed route {method} {path}")
+
+
+def check_uniform_auth(base_url: str) -> None:
+    """With a token set, everything under /api and /restart needs it.
+
+    The page itself must stay reachable: a browser cannot attach a header to a
+    navigation, and that page is what lets an operator type the token in.
+    """
+    for method, path in (
+        ("GET", "/api/status"),
+        ("GET", "/api/config"),
+        ("PUT", "/api/config"),
+        ("POST", "/api/led"),
+        ("POST", "/api/alarm/test"),
+        ("POST", "/api/button/1"),
+        ("POST", "/api/button/2"),
+        ("POST", "/restart"),
+    ):
+        payload = {} if method in ("PUT", "POST") else None
+        require_status(request(base_url, path, method, payload), 401,
+                       f"unauthenticated {method} {path}")
+    require_status(request(base_url, "/"), 200, "unauthenticated GET /")
+
+
+def check_partial_writes(base_url: str, token: str | None,
+                         config: dict[str, Any]) -> None:
+    """A write carries only what it changes, and cannot clobber the rest.
+
+    This is the rule the whole client contract rests on. Writing one field used
+    to mean resending the entire document, which made every client responsible
+    for fields it did not model -- and the app grew five otherwise-unused
+    settings purely to avoid resetting them.
+    """
+    sensor_id = config["SensorID"]
+    response = request(base_url, "/api/config", "PUT", {"SensorID": sensor_id}, token)
+    require_status(response, 200, "partial PUT /api/config")
+    stored = response_json(response, "partial PUT /api/config")
+    check_config(stored, "partial PUT /api/config")
+
+    if "RestartRequired" not in stored:
+        raise ContractFailure("PUT /api/config: missing RestartRequired")
+    if stored["RestartRequired"]:
+        raise ContractFailure(
+            "PUT /api/config: a no-op write reported RestartRequired")
+
+    for field in ("NumberOfLEDs", "LEDPin", "MQTTTopic", "MeasureInterval"):
+        if stored[field] != config[field]:
+            raise ContractFailure(
+                f"partial PUT /api/config: {field} changed from "
+                f"{config[field]!r} to {stored[field]!r}")
+
+    # Arming the alarm must not disturb the per-day schedule.
+    armed = config["SunriseSettings"]["IsActivated"]
+    response = request(base_url, "/api/config", "PUT",
+                       {"SunriseSettings": {"IsActivated": armed}}, token)
+    require_status(response, 200, "partial alarm PUT /api/config")
+    stored = response_json(response, "partial alarm PUT /api/config")
+    if stored["SunriseSettings"] != config["SunriseSettings"]:
+        raise ContractFailure(
+            "partial alarm PUT /api/config: the day schedule was not preserved")
+
+
+def check_partial_light(base_url: str, token: str | None,
+                        light: dict[str, Any]) -> None:
+    """{"Brightness": n} leaves colour and mode alone."""
+    response = request(base_url, "/api/led", "POST",
+                       {"Brightness": light["Brightness"]}, token)
+    require_status(response, 200, "partial POST /api/led")
+    stored = response_json(response, "partial POST /api/led")
+    for channel in ("Red", "Green", "Blue", "Mode"):
+        if stored[channel] != light[channel]:
+            raise ContractFailure(
+                f"partial POST /api/led: {channel} changed from "
+                f"{light[channel]!r} to {stored[channel]!r}")
 
 
 def oversized_body_survives(base_url: str) -> None:
@@ -154,7 +256,7 @@ def oversized_body_survives(base_url: str) -> None:
     try:
         connection.sendall(head + b"A" * 4000)
         connection.settimeout(10)
-        # A device that clamps correctly either answers 401 (the library already
+        # A device that clamps correctly either answers (the library already
         # trimmed the body) or never completes the request (the body overshot
         # Content-Length, so the parser never reaches its end). Both are fine;
         # a reboot is not.
@@ -164,19 +266,31 @@ def oversized_body_survives(base_url: str) -> None:
     finally:
         connection.close()
 
-    # The device needs a moment if it is busy, but it must not have restarted.
-    for attempt in range(10):
+    for _ in range(10):
         try:
-            probe = request(base_url, "/api/version")
-            if probe.status == 200 and probe.body.strip():
+            probe = request(base_url, "/api/status")
+            if probe.status in (200, 401):
                 return
         except ContractFailure:
             pass
         time.sleep(1)
     raise ContractFailure(
         "oversized body probe: device stopped answering -- it likely crashed on "
-        "an over-declared Content-Length"
-    )
+        "an over-declared Content-Length")
+
+
+def check_page_is_gzipped(base_url: str) -> None:
+    req = Request(f"{base_url}/", headers={"Accept-Encoding": "gzip"})
+    try:
+        with urlopen(req, timeout=5) as response:
+            encoding = response.headers.get("Content-Encoding")
+            body = response.read()
+    except (HTTPError, URLError) as error:
+        raise ContractFailure(f"GET /: {error}") from error
+    if encoding != "gzip":
+        raise ContractFailure(f"GET /: expected Content-Encoding gzip, got {encoding!r}")
+    if not body.startswith(b"\x1f\x8b"):
+        raise ContractFailure("GET /: body is not a gzip stream")
 
 
 def main() -> int:
@@ -185,9 +299,9 @@ def main() -> int:
                         help="device origin, for example http://192.168.4.1")
     parser.add_argument("--token", help="configured pre-shared API token")
     parser.add_argument("--expect-auth", action="store_true",
-                        help="assert a no-token command request returns 401")
+                        help="assert that every /api request without the token is 401")
     parser.add_argument("--mutations", action="store_true",
-                        help="run safe validation and no-op PUT checks")
+                        help="run validation refusals and no-op partial writes")
     parser.add_argument("--commands", action="store_true",
                         help="press buttons and restart; requires --mutations")
     args = parser.parse_args()
@@ -197,62 +311,49 @@ def main() -> int:
 
     base_url = args.base_url.rstrip("/")
     try:
+        check_page_is_gzipped(base_url)
+
         if args.expect_auth:
-            require_status(
-                request(base_url, "/api/button1"),
-                401,
-                "unauthenticated GET /api/button1",
-            )
+            check_uniform_auth(base_url)
+
+        status_response = request(base_url, "/api/status", token=args.token)
+        require_status(status_response, 200, "GET /api/status")
+        status = response_json(status_response, "GET /api/status")
+        check_status(status)
 
         config_response = request(base_url, "/api/config", token=args.token)
         require_status(config_response, 200, "GET /api/config")
         config = response_json(config_response, "GET /api/config")
-        check_config(config)
+        check_config(config, "GET /api/config")
 
-        led_response = request(base_url, "/api/led", token=args.token)
-        require_status(led_response, 200, "GET /api/led")
-        check_led(response_json(led_response, "GET /api/led"))
-
-        version_response = request(base_url, "/api/version", token=args.token)
-        require_status(version_response, 200, "GET /api/version")
-        if not version_response.body.strip():
-            raise ContractFailure("GET /api/version: response must not be empty")
-
-        time_response = request(base_url, "/api/time", token=args.token)
-        require_status(time_response, 200, "GET /api/time")
-        if not re.fullmatch(r"\d{1,2}:\d{1,2} \(weekday \d+\)",
-                            time_response.body.decode("utf-8").strip()):
-            raise ContractFailure("GET /api/time: unexpected response format")
-
-        require_status(request(base_url, "/get", token=args.token), 404, "GET /get")
-
+        check_removed_routes(base_url, args.token)
         oversized_body_survives(base_url)
 
         if args.mutations:
             require_status(
-                request(base_url, "/api/config", "POST", {"IsConfigured": "invalid"},
+                request(base_url, "/api/config", "PUT", {"NumberOfLEDs": "many"},
                         args.token),
-                400,
-                "invalid POST /api/config",
-            )
+                400, "wrong-typed PUT /api/config")
             require_status(
-                request(base_url, "/api/led", "POST",
-                        {"Mode": 999, "Brightness": 0, "Red": 0, "Green": 0, "Blue": 0},
+                request(base_url, "/api/config", "PUT",
+                        {"SunriseSettings": {"Monday": {"AlarmTime": "25:00"}}},
                         args.token),
-                400,
-                "invalid POST /api/led",
-            )
-            put_response = request(base_url, "/api/config", "PUT", config, args.token)
-            require_status(put_response, 200, "no-op PUT /api/config")
-            check_config(response_json(put_response, "no-op PUT /api/config"))
+                400, "invalid alarm time PUT /api/config")
+            require_status(
+                request(base_url, "/api/led", "POST", {"Mode": 999}, args.token),
+                400, "out-of-range POST /api/led")
+
+            check_partial_writes(base_url, args.token, config)
+            if status["Light"]["HasStrip"]:
+                check_partial_light(base_url, args.token, status["Light"])
 
         if args.commands:
-            require_status(request(base_url, "/api/button1", token=args.token), 200,
-                           "GET /api/button1")
-            require_status(request(base_url, "/api/button2", token=args.token), 200,
-                           "GET /api/button2")
-            require_status(request(base_url, "/restart", token=args.token), 200,
-                           "GET /restart")
+            require_status(request(base_url, "/api/button/1", "POST", token=args.token),
+                           200, "POST /api/button/1")
+            require_status(request(base_url, "/api/button/2", "POST", token=args.token),
+                           200, "POST /api/button/2")
+            require_status(request(base_url, "/restart", "POST", token=args.token),
+                           200, "POST /restart")
     except ContractFailure as error:
         print(f"FAIL: {error}", file=sys.stderr)
         return 1

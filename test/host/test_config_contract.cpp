@@ -9,13 +9,21 @@ void test_config_rejects_invalid_json();
 void test_legacy_config_uses_documented_defaults();
 void test_partial_light_config_defaults_each_omitted_channel();
 void test_missing_sunrise_day_uses_alarm_weekday_default();
-void test_redacted_secrets_preserve_existing_values_and_stay_redacted();
 void test_null_secrets_are_treated_as_absent();
 void test_non_string_secrets_are_treated_as_absent();
-void test_clear_api_token_command_empties_the_stored_token();
-void test_absent_clear_flag_keeps_the_stored_token();
-void test_supplied_token_wins_over_the_clear_flag();
-void test_domain_codec_uses_supplied_secret_values();
+void test_absent_keys_keep_every_stored_value();
+void test_arming_the_alarm_keeps_every_day_schedule();
+void test_toggling_one_day_keeps_its_time_and_the_other_days();
+void test_a_single_light_channel_leaves_the_others_alone();
+void test_absent_secret_keeps_the_stored_value();
+void test_an_explicit_empty_secret_clears_it();
+void test_redacted_output_omits_secrets_so_a_round_trip_keeps_them();
+void test_strict_mode_refuses_a_wrong_typed_field();
+void test_lenient_mode_keeps_the_stored_value_for_a_wrong_typed_field();
+void test_a_body_that_is_not_an_object_is_refused();
+void test_alarm_and_preset_changes_apply_live();
+void test_hardware_and_network_changes_need_a_restart();
+void test_an_unchanged_config_needs_no_restart();
 void test_deadline_reached_before_rollover();
 void test_deadline_reached_after_millis_rollover();
 void test_body_chunk_fitting_the_declared_length_is_kept_whole();
@@ -58,7 +66,7 @@ void test_current_config_fixture_has_the_complete_public_contract()
       parseFixture("test/host/fixtures/current-redacted-config.json");
   const char *requiredFields[] = {
       "IsConfigured", "ServerAddress", "SensorID", "WiFiName",
-      "WiFiPassword", "HasWiFiPassword", "ApiToken", "HasApiToken",
+      "HasWiFiPassword", "HasApiToken",
       "DhtPin", "SerialRX", "SerialTX", "AnalogSensorPin0",
       "AnalogSensorPin1", "WindSensorPin", "RainfallSensorPin", "LEDPin",
       "OneWirePin", "Button1", "Button2", "Button2GetURL", "NumberOfLEDs",
@@ -71,9 +79,11 @@ void test_current_config_fixture_has_the_complete_public_contract()
   {
     TEST_ASSERT_FALSE_MESSAGE(document[field].isNull(), field);
   }
-  TEST_ASSERT_EQUAL_STRING("", document["WiFiPassword"].as<const char *>());
+  // Redacted output omits the secrets entirely rather than blanking them, so
+  // that feeding it back cannot clear what it could not disclose.
+  TEST_ASSERT_TRUE(document["WiFiPassword"].isNull());
   TEST_ASSERT_TRUE(document["HasWiFiPassword"].as<bool>());
-  TEST_ASSERT_EQUAL_STRING("", document["ApiToken"].as<const char *>());
+  TEST_ASSERT_TRUE(document["ApiToken"].isNull());
   TEST_ASSERT_FALSE(document["HasApiToken"].as<bool>());
 }
 
@@ -106,13 +116,21 @@ int main()
   RUN_TEST(test_legacy_config_uses_documented_defaults);
   RUN_TEST(test_partial_light_config_defaults_each_omitted_channel);
   RUN_TEST(test_missing_sunrise_day_uses_alarm_weekday_default);
-  RUN_TEST(test_redacted_secrets_preserve_existing_values_and_stay_redacted);
   RUN_TEST(test_null_secrets_are_treated_as_absent);
   RUN_TEST(test_non_string_secrets_are_treated_as_absent);
-  RUN_TEST(test_clear_api_token_command_empties_the_stored_token);
-  RUN_TEST(test_absent_clear_flag_keeps_the_stored_token);
-  RUN_TEST(test_supplied_token_wins_over_the_clear_flag);
-  RUN_TEST(test_domain_codec_uses_supplied_secret_values);
+  RUN_TEST(test_absent_keys_keep_every_stored_value);
+  RUN_TEST(test_arming_the_alarm_keeps_every_day_schedule);
+  RUN_TEST(test_toggling_one_day_keeps_its_time_and_the_other_days);
+  RUN_TEST(test_a_single_light_channel_leaves_the_others_alone);
+  RUN_TEST(test_absent_secret_keeps_the_stored_value);
+  RUN_TEST(test_an_explicit_empty_secret_clears_it);
+  RUN_TEST(test_redacted_output_omits_secrets_so_a_round_trip_keeps_them);
+  RUN_TEST(test_strict_mode_refuses_a_wrong_typed_field);
+  RUN_TEST(test_lenient_mode_keeps_the_stored_value_for_a_wrong_typed_field);
+  RUN_TEST(test_a_body_that_is_not_an_object_is_refused);
+  RUN_TEST(test_alarm_and_preset_changes_apply_live);
+  RUN_TEST(test_hardware_and_network_changes_need_a_restart);
+  RUN_TEST(test_an_unchanged_config_needs_no_restart);
   RUN_TEST(test_deadline_reached_before_rollover);
   RUN_TEST(test_deadline_reached_after_millis_rollover);
   RUN_TEST(test_body_chunk_fitting_the_declared_length_is_kept_whole);

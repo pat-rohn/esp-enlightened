@@ -9,6 +9,7 @@
 #include "version.h"
 #include "web_assets.generated.h"
 #include "domain/request_body.h"
+#include "sensors/sensors.h"
 #include <atomic>
 #include <memory>
 
@@ -50,14 +51,19 @@ namespace webpage
       sendJson(request, code, body);
     }
 
-    // [D2] Pre-shared token gate for configuration and lifecycle endpoints
-    // (/api/config writes, /restart). Light control -- /api/led and the
-    // /api/buttonN triggers -- is deliberately NOT gated: controlling the
-    // lights must keep working regardless of whether a token is configured.
-    // An empty ApiToken
-    // (the default) means auth is not configured yet, so existing clients
-    // that send no header (e.g. the companion app) keep working; setting a
-    // token is how an operator opts into requiring it.
+    // One rule for the whole API: when ApiToken is set, every /api/* request
+    // and /restart must carry it. Reads included.
+    //
+    // The old split -- writes gated, light control and every GET ungated --
+    // meant a device could be read out and its lights driven by anyone on the
+    // network while its configuration was protected, and it forced clients
+    // into a per-control unlock flow. An empty token (the default) means the
+    // device is unprotected, which is what makes first-time setup over the
+    // access point work.
+    //
+    // GET / is the one exception, and has to be: a browser cannot attach a
+    // header to a navigation, and that page is what lets an operator type the
+    // token in. It is a static asset and discloses nothing.
     bool isAuthorized(AsyncWebServerRequest *request)
     {
       const String &token = configman::getConfig().ApiToken;
@@ -72,6 +78,21 @@ namespace webpage
     void sendUnauthorized(AsyncWebServerRequest *request)
     {
       sendJson(request, 401, "{\"Message\": \"Error: unauthorized\"}");
+    }
+
+    // Wraps a handler in the token check, so the gate is structural rather
+    // than a line every route has to remember.
+    ArRequestHandlerFunction guarded(ArRequestHandlerFunction handler)
+    {
+      return [handler](AsyncWebServerRequest *request)
+      {
+        if (!isAuthorized(request))
+        {
+          sendUnauthorized(request);
+          return;
+        }
+        handler(request);
+      };
     }
 
     // Body handler: accumulates a raw request body chunk by chunk into
@@ -107,27 +128,17 @@ namespace webpage
       memcpy(static_cast<uint8_t *>(request->_tempObject) + index, data, writable);
     }
 
-    // Raw request body if one was sent, otherwise the value of the last posted
-    // form field (the historical input format).
+    // The raw request body. The form-urlencoded fallback that used to live
+    // here existed for a client that could not send a JSON body; that client
+    // is gone, and keeping two encodings meant a write could silently do
+    // nothing when the wrong one was used.
     String getInput(AsyncWebServerRequest *request)
     {
-      if (request->_tempObject != nullptr)
+      if (request->_tempObject == nullptr)
       {
-        return String(static_cast<const char *>(request->_tempObject));
+        return String();
       }
-      String input = "";
-      int params = request->params();
-      Serial.printf("%d params sent in\n", params);
-      for (int i = 0; i < params; i++)
-      {
-        const AsyncWebParameter *p = request->getParam(i);
-        if (p->isPost())
-        {
-          Serial.printf("_%s[%s]: %s\n", request->methodToString(), p->name().c_str(), p->value().c_str());
-          input = p->value();
-        }
-      }
-      return input;
+      return String(static_cast<const char *>(request->_tempObject));
     }
   }
 
@@ -177,127 +188,80 @@ namespace webpage
 
   void CWebPage::registerConfigRoutes()
   {
-    // Config Post (restarts on success). The config is only staged here;
-    // loop() applies and persists it before acting on the restart flag.
-    m_Server.on("/api/config", HTTP_POST, [](AsyncWebServerRequest *request)
-                {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
-                  String input = getInput(request);
-                  Serial.printf("Input is: %s\n", input.c_str());
-                  String staged;
-                  String error;
-                  if (!configman::stageConfig(input.c_str(), &staged, &error))
-                  {
-                    sendJsonMessage(request, 400,
-                                    error.isEmpty()
-                                        ? String("Error: invalid configuration")
-                                        : String("Error: ") + error);
-                    return;
-                  }
-                  sendJson(request, 200, staged);
-                  Serial.println("restart triggered");
-                  m_RestartTriggered->store(true); },
-                nullptr, collectBody);
-    /// Config PUT (no restart)
-    m_Server.on("/api/config", HTTP_PUT, [](AsyncWebServerRequest *request)
-                {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
-                  String input = getInput(request);
-                  Serial.printf("Input is: %s\n", input.c_str());
-                  String staged;
-                  String error;
-                  if (!configman::stageConfig(input.c_str(), &staged, &error))
-                  {
-                    sendJsonMessage(request, 400,
-                                    error.isEmpty()
-                                        ? String("Error: invalid configuration")
-                                        : String("Error: ") + error);
-                    return;
-                  }
-                  sendJson(request, 200, staged); },
-                nullptr, collectBody);
-    // Config Get
-    m_Server.on("/api/config", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  Serial.println("get /api/config");
+    m_Server.on("/api/config", HTTP_GET, guarded([](AsyncWebServerRequest *request)
+                                                 {
                   const auto& config = configman::getConfig();
-                  sendJson(request, 200, configman::serializeConfig(&config)); });
+                  sendJson(request, 200, configman::serializeConfig(&config)); }));
+
+    // Partial write: absent keys keep their stored value, so a client sends
+    // only what it is changing. The response is the stored document, which is
+    // what lets a client re-render from what the device kept instead of
+    // saving and then polling to find out whether it landed.
+    //
+    // The config is only staged here; loop() applies and persists it.
+    m_Server.on("/api/config", HTTP_PUT, guarded([](AsyncWebServerRequest *request)
+                                                 {
+                  String input = getInput(request);
+                  String staged;
+                  String error;
+                  bool restartRequired = false;
+                  if (!configman::stageConfig(input.c_str(), &staged, &error, &restartRequired))
+                  {
+                    sendJsonMessage(request, 400,
+                                    error.isEmpty()
+                                        ? String("Error: invalid configuration")
+                                        : String("Error: ") + error);
+                    return;
+                  }
+                  JsonDocument doc;
+                  deserializeJson(doc, staged);
+                  doc["RestartRequired"] = restartRequired;
+                  String body;
+                  serializeJson(doc, body);
+                  sendJson(request, 200, body); }),
+                nullptr, collectBody);
   }
 
   void CWebPage::registerLedRoutes()
   {
-    m_Server.on("/api/led", HTTP_GET, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, m_LedService->get()); });
-    m_Server.on("/api/led", HTTP_POST, [](AsyncWebServerRequest *request)
-                {
+    // Partial, like the config write: {"Brightness":40} leaves colour and mode
+    // alone. GET /api/led is gone -- /api/status carries the same values and
+    // one read is enough to open a screen.
+    m_Server.on("/api/led", HTTP_POST, guarded([](AsyncWebServerRequest *request)
+                                               {
                   String input = getInput(request);
                   if (input.isEmpty())
                   {
-                    Serial.printf("No input sent\n");
-                    sendJson(request, 400, m_LedService->get("Error: No input received"));
+                    sendJsonMessage(request, 400, "Error: No input received");
                     return;
                   }
-                  Serial.printf("Input is: %s\n", input.c_str());
                   String answer;
                   if (!m_LedService->apply(input, answer))
                   {
                     sendJson(request, 400, answer);
                     return;
                   }
-                  sendJson(request, 200, answer); },
-                nullptr, collectBody);
-    m_Server.on("/api/led", HTTP_PUT, [](AsyncWebServerRequest *request)
-                {
-                  Serial.printf("PUT set led\n");
-                  String input = getInput(request);
-                  if (input.isEmpty())
-                  {
-                    Serial.printf("No input sent\n");
-                    sendJson(request, 400, m_LedService->get("Error: No input received"));
-                    return;
-                  }
-                  Serial.printf("Input is: %s\n", input.c_str());
-                  String answer;
-                  if (!m_LedService->apply(input, answer))
-                  {
-                    sendJson(request, 400, answer);
-                    return;
-                  }
-                  sendJson(request, 200, answer); },
+                  sendJson(request, 200, answer); }),
                 nullptr, collectBody);
   }
 
   void CWebPage::registerCommandRoutes()
   {
-    m_Server.on("/api/button1", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  String answer = "{\"msg\": \"button 1 pressed\"}";
-                  sendJson(request, 200, answer);
-                  Serial.println(answer);
-                  m_ButtonPressed1->store(true); });
+    // POST, not GET: these mutate. A GET that presses a button is something a
+    // link preview or a crawler can trigger.
+    m_Server.on("/api/button/1", HTTP_POST, guarded([](AsyncWebServerRequest *request)
+                                                    {
+                  sendJsonMessage(request, 200, "Button 1 pressed");
+                  m_ButtonPressed1->store(true); }));
 
-    m_Server.on("/api/button2", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  String answer = "{\"msg\": \"button 2 pressed\"}";
-                  sendJson(request, 200, answer);
-                  Serial.println(answer);
-                  m_ButtonPressed2->store(true); });
+    m_Server.on("/api/button/2", HTTP_POST, guarded([](AsyncWebServerRequest *request)
+                                                    {
+                  sendJsonMessage(request, 200, "Button 2 pressed");
+                  m_ButtonPressed2->store(true); }));
 
-    // Restart
-    // Test the sunrise now, without touching the stored schedule [F11].
-    //
-    // Ungated, like /api/led and /api/buttonN: this is light control, and the
-    // token gate deliberately never blocks that. It changes no configuration.
-    m_Server.on("/api/alarm/test", HTTP_POST, [](AsyncWebServerRequest *request)
-                {
+    // Run the sunrise now, without touching the stored schedule [F11].
+    m_Server.on("/api/alarm/test", HTTP_POST, guarded([](AsyncWebServerRequest *request)
+                                                      {
                   if (m_SunriseAlarm == nullptr)
                   {
                     sendJsonMessage(request, 503, "Alarm is not available on this device");
@@ -330,58 +294,29 @@ namespace webpage
                   doc["DurationSeconds"] = seconds;
                   String body;
                   serializeJson(doc, body);
-                  sendJson(request, 200, body); });
+                  sendJson(request, 200, body); }));
 
-    m_Server.on("/restart", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  if (!isAuthorized(request))
-                  {
-                    sendUnauthorized(request);
-                    return;
-                  }
-                  String answer = "<html><head><meta http-equiv=\"refresh\" content=\"10;url=/\" /></head><body><h1>Redirecting in 10 seconds...</h1></body></html>";
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/html", answer);
-                  response->addHeader("Content-type", "text/html");
-                  response->addHeader("Access-Control-Allow-Origin", "*");
-                  response->addHeader("Access-Control-Allow-Methods", "GET");
-                  response->addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, Accept-Language, X-Authorization");
-                  request->send(response);
+    // POST and JSON, so a client gets an answer it can parse rather than an
+    // HTML meta-refresh page written for a browser that no longer loads it.
+    m_Server.on("/restart", HTTP_POST, guarded([](AsyncWebServerRequest *request)
+                                               {
+                  sendJsonMessage(request, 200, "Restarting");
                   Serial.println("restart triggered");
-                  m_RestartTriggered->store(true); });
+                  m_RestartTriggered->store(true); }));
   }
 
   void CWebPage::registerStatusRoutes()
   {
-    // Version Get
-    m_Server.on("/api/version", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                  String answer = getFirmwareVersion();
-                  Serial.println("get version " + answer);
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
-                  addCorsHeaders(response);
-                  request->send(response); });
-
-    // Time Get
-    m_Server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
-                auto hoursAndMinutes = m_TimeHelper->getHoursAndMinutes();
-                int weekday = m_TimeHelper->getWeekDay();
-                String answer = String(hoursAndMinutes.first) + ":" + String(hoursAndMinutes.second)
-                  + " (weekday " + String(weekday) + ")";
-                Serial.println("get time " + answer);
-                AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", answer);
-                addCorsHeaders(response);
-                request->send(response); });
-
-    // Status Get [F3]
-    //
-    // One cheap call behind a client's connection indicator and its clock
-    // warning. Read-only, so ungated like GET /api/config. Deliberately does
-    // not compute the next alarm: the client already has the schedule, and
-    // ESP8266 flash headroom is worth more than duplicated date arithmetic.
-    m_Server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request)
-                {
+    // One read for everything live. /api/version and /api/time are gone; both
+    // are fields here, and a client that needed all three used to make three
+    // requests to open one screen.
+    m_Server.on("/api/status", HTTP_GET, guarded([](AsyncWebServerRequest *request)
+                                                 {
                   JsonDocument doc;
+                  // Bumped on every breaking change, so a client on the wrong
+                  // release can say "this device needs a firmware update"
+                  // instead of surfacing a bare 404.
+                  doc["ApiVersion"] = kApiVersion;
                   doc["Version"] = getFirmwareVersion();
                   doc["UpTimeSeconds"] = millis() / 1000;
                   doc["FreeHeap"] = ESP.getFreeHeap();
@@ -415,14 +350,47 @@ namespace webpage
                     time["IsSynced"] = false;
                   }
 
+                  // Owner is why a client can state what is driving the strip
+                  // rather than inferring it; see LedStrip::LEDOwner.
+                  JsonObject light = doc["Light"].to<JsonObject>();
+                  light["HasStrip"] = config.NumberOfLEDs > 0;
+                  if (m_LedService != nullptr && m_LedService->m_LedStrip != nullptr)
+                  {
+                    LedStrip *strip = m_LedService->m_LedStrip;
+                    const std::array<uint8_t, 3> color = strip->getColor();
+                    light["Red"] = color[0];
+                    light["Green"] = color[1];
+                    light["Blue"] = color[2];
+                    light["Brightness"] = int(strip->m_Factor * 100);
+                    light["Mode"] = int(strip->m_LEDMode);
+                    light["Owner"] = LedStrip::ownerName(strip->m_Owner);
+                  }
+
                   JsonObject alarm = doc["Alarm"].to<JsonObject>();
                   alarm["IsActivated"] = config.AlarmSettings.IsActivated;
                   alarm["IsRunning"] =
                       m_SunriseAlarm != nullptr && m_SunriseAlarm->isRunning();
 
+                  // The cache the loop fills, never a live read: sensor I/O on
+                  // the HTTP task would race the loop for the same buses.
+                  JsonObject sensors = doc["Sensors"].to<JsonObject>();
+                  sensors["AgeSeconds"] = sensor::getCachedValuesAgeSeconds();
+                  JsonArray values = sensors["Values"].to<JsonArray>();
+                  for (const auto &entry : sensor::getCachedValues())
+                  {
+                    if (!entry.second.isValid)
+                    {
+                      continue;
+                    }
+                    JsonObject value = values.add<JsonObject>();
+                    value["Name"] = entry.second.name;
+                    value["Value"] = entry.second.value;
+                    value["Unit"] = entry.second.unit;
+                  }
+
                   String body;
                   serializeJson(doc, body);
-                  sendJson(request, 200, body); });
+                  sendJson(request, 200, body); }));
 
     // The page is the one route that is never token-gated: a browser cannot
     // attach a header to a navigation, and this page is what lets an operator
@@ -445,27 +413,12 @@ namespace webpage
 
   void CWebPage::registerOptionsRoutes()
   {
-    m_Server.on("/api/led", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/button1", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/button2", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/config", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/time", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
-                  addCorsHeaders(response);
-                  request->send(response); });
-    m_Server.on("/api/status", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/alarm/test", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                { sendJson(request, 200, ""); });
-    m_Server.on("/api/version", HTTP_OPTIONS, [](AsyncWebServerRequest *request)
-                {
-                  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", "");
-                  addCorsHeaders(response);
-                  request->send(response); });
+    for (const char *path : {"/api/config", "/api/led", "/api/status",
+                             "/api/alarm/test", "/api/button/1", "/api/button/2",
+                             "/restart"})
+    {
+      m_Server.on(path, HTTP_OPTIONS, [](AsyncWebServerRequest *request)
+                  { sendJson(request, 200, ""); });
+    }
   }
 }
