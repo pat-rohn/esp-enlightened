@@ -1,74 +1,869 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Enlightened configuration</title>
-  <style>
-    :root{color-scheme:dark;font:16px system-ui,sans-serif;background:#111;color:#eee}
-    body{max-width:880px;margin:auto;padding:1rem}h1{margin-bottom:0}small,#status{color:#bbb}
-    fieldset{border:1px solid #555;border-radius:.5rem;margin:1rem 0;padding:1rem}
-    legend{font-weight:bold}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.75rem}
-    label{display:grid;gap:.25rem}input{box-sizing:border-box;width:100%;padding:.45rem;border:1px solid #666;border-radius:.25rem;background:#222;color:inherit}
-    input[type=checkbox]{width:auto;justify-self:start}button{padding:.6rem .9rem;border:0;border-radius:.25rem;background:#2476cc;color:#fff;font:inherit;cursor:pointer}
-    button.danger{background:#a33}button:disabled{opacity:.6;cursor:wait}.nested{grid-column:1/-1;border-top:1px solid #444;padding-top:.75rem}.error{color:#ff8b8b}.ok{color:#8fdb8f}
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enlightened</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#f4f5f8; --card:#fff; --ink:#12141a; --muted:#6b7280; --line:#dfe3ea;
+  --primary:#3880ff; --danger:#eb445a; --warning:#e6a100; --success:#1fa855;
+  --radius:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#121317;--card:#1c1e24;--ink:#e9eaee;--muted:#9aa0ab;--line:#2c2f37;
+        --primary:#4d92ff;--danger:#ff6b7d;--warning:#ffc409;--success:#2dd36f}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:0 12px 96px}
+h1{font-size:1.05rem;margin:0}
+h2{font-size:1rem;margin:0 0 2px}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+
+/* Header ------------------------------------------------------------------ */
+header{position:sticky;top:0;z-index:5;background:var(--card);
+  border-bottom:1px solid var(--line);padding:10px 12px}
+.head{max-width:720px;margin:0 auto;display:flex;align-items:center;gap:10px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--muted);flex:0 0 auto}
+.dot.on{background:var(--success)}
+.dot.off{background:var(--danger)}
+.head .grow{flex:1;min-width:0}
+.head .grow p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip{max-width:720px;margin:6px auto 0;display:flex;gap:14px;flex-wrap:wrap;
+  font-size:.82rem;color:var(--muted)}
+.strip.stale{opacity:.55}
+.strip b{color:var(--ink);font-weight:600}
+
+/* Tabs -------------------------------------------------------------------- */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);
+  border-top:1px solid var(--line);display:flex;
+  padding-bottom:env(safe-area-inset-bottom)}
+nav a{flex:1;text-align:center;padding:10px 4px;font-size:.78rem;
+  text-decoration:none;color:var(--muted)}
+nav a.active{color:var(--primary);font-weight:600}
+nav a span{display:block;font-size:1.15rem;line-height:1.2}
+
+/* Building blocks --------------------------------------------------------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;margin:12px 0}
+.row{display:flex;align-items:center;gap:12px;padding:9px 0;
+  border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .grow{flex:1;min-width:0}
+.section{margin:20px 0 6px;font-size:.78rem;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--muted);font-weight:600}
+button{font:inherit;padding:.5rem .85rem;border-radius:8px;border:1px solid transparent;
+  background:var(--primary);color:#fff;cursor:pointer}
+button.ghost{background:transparent;border-color:var(--primary);color:var(--primary)}
+button.flat{background:transparent;border-color:transparent;color:var(--primary);
+  padding:.4rem .5rem}
+button.danger{background:var(--danger)}
+button.small{padding:.3rem .6rem;font-size:.82rem}
+button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+input,select{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);
+  border-radius:8px;padding:.45rem .5rem;max-width:100%}
+input[type=checkbox]{width:auto}
+label.field{display:grid;gap:3px;font-size:.85rem;color:var(--muted)}
+label.field input,label.field select{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.note{display:flex;gap:8px;padding:9px 11px;border-radius:8px;margin-top:10px;
+  font-size:.87rem;align-items:flex-start}
+.note.warn{background:color-mix(in srgb,var(--warning) 16%,transparent);color:var(--warning)}
+.note.bad{background:color-mix(in srgb,var(--danger) 14%,transparent);color:var(--danger)}
+.note.good{background:color-mix(in srgb,var(--success) 14%,transparent);color:var(--success)}
+
+/* Switch ------------------------------------------------------------------ */
+.sw{position:relative;width:44px;height:26px;flex:0 0 auto}
+.sw input{position:absolute;inset:0;opacity:0;margin:0;width:100%;height:100%;cursor:pointer}
+.sw i{position:absolute;inset:0;border-radius:13px;background:var(--line);
+  transition:background .15s}
+.sw i::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;
+  border-radius:50%;background:#fff;transition:transform .15s;
+  box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw input:checked+i{background:var(--primary)}
+.sw input:checked+i::after{transform:translateX(18px)}
+
+/* Light tab --------------------------------------------------------------- */
+.swatch{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);flex:0 0 auto}
+.swatch.sm{width:26px;height:26px}
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;
+  width:100%;padding:0;border:0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;
+  background:var(--track,var(--line))}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;
+  background:var(--track,var(--line))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;
+  margin-top:-7px;border-radius:50%;background:var(--knob,var(--primary));
+  box-shadow:0 1px 3px rgba(0,0,0,.35)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border:0;border-radius:50%;
+  background:var(--knob,var(--primary));box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.slider{display:grid;grid-template-columns:58px 1fr 44px;align-items:center;gap:10px;
+  padding:7px 0}
+.slider .val{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);
+  font-size:.85rem}
+
+/* Misc -------------------------------------------------------------------- */
+.hidden{display:none!important}
+.lock{max-width:340px;margin:56px auto;text-align:center}
+.lock input{width:100%;margin:10px 0}
+#toast{position:fixed;left:50%;bottom:74px;transform:translateX(-50%);
+  background:var(--ink);color:var(--bg);padding:.5rem .9rem;border-radius:8px;
+  font-size:.87rem;max-width:88vw;z-index:9;opacity:0;pointer-events:none;
+  transition:opacity .2s}
+#toast.show{opacity:.95}
+</style>
 </head>
 <body>
-  <h1>Enlightened</h1>
-  <small id="summary">Loading configuration...</small>
-  <p id="status" role="status"></p>
-  <form id="config-form">
-    <fieldset><legend>Authorization</legend><label>Authorization token <input id="authorization" type="password" autocomplete="current-password" placeholder="Required only when the device has a token"></label></fieldset>
-    <div id="fields"></div>
-    <p><button id="save" type="submit">Save changes</button> <button id="refresh" type="button">Refresh</button> <button id="restart" class="danger" type="button">Restart device</button></p>
-  </form>
+
+<header>
+  <div class="head">
+    <span class="dot" id="dot"></span>
+    <div class="grow">
+      <h1 id="devname">Enlightened</h1>
+      <p class="small muted" id="devsub">Connecting…</p>
+    </div>
+    <button class="flat" id="refresh" title="Refresh" aria-label="Refresh">&#8635;</button>
+  </div>
+  <div class="strip hidden" id="sensors"></div>
+</header>
+
+<div class="wrap">
+  <div id="lock" class="lock hidden">
+    <h2>This device is locked</h2>
+    <p class="small muted">It has an API token set. Enter it to continue.</p>
+    <input id="tokenInput" type="password" placeholder="API token"
+           autocomplete="current-password">
+    <button id="unlock">Unlock</button>
+  </div>
+
+  <main id="view-light" class="view"></main>
+  <main id="view-alarm" class="view hidden"></main>
+  <main id="view-settings" class="view hidden"></main>
+</div>
+
+<nav>
+  <a href="#/light" data-tab="light"><span>&#9679;</span>Light</a>
+  <a href="#/alarm" data-tab="alarm"><span>&#9200;</span>Alarm</a>
+  <a href="#/settings" data-tab="settings"><span>&#9881;</span>Settings</a>
+</nav>
+
+<div id="toast" role="status"></div>
+
 <script>
 (() => {
-  const form=document.querySelector('#config-form'), fields=document.querySelector('#fields'), status=document.querySelector('#status');
-  const token=document.querySelector('#authorization'), key=`enlightened-token:${location.origin}`;
-  const groups={
-    Connection:['IsConfigured','ServerAddress','SensorID','WiFiName','WiFiPassword','ApiToken','IsOfflineMode','ShowWebpage'],
-    'Hardware and sensors':['DhtPin','SerialRX','SerialTX','AnalogSensorPin0','AnalogSensorPin1','WindSensorPin','RainfallSensorPin','LEDPin','OneWirePin','Button1','Button2','Button2GetURL','NumberOfLEDs','FindSensors'],
-    Telemetry:['UseMQTT','MQTTTopic','MQTTPort','DeepSleepTime','BufferedValues','MeasureInterval'],
-    'Automation and light':['SunriseSettings','LightLow','LightMedium','LightHigh']
+"use strict";
+
+// --- Constants -------------------------------------------------------------
+const API_VERSION = 2;
+const MODES = ["On", "Off", "Campfire", "Colourful", "Sunrise", "Pulse"];
+const MODE_ON = 0, MODE_OFF = 1;
+// The device numbers weekdays Monday=0..Sunday=6, and /api/status reports the
+// same numbering, so this array indexes both the schedule and Time.Weekday.
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+              "Saturday", "Sunday"];
+const PRESETS = [["LightLow", "Low"], ["LightMedium", "Medium"], ["LightHigh", "High"]];
+const TOKEN_KEY = "enlightened-token:" + location.origin;
+
+// --- State -----------------------------------------------------------------
+const S = {
+  token: localStorage.getItem(TOKEN_KEY) || "",
+  status: null,       // last /api/status
+  config: null,       // last /api/config
+  alarm: null,        // working copy of SunriseSettings while editing
+  locked: false,
+  online: false,
+  saving: false,
+  tab: "light",
+};
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let toastTimer;
+function toast(message) {
+  const el = $("toast");
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+}
+
+// --- Transport -------------------------------------------------------------
+// Auth is uniform: if the device has a token, every /api call needs it. So a
+// 401 locks the whole page rather than one control, and there is no per-action
+// unlock flow to build.
+async function api(path, { method = "GET", body } = {}) {
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (S.token) headers["X-Authorization"] = S.token;
+
+  let response;
+  try {
+    response = await fetch(path, {
+      method, headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    setOnline(false);
+    throw new Error("The device did not answer.");
+  }
+  setOnline(true);
+
+  if (response.status === 401) {
+    S.locked = true;
+    render();
+    throw new Error("locked");
+  }
+
+  const text = await response.text();
+  let payload = null;
+  try { payload = text ? JSON.parse(text) : null; } catch { /* not JSON */ }
+
+  if (!response.ok) {
+    // The device explains its refusals in Message, naming the field and
+    // quoting the value. Showing that beats inventing our own wording.
+    throw new Error((payload && payload.Message) || `Request failed (${response.status})`);
+  }
+  return payload;
+}
+
+function setOnline(online) {
+  if (S.online === online) return;
+  S.online = online;
+  paintHeader();
+}
+
+// --- Loading ---------------------------------------------------------------
+async function loadStatus() {
+  const status = await api("/api/status");
+  if (status.ApiVersion !== API_VERSION) {
+    document.body.innerHTML =
+      '<div class="lock"><h2>This device needs a firmware update</h2>' +
+      '<p class="small muted">It speaks API version ' + esc(status.ApiVersion) +
+      "; this page speaks " + API_VERSION + ".</p></div>";
+    throw new Error("version mismatch");
+  }
+  S.status = status;
+  S.locked = false;
+  return status;
+}
+
+async function loadConfig() {
+  S.config = await api("/api/config");
+  // Only adopt the alarm into the working copy when nothing is being edited,
+  // so a background poll cannot discard what the user is halfway through.
+  if (!S.alarm) S.alarm = structuredClone(S.config.SunriseSettings);
+  return S.config;
+}
+
+async function loadAll() {
+  try {
+    await loadStatus();
+    await loadConfig();
+    render();
+  } catch (error) {
+    if (error.message !== "locked" && error.message !== "version mismatch") {
+      paintHeader();
+      toast(error.message);
+    } else {
+      render();
+    }
+  }
+}
+
+// --- Header ----------------------------------------------------------------
+function paintHeader() {
+  const status = S.status;
+  $("dot").className = "dot " + (S.online ? "on" : "off");
+  $("devname").textContent = (status && status.SensorID) || "Enlightened";
+  $("devsub").textContent = !S.online
+    ? "Not reachable"
+    : [status && status.WiFi && status.WiFi.IP, status && status.Version]
+        .filter(Boolean).join(" · ");
+  paintSensors();
+}
+
+function paintSensors() {
+  const el = $("sensors");
+  const sensors = S.status && S.status.Sensors;
+  const values = (sensors && sensors.Values) || [];
+  if (!values.length) {
+    // A light-only device shows no strip at all rather than an empty row.
+    el.classList.add("hidden");
+    return;
+  }
+  const interval = (S.config && S.config.MeasureInterval) || 30;
+  el.classList.remove("hidden");
+  el.classList.toggle("stale", sensors.AgeSeconds > interval * 2);
+  el.innerHTML = values.map((value) =>
+    `<span>${esc(value.Name)} <b>${formatReading(value.Value)}</b> ${esc(value.Unit)}</span>`
+  ).join("");
+}
+
+function formatReading(value) {
+  if (typeof value !== "number") return String(value);
+  return Math.abs(value) >= 100 ? value.toFixed(0) : value.toFixed(1);
+}
+
+// --- Light -----------------------------------------------------------------
+// One in-flight write, coalescing to the latest value. Dragging a slider emits
+// hundreds of events and the device runs a single-threaded async server; the
+// last value is the only one that matters anyway.
+let lightInFlight = null;
+let lightPending = null;
+
+function writeLight(patch) {
+  lightPending = { ...(lightPending || {}), ...patch };
+  if (lightInFlight) return;
+  const send = async () => {
+    while (lightPending) {
+      const body = lightPending;
+      lightPending = null;
+      try {
+        const light = await api("/api/led", { method: "POST", body });
+        if (S.status) S.status.Light = { ...S.status.Light, ...light };
+      } catch (error) {
+        if (error.message !== "locked") toast(error.message);
+      }
+    }
+    lightInFlight = null;
+    renderLight();
   };
-  let config={};
-  token.value=localStorage.getItem(key)||'';
-  const label=name=>name.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());
-  const setStatus=(text,kind='')=>{status.textContent=text;status.className=kind};
-  const headers=()=>token.value?{'Content-Type':'application/json','X-Authorization':token.value}:{'Content-Type':'application/json'};
-  const get=(path)=>path.reduce((value,key)=>value[key],config);
-  const set=(path,value)=>{let target=config;path.slice(0,-1).forEach(key=>target=target[key]);target[path[path.length-1]]=value};
-  function field(name,path) {
-    const value=get(path), wrap=document.createElement('label'), input=document.createElement('input');
-    wrap.append(label(name)); input.dataset.path=JSON.stringify(path);
-    if(typeof value==='boolean'){input.type='checkbox';input.checked=value}
-    else {input.type=(name==='WiFiPassword'||name==='ApiToken')?'password':typeof value==='number'?'number':'text';input.value=value??'';if(name==='WiFiPassword'||name==='ApiToken')input.placeholder='Leave blank to keep stored value'}
-    input.addEventListener('change',()=>set(path,input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value));
-    wrap.append(input); return wrap;
+  lightInFlight = send();
+}
+
+function rgb(source) {
+  return `rgb(${source.Red || 0},${source.Green || 0},${source.Blue || 0})`;
+}
+
+function renderLight() {
+  const view = $("view-light");
+  const light = (S.status && S.status.Light) || {};
+  if (!S.status) { view.innerHTML = skeleton("Reading the light from the device…"); return; }
+
+  if (!light.HasStrip) {
+    view.innerHTML = `<div class="card"><h2>No light strip configured</h2>
+      <p class="small muted">Set the number of LEDs and the data pin in
+      <a href="#/settings">Settings</a>, then restart the device.</p></div>`;
+    return;
   }
-  function addValue(container,name,path) {
-    const value=get(path);
-    if(value&&typeof value==='object'&&!Array.isArray(value)){const nested=document.createElement('div');nested.className='nested grid';nested.append(...Object.keys(value).filter(key=>!key.startsWith('Has')).map(key=>addValue(nested,key,path.concat(key))));const title=document.createElement('strong');title.textContent=label(name);nested.prepend(title);return nested}
-    return field(name,path);
+
+  const isOn = light.Mode !== MODE_OFF;
+  const owner = light.Owner;
+  const alarm = (S.status && S.status.Alarm) || {};
+
+  let ownerNote = "";
+  if (owner === "sunrise") {
+    ownerNote = `<div class="note good">A sunrise is running right now, so it is
+      driving the light. Changes here will be overwritten.</div>`;
+  } else if (owner === "sensor") {
+    ownerNote = `<div class="note warn">A sensor reading is driving the light in
+      pulse mode, and will set it again at the next measurement.</div>`;
+  } else if (owner === "mqtt") {
+    ownerNote = `<div class="note warn">MQTT last set this light and may set it
+      again.</div>`;
+  } else if (alarm.IsActivated) {
+    ownerNote = `<div class="note warn">The sunrise alarm is armed, so it will
+      take the light over when it goes off.
+      <a href="#/alarm">Open alarm</a></div>`;
   }
-  function render() {
-    fields.replaceChildren();
-    Object.entries(groups).forEach(([title,names])=>{const section=document.createElement('fieldset'), grid=document.createElement('div');section.innerHTML=`<legend>${title}</legend>`;grid.className='grid';names.filter(name=>name in config).forEach(name=>grid.append(addValue(grid,name,[name])));section.append(grid);fields.append(section)});
-    document.querySelector('#summary').textContent=`Firmware: ${config.SensorID||'device'} | complete configuration loaded`;
+
+  view.innerHTML = `
+  <div class="card">
+    <div class="row" style="border:0">
+      <div class="swatch" style="background:${isOn ? rgb(light) : "transparent"}"></div>
+      <div class="grow">
+        <h2>${isOn ? "On" : "Off"}</h2>
+        <p class="small muted">${isOn
+          ? `${esc(MODES[light.Mode] || light.Mode)} · ${light.Brightness}% brightness`
+          : "Nothing is lit right now."}</p>
+      </div>
+      <button id="power" class="${isOn ? "" : "ghost"}">${isOn ? "Turn off" : "Turn on"}</button>
+    </div>
+    ${ownerNote}
+  </div>
+
+  <div class="section">Brightness</div>
+  <div class="card">
+    ${sliderRow("brightness", "Level", light.Brightness, 100, "var(--primary)")}
+  </div>
+
+  <div class="section">Colour</div>
+  <div class="card">
+    ${sliderRow("Red", "Red", light.Red, 255, "#e5334d")}
+    ${sliderRow("Green", "Green", light.Green, 255, "#1fa855")}
+    ${sliderRow("Blue", "Blue", light.Blue, 255, "#3880ff")}
+    <div class="row">
+      <div class="grow"><label class="field" for="mode">Mode</label></div>
+      <select id="mode">${MODES.map((name, index) =>
+        `<option value="${index}"${index === light.Mode ? " selected" : ""}>${name}</option>`
+      ).join("")}</select>
+    </div>
+  </div>
+
+  <div class="section">Physical button presets</div>
+  <div class="card">
+    <p class="small muted">The buttons wired to the device cycle through these
+    three colours. Show one on the strip, or store what is on screen now.</p>
+    ${PRESETS.map(([key, label]) => {
+      const preset = (S.config && S.config[key]) || { Red: 0, Green: 0, Blue: 0 };
+      return `<div class="row">
+        <div class="swatch sm" style="background:${rgb(preset)}"></div>
+        <div class="grow">${label}</div>
+        <button class="flat small" data-show="${key}">Show</button>
+        <button class="ghost small" data-store="${key}">Store</button>
+      </div>`;
+    }).join("")}
+  </div>
+
+  <div class="section">Test the wiring</div>
+  <div class="card">
+    <p class="small muted">Acts as though someone pressed the physical button,
+    so you can check it is wired correctly.${
+      S.config && S.config.Button2GetURL
+        ? ` Button 2 opens ${esc(S.config.Button2GetURL)} instead of changing the light.`
+        : ""}</p>
+    <div class="actions">
+      <button class="ghost" data-button="1">Press button 1</button>
+      <button class="ghost" data-button="2">Press button 2</button>
+    </div>
+  </div>`;
+
+  $("power").onclick = () => writeLight({ Mode: isOn ? MODE_OFF : MODE_ON });
+  $("mode").onchange = (event) => writeLight({ Mode: Number(event.target.value) });
+
+  view.querySelectorAll("input[type=range]").forEach(bindSlider);
+  view.querySelectorAll("[data-show]").forEach((button) => {
+    button.onclick = () => writeLight({ ...S.config[button.dataset.show], Mode: MODE_ON });
+  });
+  view.querySelectorAll("[data-store]").forEach((button) => {
+    button.onclick = () => storePreset(button.dataset.store);
+  });
+  view.querySelectorAll("[data-button]").forEach((button) => {
+    button.onclick = () => pressButton(button.dataset.button);
+  });
+}
+
+function sliderRow(key, label, value, max, colour) {
+  return `<div class="slider">
+    <span class="small muted">${label}</span>
+    <input type="range" min="0" max="${max}" value="${value == null ? 0 : value}"
+           data-key="${key}" style="--knob:${colour}" aria-label="${label}">
+    <span class="val" data-for="${key}">${value == null ? 0 : value}</span>
+  </div>`;
+}
+
+function bindSlider(input) {
+  const key = input.dataset.key;
+  const readout = input.parentElement.querySelector(`[data-for="${key}"]`);
+  let last = 0;
+  const patch = (value) =>
+    writeLight(key === "brightness" ? { Brightness: value } : { [key]: value });
+
+  input.oninput = () => {
+    const value = Number(input.value);
+    readout.textContent = value;
+    // Throttled while dragging, so a drag cannot flood the device.
+    const now = Date.now();
+    if (now - last > 200) { last = now; patch(value); }
+  };
+  // Always commit on release, whatever the throttle swallowed.
+  input.onchange = () => patch(Number(input.value));
+}
+
+async function storePreset(key) {
+  const light = S.status.Light;
+  const value = { Red: light.Red, Green: light.Green, Blue: light.Blue };
+  try {
+    S.config = await api("/api/config", { method: "PUT", body: { [key]: value } });
+    toast("Stored");
+    renderLight();
+  } catch (error) {
+    if (error.message !== "locked") toast(error.message);
   }
-  async function load() {
-    setStatus('Loading configuration...');
-    const response=await fetch('/api/config'); if(!response.ok)throw new Error(`Load failed (${response.status})`);
-    config=await response.json();render();setStatus('Configuration loaded. Hardware, network, and LED topology changes require a restart.','ok');
+}
+
+async function pressButton(number) {
+  try {
+    await api(`/api/button/${number}`, { method: "POST" });
+    toast(`Button ${number} pressed`);
+    setTimeout(poll, 400);
+  } catch (error) {
+    if (error.message !== "locked") toast(error.message);
   }
-  form.addEventListener('submit',async event=>{event.preventDefault();const save=document.querySelector('#save');save.disabled=true;setStatus('Saving...');
-    try{const payload=JSON.parse(JSON.stringify(config));delete payload.HasWiFiPassword;delete payload.HasApiToken;const response=await fetch('/api/config',{method:'PUT',headers:headers(),body:JSON.stringify(payload)});if(!response.ok)throw new Error(`Save failed (${response.status})`);config=await response.json();if(payload.ApiToken)localStorage.setItem(key,payload.ApiToken);render();setStatus('Saved. Restart the device to apply hardware, network, or LED topology changes.','ok')}
-    catch(error){setStatus(error.message,'error')}finally{save.disabled=false}});
-  document.querySelector('#restart').addEventListener('click',async()=>{if(!confirm('Restart this device now?'))return;setStatus('Restarting...');try{const response=await fetch('/restart',{headers:headers()});if(!response.ok)throw new Error(`Restart failed (${response.status})`);setStatus('Restart requested. The device may take up to 30 seconds to reconnect.','ok')}catch(error){setStatus(error.message,'error')}});
-  document.querySelector('#refresh').addEventListener('click',()=>load().catch(error=>setStatus(error.message,'error')));
-  load().catch(error=>setStatus(error.message,'error'));
+}
+
+// --- Alarm -----------------------------------------------------------------
+function parseTime(text) {
+  const match = /^(\d{1,2}):(\d{1,2})$/.exec(String(text || "").trim());
+  if (!match) return null;
+  const hours = Number(match[1]), minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return { hours, minutes };
+}
+
+const pad = (n) => String(n).padStart(2, "0");
+const asClock = (t) => `${pad(t.hours)}:${pad(t.minutes)}`;
+
+// The device deliberately does not compute this -- it has the schedule and the
+// clock, and duplicating date arithmetic in firmware buys nothing.
+function nextAlarm() {
+  const alarm = S.alarm, time = S.status && S.status.Time;
+  if (!alarm || !alarm.IsActivated || !time || typeof time.Weekday !== "number") return null;
+  const now = parseTime(time.Local);
+  if (!now) return null;
+  const nowMinutes = now.hours * 60 + now.minutes;
+
+  for (let ahead = 0; ahead < 8; ahead++) {
+    const index = (time.Weekday + ahead) % 7;
+    const day = alarm[DAYS[index]];
+    if (!day || !day.IsActive) continue;
+    const at = parseTime(day.AlarmTime);
+    if (!at) continue;
+    const atMinutes = at.hours * 60 + at.minutes;
+    if (ahead === 0 && atMinutes <= nowMinutes) continue;
+    return { weekday: index, at, inMinutes: ahead * 1440 + atMinutes - nowMinutes };
+  }
+  return null;
+}
+
+function relative(minutes) {
+  if (minutes < 60) return `in ${minutes} min`;
+  const hours = Math.floor(minutes / 60), rest = minutes % 60;
+  if (hours < 24) return `in ${hours} h${rest ? ` ${rest} min` : ""}`;
+  return `in ${Math.floor(hours / 24)} d ${hours % 24} h`;
+}
+
+function plusMinutes(time, minutes) {
+  const total = (time.hours * 60 + time.minutes + Math.round(minutes)) % 1440;
+  return { hours: Math.floor(total / 60), minutes: total % 60 };
+}
+
+function alarmDirty() {
+  return S.config && S.alarm &&
+    JSON.stringify(S.alarm) !== JSON.stringify(S.config.SunriseSettings);
+}
+
+function renderAlarm() {
+  const view = $("view-alarm");
+  if (!S.alarm) { view.innerHTML = skeleton("Reading the alarm from the device…"); return; }
+
+  const alarm = S.alarm;
+  const next = nextAlarm();
+  const time = (S.status && S.status.Time) || {};
+  const unreadable = DAYS.filter((day) => alarm[day] && !parseTime(alarm[day].AlarmTime));
+
+  let summary;
+  if (!alarm.IsActivated) summary = "Off — no alarm will go off.";
+  else if (!next) summary = "No day is switched on, so no alarm will go off.";
+  else summary = `Next: ${DAYS[next.weekday]} ${asClock(next.at)} · ${relative(next.inMinutes)}`;
+
+  view.innerHTML = `
+  <div class="card">
+    <div class="row" style="border:0">
+      <div class="grow">
+        <h2>Sunrise alarm</h2>
+        <p class="small muted">${esc(summary)}</p>
+      </div>
+      <label class="sw"><input type="checkbox" id="armed"
+        ${alarm.IsActivated ? "checked" : ""} aria-label="Arm the sunrise alarm"><i></i></label>
+    </div>
+    ${alarm.IsActivated && next ? `<p class="small muted" style="margin-top:8px">
+      The light starts dark at ${asClock(next.at)} and is fully bright by
+      ${asClock(plusMinutes(next.at, alarm.SunriseLightTime))}.</p>` : ""}
+    ${time.IsSynced === false ? `<div class="note bad">The device clock is not
+      set, so the alarm cannot be relied on to go off.</div>` : ""}
+    ${S.status && S.status.Alarm && S.status.Alarm.IsRunning
+      ? `<div class="note good">A sunrise is running right now.</div>` : ""}
+    ${unreadable.length ? `<div class="note warn">The device sent an unreadable
+      time for ${esc(unreadable.join(", "))}. Set it again and save.</div>` : ""}
+  </div>
+
+  <div class="section">Days</div>
+  <div class="card">
+    <div class="actions" style="margin:0 0 6px">
+      <button class="ghost small" data-preset="work">Mon–Fri</button>
+      <button class="ghost small" data-preset="weekend">Sat–Sun</button>
+      <button class="ghost small" data-preset="all">Every day</button>
+    </div>
+    ${DAYS.map((day) => {
+      const setting = alarm[day] || { IsActive: false, AlarmTime: "08:30" };
+      const parsed = parseTime(setting.AlarmTime);
+      return `<div class="row">
+        <label class="sw"><input type="checkbox" data-day="${day}"
+          ${setting.IsActive ? "checked" : ""} aria-label="${day}"><i></i></label>
+        <div class="grow${setting.IsActive ? "" : " muted"}">${day}</div>
+        ${setting.IsActive
+          ? `<input type="time" data-time="${day}"
+               value="${parsed ? asClock(parsed) : ""}" aria-label="Alarm time for ${day}">`
+          : `<span class="small muted">off</span>`}
+      </div>`;
+    }).join("")}
+    <div class="actions">
+      <button class="flat small" id="sameTime">Use the same time every day</button>
+    </div>
+  </div>
+
+  <div class="section">Sunrise length</div>
+  <div class="card">
+    <label class="field">Minutes to reach full brightness
+      <input type="number" id="duration" min="1" max="120"
+             value="${alarm.SunriseLightTime}"></label>
+    <p class="small muted" style="margin-top:6px">The light starts dark at the
+    alarm time and brightens over this many minutes.</p>
+  </div>
+
+  <div class="actions">
+    <button id="saveAlarm" ${alarmDirty() && !S.saving ? "" : "disabled"}>
+      ${S.saving ? "Saving…" : alarmDirty() ? "Save alarm" : "Saved"}</button>
+    <button class="ghost" id="testAlarm">Test alarm now</button>
+    ${alarmDirty() ? '<button class="flat" id="revertAlarm">Discard changes</button>' : ""}
+  </div>`;
+
+  $("armed").onchange = (event) => { alarm.IsActivated = event.target.checked; renderAlarm(); };
+  $("duration").onchange = (event) => {
+    // The firmware accepts a zero-length sunrise, which never lights up, so the
+    // clamp has to happen here.
+    alarm.SunriseLightTime = Math.min(120, Math.max(1, Math.round(Number(event.target.value) || 1)));
+    renderAlarm();
+  };
+  view.querySelectorAll("[data-day]").forEach((input) => {
+    input.onchange = () => {
+      alarm[input.dataset.day].IsActive = input.checked;
+      renderAlarm();
+    };
+  });
+  view.querySelectorAll("[data-time]").forEach((input) => {
+    input.onchange = () => {
+      if (input.value) alarm[input.dataset.time].AlarmTime = input.value;
+      renderAlarm();
+    };
+  });
+  view.querySelectorAll("[data-preset]").forEach((button) => {
+    button.onclick = () => {
+      const which = button.dataset.preset;
+      DAYS.forEach((day, index) => {
+        alarm[day].IsActive =
+          which === "all" || (which === "work" ? index < 5 : index >= 5);
+      });
+      renderAlarm();
+    };
+  });
+  $("sameTime").onclick = () => {
+    const first = DAYS.map((d) => alarm[d]).find((day) => day.IsActive);
+    if (!first) return toast("No day is switched on.");
+    DAYS.forEach((day) => { alarm[day].AlarmTime = first.AlarmTime; });
+    renderAlarm();
+  };
+  $("saveAlarm").onclick = saveAlarm;
+  $("testAlarm").onclick = testAlarm;
+  const revert = $("revertAlarm");
+  if (revert) revert.onclick = () => {
+    S.alarm = structuredClone(S.config.SunriseSettings);
+    renderAlarm();
+  };
+}
+
+async function saveAlarm() {
+  S.saving = true;
+  renderAlarm();
+  try {
+    // Partial write, and the response is the stored document -- so there is
+    // nothing to poll for and no way to clobber a field this page does not
+    // model.
+    S.config = await api("/api/config", { method: "PUT", body: { SunriseSettings: S.alarm } });
+    S.alarm = structuredClone(S.config.SunriseSettings);
+    toast("Alarm saved");
+  } catch (error) {
+    if (error.message !== "locked") toast(error.message);
+  } finally {
+    S.saving = false;
+    renderAlarm();
+    poll();
+  }
+}
+
+async function testAlarm() {
+  try {
+    await api("/api/alarm/test?seconds=30", { method: "POST" });
+    toast("Sunrise test started");
+    setTimeout(poll, 500);
+  } catch (error) {
+    if (error.message !== "locked") toast(error.message);
+  }
+}
+
+// --- Settings --------------------------------------------------------------
+const GROUPS = [
+  ["Identity and network", ["SensorID", "WiFiName", "WiFiPassword", "ServerAddress",
+    "IsConfigured", "IsOfflineMode", "ShowWebpage", "ApiToken"]],
+  ["Light", ["NumberOfLEDs", "LEDPin", "Button1", "Button2", "Button2GetURL"]],
+  ["Telemetry", ["UseMQTT", "MQTTTopic", "MQTTPort", "MeasureInterval",
+    "BufferedValues", "DeepSleepTime"]],
+  ["Sensors and pins", ["FindSensors", "DhtPin", "OneWirePin", "SerialRX", "SerialTX",
+    "AnalogSensorPin0", "AnalogSensorPin1", "WindSensorPin", "RainfallSensorPin"]],
+];
+const SECRETS = { WiFiPassword: "HasWiFiPassword", ApiToken: "HasApiToken" };
+let pendingConfig = {};
+
+function label(name) {
+  return name.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim();
+}
+
+function renderSettings() {
+  const view = $("view-settings");
+  if (!S.config) { view.innerHTML = skeleton("Reading the configuration…"); return; }
+
+  view.innerHTML = GROUPS.map(([title, names]) => `
+    <div class="section">${title}</div>
+    <div class="card"><div class="grid">
+      ${names.filter((name) => name in S.config || name in SECRETS)
+             .map((name) => fieldFor(name)).join("")}
+    </div></div>`).join("") + `
+  <div class="actions">
+    <button id="saveConfig" ${Object.keys(pendingConfig).length ? "" : "disabled"}>
+      ${Object.keys(pendingConfig).length ? "Save changes" : "Saved"}</button>
+    <button class="danger" id="restart">Restart device</button>
+  </div>
+  <p class="small muted" style="margin-top:8px">Only the alarm and the button
+  presets take effect immediately. The device says whether a change needs a
+  restart when you save it.</p>`;
+
+  view.querySelectorAll("[data-name]").forEach((input) => {
+    input.onchange = () => {
+      const name = input.dataset.name;
+      // Only what actually changed is sent. Absent keys keep their stored
+      // value, so this page never has to carry fields it does not show.
+      pendingConfig[name] = input.type === "checkbox" ? input.checked
+        : input.type === "number" ? Number(input.value)
+        : input.value;
+      renderSettings();
+    };
+  });
+  $("saveConfig").onclick = saveConfig;
+  $("restart").onclick = restart;
+}
+
+function fieldFor(name) {
+  const secretFlag = SECRETS[name];
+  const value = pendingConfig[name] !== undefined ? pendingConfig[name] : S.config[name];
+  if (secretFlag) {
+    const isSet = S.config[secretFlag];
+    return `<label class="field">${label(name)}
+      <input type="password" data-name="${name}" value="${esc(pendingConfig[name] || "")}"
+        placeholder="${isSet ? "Set — leave blank to keep" : "Not set"}"
+        autocomplete="new-password"></label>`;
+  }
+  if (typeof value === "boolean") {
+    return `<label class="field">${label(name)}
+      <input type="checkbox" data-name="${name}" ${value ? "checked" : ""}></label>`;
+  }
+  const type = typeof value === "number" ? "number" : "text";
+  return `<label class="field">${label(name)}
+    <input type="${type}" data-name="${name}" value="${esc(value == null ? "" : value)}"></label>`;
+}
+
+async function saveConfig() {
+  const body = { ...pendingConfig };
+  // A blank secret field means "leave it alone", so it must not be sent -- an
+  // empty string is how the device is told to clear one.
+  for (const name of Object.keys(SECRETS)) if (body[name] === "") delete body[name];
+  if (!Object.keys(body).length) return;
+  try {
+    S.config = await api("/api/config", { method: "PUT", body });
+    pendingConfig = {};
+    S.alarm = structuredClone(S.config.SunriseSettings);
+    toast(S.config.RestartRequired
+      ? "Saved. Restart the device to apply it."
+      : "Saved and applied.");
+    renderSettings();
+  } catch (error) {
+    if (error.message !== "locked") toast(error.message);
+  }
+}
+
+async function restart() {
+  if (!confirm("Restart this device now?")) return;
+  try {
+    await api("/restart", { method: "POST" });
+    toast("Restarting. It may take up to 30 seconds.");
+    setOnline(false);
+  } catch (error) {
+    if (error.message !== "locked") toast(error.message);
+  }
+}
+
+// --- Shell -----------------------------------------------------------------
+function skeleton(message) {
+  return `<div class="card"><p class="muted">${esc(message)}</p></div>`;
+}
+
+function render() {
+  const locked = S.locked;
+  $("lock").classList.toggle("hidden", !locked);
+  document.querySelectorAll(".view").forEach((view) => view.classList.add("hidden"));
+  if (!locked) $("view-" + S.tab).classList.remove("hidden");
+  document.querySelectorAll("nav a").forEach((link) =>
+    link.classList.toggle("active", link.dataset.tab === S.tab));
+
+  paintHeader();
+  if (locked) return;
+  if (S.tab === "light") renderLight();
+  else if (S.tab === "alarm") renderAlarm();
+  else renderSettings();
+}
+
+function route() {
+  const tab = (location.hash.replace("#/", "") || "light").toLowerCase();
+  S.tab = ["light", "alarm", "settings"].includes(tab) ? tab : "light";
+  render();
+}
+
+// --- Polling ---------------------------------------------------------------
+// Paused while the tab is hidden: this is a microcontroller, and a page left
+// open in a background tab should not keep it busy.
+let pollTimer;
+async function poll() {
+  if (document.hidden || S.locked) return;
+  try {
+    await loadStatus();
+    paintHeader();
+    // Re-render only the screens that show live state, and never while a
+    // slider is mid-drag or an alarm edit is pending.
+    if (S.tab === "light" && !lightInFlight) renderLight();
+    else if (S.tab === "alarm" && !alarmDirty()) renderAlarm();
+  } catch (error) {
+    if (error.message === "locked") render();
+  }
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(poll, 10000);
+}
+
+// --- Boot ------------------------------------------------------------------
+$("unlock").onclick = () => {
+  S.token = $("tokenInput").value.trim();
+  localStorage.setItem(TOKEN_KEY, S.token);
+  S.locked = false;
+  loadAll();
+};
+$("tokenInput").onkeydown = (event) => { if (event.key === "Enter") $("unlock").click(); };
+$("refresh").onclick = () => loadAll();
+window.addEventListener("hashchange", route);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
+
+route();
+loadAll();
+startPolling();
 })();
 </script>
 </body>
