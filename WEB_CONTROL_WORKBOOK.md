@@ -238,6 +238,29 @@ hardware**, not merely built. Its configuration has been backed up by the
 owner, so it may be reconfigured freely — including setting a token to test
 the 401 matrix, and enabling sensors.
 
+## Status
+
+All five device phases are implemented and verified on `192.168.1.31`, and the
+app's three are implemented in the paired repository. What follows is the plan
+as written; the phases are marked with what actually landed.
+
+| Phase | State |
+| --- | --- |
+| D1 serve the shell safely | Done. 33,695 raw → 10,716 gzipped |
+| D2 API v2 | Done. `api_contract.py --mutations` passes against the device |
+| D3 shell, tabs, Light | Done |
+| D4 Alarm | Done |
+| D5 hardening | Done, except **CORS**: the wildcard is kept deliberately, with the reasoning in `addCorsHeaders()` — the Capacitor app is cross-origin, and uniform auth is what actually protects the device |
+
+Two things changed while implementing:
+
+- **Minification was dropped.** ESP32-only plus gzip made it worth ~10-15%,
+  which does not justify three build dependencies. The generator is stdlib-only.
+- **`Light.Owner` gained a fifth value, `sensor`.** Enumerating the writers
+  turned up a real bug: `applySensorColor()` switched the strip to pulse mode
+  *before* checking whether any sensor existed, so a device with every sensor
+  pin at `-1` had its mode overwritten every measurement interval.
+
 ## Phases
 
 ### Phase D1 — Serve the shell safely *(firmware + build)*
