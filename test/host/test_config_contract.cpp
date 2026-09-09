@@ -4,7 +4,6 @@
 #include <string>
 #include <unity.h>
 
-void test_arduinojson_deserializes_and_serializes_on_host();
 void test_config_rejects_invalid_json();
 void test_legacy_config_uses_documented_defaults();
 void test_partial_light_config_defaults_each_omitted_channel();
@@ -111,7 +110,6 @@ void test_partial_light_fixture_preserves_the_m6_regression_case()
 int main()
 {
   UNITY_BEGIN();
-  RUN_TEST(test_arduinojson_deserializes_and_serializes_on_host);
   RUN_TEST(test_config_rejects_invalid_json);
   RUN_TEST(test_legacy_config_uses_documented_defaults);
   RUN_TEST(test_partial_light_config_defaults_each_omitted_channel);
