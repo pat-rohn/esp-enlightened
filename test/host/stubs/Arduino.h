@@ -21,6 +21,12 @@ public:
   }
 
   const char *c_str() const { return value_.c_str(); }
+
+  // requiresRestart() compares stored strings field by field, so the stub
+  // needs real equality rather than falling back to pointer comparison.
+  bool operator==(const String &other) const { return value_ == other.value_; }
+  bool operator!=(const String &other) const { return value_ != other.value_; }
+
   size_t length() const { return value_.length(); }
   bool isEmpty() const { return value_.empty(); }
   int lastIndexOf(char value) const

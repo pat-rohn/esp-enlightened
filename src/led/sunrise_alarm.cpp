@@ -88,6 +88,7 @@ void CSunriseAlarm::beginSunrise(double durationSeconds)
     m_IsAlarmActive = true;
     m_AlarmEndTime = millis() + static_cast<unsigned long>(durationSeconds * 1000.0);
     m_LedStrip->m_Factor = 0.0;
+    m_LedStrip->m_Owner = LedStrip::LEDOwner::sunrise;
     m_LedStrip->m_LEDMode = LedStrip::LEDModes::sunrise;
     m_LedStrip->m_SunriseStartTime = millis();
     Serial.printf("Alarm start/end: %ld/%ld", m_LedStrip->m_SunriseStartTime, m_AlarmEndTime);

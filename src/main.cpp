@@ -338,6 +338,8 @@ bool measureAndSendSensorData()
 
   lastUpdate = millis();
   auto values = sensor::getValues();
+  // Hand the readings to the cache the HTTP task reads from; see sensors.h.
+  sensor::cacheValues(values);
 
   if (configman::getConfig().NumberOfLEDs > 0 && !configman::getConfig().AlarmSettings.IsActivated)
   {
@@ -451,6 +453,12 @@ void setup()
   {
     hasSensors = true;
   }
+#if ENABLE_DUMMY_SENSOR
+  // The dummy reading is produced inside getValues(), which the loop only
+  // reaches when the device believes it has sensors. Nothing is wired here by
+  // definition, so say so explicitly.
+  hasSensors = true;
+#endif
 
   String desc = "";
 #ifdef ESP8266
@@ -530,10 +538,12 @@ void handleMQTT()
     ledStrip->setColor(c[0], c[1], c[2]);
     if (mqtt_events::getIsOn())
     {
+      ledStrip->m_Owner = LedStrip::LEDOwner::mqtt;
       ledStrip->m_LEDMode = LedStrip::LEDModes::on;
     }
     else
     {
+      ledStrip->m_Owner = LedStrip::LEDOwner::mqtt;
       ledStrip->m_LEDMode = LedStrip::LEDModes::off;
     }
     ledStrip->m_Factor = mqtt_events::getBrightness() / 100.0;

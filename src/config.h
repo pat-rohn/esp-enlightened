@@ -37,8 +37,10 @@ namespace configman
     // handlers). Optionally returns the serialized form of the staged config,
     // and on refusal the reason, for the HTTP layer to pass back to the client.
     // Parses strictly: this is untrusted input, unlike the stored config.
+    // `restartRequired`, when given, reports whether the staged change needs a
+    // restart to take effect, so the client is told rather than guessing.
     bool stageConfig(const char *configStr, String *serialized = nullptr,
-                     String *error = nullptr);
+                     String *error = nullptr, bool *restartRequired = nullptr);
     // Apply + persist a staged config. Must only be called from loop().
     // Returns true if a staged config was applied.
     bool applyStagedConfig();

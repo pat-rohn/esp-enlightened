@@ -21,6 +21,108 @@ namespace configuration
             default: return "";
             }
         }
+
+        // Records the first refusal reason. Strict callers (HTTP writes) refuse
+        // the document; lenient callers (the stored file) keep the old value
+        // and carry on, because refusing a stored document makes config.cpp
+        // overwrite it with defaults, Wi-Fi credentials included.
+        void refuse(ParseMode mode, String *error, const String &reason)
+        {
+            if (mode == ParseMode::Strict && error != nullptr && error->isEmpty())
+            {
+                *error = reason;
+            }
+        }
+
+        // The merge primitives. An absent key keeps the stored value; a key
+        // that is present but of the wrong type is a client mistake worth
+        // reporting, because ArduinoJson would otherwise quietly turn "abc"
+        // into 0 and store it.
+        bool pickBool(JsonVariantConst doc, const char *key, bool existing,
+                      ParseMode mode, String *error)
+        {
+            const JsonVariantConst value = doc[key];
+            if (value.isNull())
+            {
+                return existing;
+            }
+            if (!value.is<bool>())
+            {
+                refuse(mode, error, String(key) + ": expected true or false");
+                return existing;
+            }
+            return value.as<bool>();
+        }
+
+        // is<double>() is true for any JSON number and false for strings and
+        // bools, which is exactly the test wanted for an integer field too.
+        int pickInt(JsonVariantConst doc, const char *key, int existing,
+                    ParseMode mode, String *error)
+        {
+            const JsonVariantConst value = doc[key];
+            if (value.isNull())
+            {
+                return existing;
+            }
+            if (!value.is<double>())
+            {
+                refuse(mode, error, String(key) + ": expected a number");
+                return existing;
+            }
+            return value.as<int>();
+        }
+
+        double pickDouble(JsonVariantConst doc, const char *key, double existing,
+                          ParseMode mode, String *error)
+        {
+            const JsonVariantConst value = doc[key];
+            if (value.isNull())
+            {
+                return existing;
+            }
+            if (!value.is<double>())
+            {
+                refuse(mode, error, String(key) + ": expected a number");
+                return existing;
+            }
+            return value.as<double>();
+        }
+
+        String pickString(JsonVariantConst doc, const char *key, const String &existing,
+                          ParseMode mode, String *error)
+        {
+            const JsonVariantConst value = doc[key];
+            if (value.isNull())
+            {
+                return existing;
+            }
+            if (!value.is<const char *>())
+            {
+                refuse(mode, error, String(key) + ": expected a string");
+                return existing;
+            }
+            return value.as<String>();
+        }
+
+        Light pickLight(JsonVariantConst doc, const char *key, const Light &existing,
+                        ParseMode mode, String *error)
+        {
+            const JsonVariantConst value = doc[key];
+            if (value.isNull())
+            {
+                return existing;
+            }
+            if (!value.is<JsonObjectConst>())
+            {
+                refuse(mode, error, String(key) + ": expected an object");
+                return existing;
+            }
+            Light light = existing;
+            light.Red = pickInt(value, "Red", light.Red, mode, error);
+            light.Green = pickInt(value, "Green", light.Green, mode, error);
+            light.Blue = pickInt(value, "Blue", light.Blue, mode, error);
+            return light;
+        }
     }
 
     String formatTimeOfDay(const Time &time)
@@ -96,6 +198,36 @@ namespace configuration
         return true;
     }
 
+    bool requiresRestart(const Configuration &current, const Configuration &next)
+    {
+        return current.IsConfigured != next.IsConfigured ||
+               current.ServerAddress != next.ServerAddress ||
+               current.SensorID != next.SensorID ||
+               current.WiFiName != next.WiFiName ||
+               current.WiFiPassword != next.WiFiPassword ||
+               // The OTA password is the API token, and it is set at boot.
+               current.ApiToken != next.ApiToken ||
+               current.IsOfflineMode != next.IsOfflineMode ||
+               current.FindSensors != next.FindSensors ||
+               current.DhtPin != next.DhtPin ||
+               current.SerialRX != next.SerialRX ||
+               current.SerialTX != next.SerialTX ||
+               current.AnalogSensorPin0 != next.AnalogSensorPin0 ||
+               current.AnalogSensorPin1 != next.AnalogSensorPin1 ||
+               current.WindSensorPin != next.WindSensorPin ||
+               current.RainfallSensorPin != next.RainfallSensorPin ||
+               current.LEDPin != next.LEDPin ||
+               current.OneWirePin != next.OneWirePin ||
+               current.NumberOfLEDs != next.NumberOfLEDs ||
+               current.Button1 != next.Button1 ||
+               current.Button2 != next.Button2 ||
+               current.UseMQTT != next.UseMQTT ||
+               current.MQTTTopic != next.MQTTTopic ||
+               current.MQTTPort != next.MQTTPort ||
+               current.ShowWebpage != next.ShowWebpage ||
+               current.DeepSleepTime != next.DeepSleepTime;
+    }
+
     String serializeConfig(const Configuration *config, bool revealSecrets)
     {
         Serial.println("Serialize config...");
@@ -104,9 +236,16 @@ namespace configuration
         doc["ServerAddress"] = config->ServerAddress;
         doc["SensorID"] = config->SensorID;
         doc["WiFiName"] = config->WiFiName;
-        doc["WiFiPassword"] = revealSecrets ? config->WiFiPassword : String("");
+        // Omitted rather than blanked when redacting. Deserialization now
+        // treats absent as "keep" and "" as "clear", so echoing a blank back
+        // would wipe the stored secret on the next round trip -- which is
+        // precisely what a client doing GET-then-PUT does.
+        if (revealSecrets)
+        {
+            doc["WiFiPassword"] = config->WiFiPassword;
+            doc["ApiToken"] = config->ApiToken;
+        }
         doc["HasWiFiPassword"] = config->WiFiPassword.length() > 0;
-        doc["ApiToken"] = revealSecrets ? config->ApiToken : String("");
         doc["HasApiToken"] = config->ApiToken.length() > 0;
         doc["DhtPin"] = config->DhtPin;
         doc["SerialRX"] = config->SerialRX;
@@ -233,163 +372,74 @@ namespace configuration
             }
             return result;
         }
-        if (!doc["IsConfigured"].is<bool>())
+        if (!doc.is<JsonObject>())
         {
-            Serial.printf("No valid config %s\n", configStr);
+            Serial.printf("Not a JSON object: %s\n", configStr);
             if (error != nullptr)
             {
-                *error = String("Missing or non-boolean IsConfigured");
+                *error = String("Body must be a JSON object");
             }
             return result;
         }
 
+        // Merge, not replace. A key that is absent keeps whatever is already
+        // stored, which is what lets a client write
+        // {"SunriseSettings":{"IsActivated":true}} without carrying -- and
+        // risking clobbering -- the other thirty-odd fields it does not model.
+        //
+        // This also removes a whole class of per-field default bugs that the
+        // old shape had: absent fields used to fall back to hardcoded literals
+        // that had drifted from the ones in Configuration's constructor.
         Configuration &parsed = result.second;
-        parsed.IsConfigured = doc["IsConfigured"];
-        parsed.ServerAddress = doc["ServerAddress"].as<String>();
-        parsed.SensorID = doc["SensorID"].as<String>();
-        parsed.WiFiName = doc["WiFiName"].as<String>();
+        parsed = existingConfig;
+        const JsonVariantConst root = doc.as<JsonVariantConst>();
 
-        const String incomingPassword = doc["WiFiPassword"].as<String>();
-        parsed.WiFiPassword = incomingPassword.length() > 0
-                                  ? incomingPassword
-                                  : existingConfig.WiFiPassword;
-        // Clearing a token needs an explicit command: a blank ApiToken means
-        // "keep the stored one" (GET redacts it, so clients round-trip blanks),
-        // which otherwise leaves a stray token gating every mutating endpoint
-        // with no way back short of reflashing. A supplied non-empty token
-        // still wins over the flag, so a contradictory request keeps auth on
-        // rather than silently disabling it.
-        const bool clearApiToken = doc["ClearApiToken"] | false;
-        const String incomingApiToken = doc["ApiToken"].as<String>();
-        parsed.ApiToken = incomingApiToken.length() > 0
-                              ? incomingApiToken
-                              : clearApiToken
-                                    ? String("")
-                                    : existingConfig.ApiToken;
+        parsed.IsConfigured = pickBool(root, "IsConfigured", parsed.IsConfigured, mode, error);
+        parsed.ServerAddress = pickString(root, "ServerAddress", parsed.ServerAddress, mode, error);
+        parsed.SensorID = pickString(root, "SensorID", parsed.SensorID, mode, error);
+        parsed.WiFiName = pickString(root, "WiFiName", parsed.WiFiName, mode, error);
 
-        parsed.DhtPin = doc["DhtPin"] | -1;
-        const JsonVariant serialRX = doc["SerialRX"];
-        if (serialRX.isNull())
-        {
-            Serial.println("Serial Pins not configured");
-            parsed.SerialRX = -1;
-            parsed.SerialTX = -1;
-        }
-        else
-        {
-            parsed.SerialRX = doc["SerialRX"] | -1;
-            parsed.SerialTX = doc["SerialTX"] | -1;
-        }
+        // Absent keeps the stored secret; an explicit "" clears it. The old
+        // rule was "blank means keep", which needed a ClearApiToken escape
+        // hatch because otherwise a token could never be removed short of
+        // reflashing. Serialization omits these keys when redacting, so a
+        // GET-then-PUT round trip cannot clear them by accident.
+        parsed.WiFiPassword = pickString(root, "WiFiPassword", parsed.WiFiPassword, mode, error);
+        parsed.ApiToken = pickString(root, "ApiToken", parsed.ApiToken, mode, error);
 
-        const JsonVariant analogSensorPin0 = doc["AnalogSensorPin0"];
-        parsed.AnalogSensorPin0 = analogSensorPin0.isNull()
-                                      ? -1
-                                      : doc["AnalogSensorPin0"];
-        const JsonVariant analogSensorPin1 = doc["AnalogSensorPin1"];
-        parsed.AnalogSensorPin1 = analogSensorPin1.isNull()
-                                      ? -1
-                                      : doc["AnalogSensorPin1"];
-        parsed.WindSensorPin = doc["WindSensorPin"] | -1;
-        parsed.RainfallSensorPin = doc["RainfallSensorPin"] | -1;
-        parsed.LEDPin = doc["LEDPin"] | -1;
+        parsed.DhtPin = pickInt(root, "DhtPin", parsed.DhtPin, mode, error);
+        parsed.SerialRX = pickInt(root, "SerialRX", parsed.SerialRX, mode, error);
+        parsed.SerialTX = pickInt(root, "SerialTX", parsed.SerialTX, mode, error);
+        parsed.AnalogSensorPin0 = pickInt(root, "AnalogSensorPin0", parsed.AnalogSensorPin0, mode, error);
+        parsed.AnalogSensorPin1 = pickInt(root, "AnalogSensorPin1", parsed.AnalogSensorPin1, mode, error);
+        parsed.WindSensorPin = pickInt(root, "WindSensorPin", parsed.WindSensorPin, mode, error);
+        parsed.RainfallSensorPin = pickInt(root, "RainfallSensorPin", parsed.RainfallSensorPin, mode, error);
+        parsed.LEDPin = pickInt(root, "LEDPin", parsed.LEDPin, mode, error);
+        parsed.OneWirePin = pickInt(root, "OneWirePin", parsed.OneWirePin, mode, error);
+        parsed.Button1 = pickInt(root, "Button1", parsed.Button1, mode, error);
+        parsed.Button2 = pickInt(root, "Button2", parsed.Button2, mode, error);
+        parsed.Button2GetURL = pickString(root, "Button2GetURL", parsed.Button2GetURL, mode, error);
+        parsed.NumberOfLEDs = pickInt(root, "NumberOfLEDs", parsed.NumberOfLEDs, mode, error);
+        parsed.FindSensors = pickBool(root, "FindSensors", parsed.FindSensors, mode, error);
+        parsed.IsOfflineMode = pickBool(root, "IsOfflineMode", parsed.IsOfflineMode, mode, error);
+        parsed.ShowWebpage = pickBool(root, "ShowWebpage", parsed.ShowWebpage, mode, error);
+        parsed.UseMQTT = pickBool(root, "UseMQTT", parsed.UseMQTT, mode, error);
+        parsed.MQTTTopic = pickString(root, "MQTTTopic", parsed.MQTTTopic, mode, error);
+        parsed.MQTTPort = pickInt(root, "MQTTPort", parsed.MQTTPort, mode, error);
+        parsed.DeepSleepTime = pickInt(root, "DeepSleepTime", parsed.DeepSleepTime, mode, error);
+        parsed.BufferedValues = pickInt(root, "BufferedValues", parsed.BufferedValues, mode, error);
+        parsed.MeasureInterval = pickInt(root, "MeasureInterval", parsed.MeasureInterval, mode, error);
 
-        const JsonVariant oneWire = doc["OneWirePin"];
-        if (oneWire.isNull())
-        {
-            Serial.println("One wire does not exist (yet?)");
-            parsed.OneWirePin = -1;
-            parsed.DeepSleepTime = -1;
-            parsed.BufferedValues = 3;
-            parsed.MeasureInterval = 30;
-        }
-        else
-        {
-            parsed.OneWirePin = doc["OneWirePin"] | -1;
-            parsed.DeepSleepTime = doc["DeepSleepTime"] | -1;
-            parsed.BufferedValues = doc["BufferedValues"] | 3;
-            parsed.MeasureInterval = doc["MeasureInterval"] | 30;
-        }
+        parsed.LightLow = pickLight(root, "LightLow", parsed.LightLow, mode, error);
+        parsed.LightMedium = pickLight(root, "LightMedium", parsed.LightMedium, mode, error);
+        parsed.LightHigh = pickLight(root, "LightHigh", parsed.LightHigh, mode, error);
 
-        const JsonVariant button1 = doc["Button1"];
-        if (button1.isNull())
-        {
-            Serial.println("Button configs do not exist (yet?)");
-            parsed.Button1 = -1;
-            parsed.Button2 = -1;
-        }
-        else
-        {
-            parsed.Button1 = doc["Button1"] | -1;
-            parsed.Button2 = doc["Button2"] | -1;
-        }
-
-        const JsonVariant button2GetURL = doc["Button2GetURL"];
-        if (button2GetURL.isNull())
-        {
-            parsed.Button2GetURL = "http://192.168.1.125/relay/0?turn=toggle";
-            Serial.println("Button 2 get URL set to " + parsed.Button2GetURL);
-        }
-        else
-        {
-            parsed.Button2GetURL = doc["Button2GetURL"].as<String>();
-        }
-
-        parsed.NumberOfLEDs = doc["NumberOfLEDs"] | -1;
-        parsed.FindSensors = doc["FindSensors"] | false;
-        parsed.IsOfflineMode = doc["IsOfflineMode"] | true;
-        parsed.ShowWebpage = doc["ShowWebpage"] | true;
-
-        const JsonVariant useMQTT = doc["UseMQTT"];
-        if (useMQTT.isNull())
-        {
-            Serial.println("UseMQTT did not exist");
-            parsed.UseMQTT = false;
-            parsed.MQTTPort = 1883;
-            parsed.MQTTTopic = "/myplace/myroom/";
-        }
-        else
-        {
-            parsed.UseMQTT = doc["UseMQTT"];
-            parsed.MQTTPort = doc["MQTTPort"] | 1883;
-            parsed.MQTTTopic = doc["MQTTTopic"].as<String>();
-        }
-
-        const JsonVariant sunriseSettings = doc["SunriseSettings"];
+        const JsonVariantConst sunriseSettings = root["SunriseSettings"];
         String sunriseError;
         if (!sunriseSettings.isNull())
         {
             parsed.AlarmSettings = deserializeSunrise(
                 sunriseSettings, existingConfig.AlarmSettings, mode, &sunriseError);
-        }
-        else
-        {
-            Serial.println("Warning: Alarm clock does not exist, using defaults");
-            parsed.AlarmSettings = SunriseSettings();
-        }
-
-        const JsonVariant lightLow = doc["LightLow"];
-        if (lightLow.isNull())
-        {
-            Serial.println("Light settings do not exist (yet?)");
-            parsed.LightLow = Light(32, 4, 0);
-            parsed.LightMedium = Light(64, 32, 4);
-            parsed.LightHigh = Light(128, 64, 24);
-        }
-        else
-        {
-            parsed.LightLow.Red = lightLow["Red"] | 32;
-            parsed.LightLow.Green = lightLow["Green"] | 4;
-            parsed.LightLow.Blue = lightLow["Blue"] | 0;
-
-            const JsonVariant lightMedium = doc["LightMedium"];
-            parsed.LightMedium.Red = lightMedium["Red"] | 64;
-            parsed.LightMedium.Green = lightMedium["Green"] | 32;
-            parsed.LightMedium.Blue = lightMedium["Blue"] | 4;
-
-            const JsonVariant lightHigh = doc["LightHigh"];
-            parsed.LightHigh.Red = lightHigh["Red"] | 128;
-            parsed.LightHigh.Green = lightHigh["Green"] | 64;
-            parsed.LightHigh.Blue = lightHigh["Blue"] | 24;
         }
 
         // In strict mode a bad alarm time refuses the document, so the client
@@ -400,10 +450,19 @@ namespace configuration
         if (mode == ParseMode::Strict && !sunriseError.isEmpty())
         {
             Serial.printf("Rejecting config: %s\n", sunriseError.c_str());
-            if (error != nullptr)
+            if (error != nullptr && error->isEmpty())
             {
                 *error = sunriseError;
             }
+            return result;
+        }
+
+        // A wrong-typed field recorded by the pick helpers refuses the document
+        // in strict mode too, for the same reason: the client should be told
+        // rather than have a silently coerced value stored.
+        if (mode == ParseMode::Strict && error != nullptr && !error->isEmpty())
+        {
+            Serial.printf("Rejecting config: %s\n", error->c_str());
             return result;
         }
 
@@ -417,27 +476,29 @@ namespace configuration
                                        ParseMode mode,
                                        String *error)
     {
-        SunriseSettings result;
-        result.SunriseLightTime = doc["SunriseLightTime"];
-        result.IsActivated = doc["IsActivated"];
-        if (result.IsActivated)
-        {
-            Serial.print("\n Sunrise is activated ");
-        }
+        SunriseSettings result = existing;
+        result.SunriseLightTime = pickDouble(doc, "SunriseLightTime", result.SunriseLightTime, mode, error);
+        result.IsActivated = pickBool(doc, "IsActivated", result.IsActivated, mode, error);
 
         for (int weekdayNumber = Monday; weekdayNumber <= Sunday; ++weekdayNumber)
         {
             const weekday_t weekday = static_cast<weekday_t>(weekdayNumber);
             const JsonVariantConst day = doc[weekdayName(weekday)];
+            if (day.isNull())
+            {
+                // Absent day keeps its stored schedule, so arming the alarm
+                // does not need the client to resend all seven days.
+                continue;
+            }
+            if (!day.is<JsonObjectConst>())
+            {
+                refuse(mode, error, String(weekdayName(weekday)) + ": expected an object");
+                continue;
+            }
             const auto storedDay = existing.DaySettings.find(weekday);
             const AlarmWeekday previous = storedDay == existing.DaySettings.end()
                                               ? AlarmWeekday()
                                               : storedDay->second;
-            if (!day.is<JsonObjectConst>())
-            {
-                result.DaySettings[weekday] = AlarmWeekday();
-                continue;
-            }
             String dayError;
             result.DaySettings[weekday] =
                 deserializeDaySetting(day, previous, mode, &dayError);
@@ -445,6 +506,14 @@ namespace configuration
             {
                 *error = String(weekdayName(weekday)) + ": " + dayError;
             }
+        }
+
+        // sunrise_alarm.cpp indexes this map with .at(), so every weekday must
+        // be present even if `existing` arrived from somewhere that skipped
+        // one. emplace leaves days that are already there alone.
+        for (int weekdayNumber = Monday; weekdayNumber <= Sunday; ++weekdayNumber)
+        {
+            result.DaySettings.emplace(static_cast<weekday_t>(weekdayNumber), AlarmWeekday());
         }
         return result;
     }
@@ -454,13 +523,17 @@ namespace configuration
                                        ParseMode mode,
                                        String *error)
     {
-        AlarmWeekday daySetting;
-        daySetting.IsActive = doc["IsActive"];
-        // Start from the value already stored, so a field we end up refusing to
-        // parse leaves the alarm where the user last set it.
-        daySetting.AlarmTime = existing.AlarmTime;
+        AlarmWeekday daySetting = existing;
+        daySetting.IsActive = pickBool(doc, "IsActive", daySetting.IsActive, mode, error);
 
-        const String alarmTime = doc["AlarmTime"].as<String>();
+        const JsonVariantConst alarmTimeValue = doc["AlarmTime"];
+        if (alarmTimeValue.isNull())
+        {
+            // Toggling a day on or off does not require resending its time.
+            return daySetting;
+        }
+
+        const String alarmTime = alarmTimeValue.as<String>();
         Time parsedTime;
         if (parseTimeOfDay(alarmTime.c_str(), parsedTime))
         {

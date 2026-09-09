@@ -21,6 +21,7 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
         level = light_level::off;
         leds->m_Factor = 1.0;
         leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
+        leds->m_Owner = LedStrip::LEDOwner::button;
         leds->applyModeAndColor();
         return;
     }
@@ -33,6 +34,7 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
         level = light_level::low;
         leds->m_Factor = 1.0;
         leds->setColor(configman::getConfig().LightLow.Red, configman::getConfig().LightLow.Green, configman::getConfig().LightLow.Blue);
+        leds->m_Owner = LedStrip::LEDOwner::button;
         leds->applyModeAndColor();
     }
     else if (timing::deadlineReached(millis(), buttonResetTime))
@@ -42,6 +44,7 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
         level = light_level::off;
         leds->m_Factor = 1.0;
         leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
+        leds->m_Owner = LedStrip::LEDOwner::button;
         leds->applyModeAndColor();
     }
     else
@@ -53,7 +56,8 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
             level = light_level::medium;
             leds->m_Factor = 1.0;
             leds->setColor(configman::getConfig().LightMedium.Red, configman::getConfig().LightMedium.Green, configman::getConfig().LightMedium.Blue);
-            leds->applyModeAndColor();
+            leds->m_Owner = LedStrip::LEDOwner::button;
+        leds->applyModeAndColor();
         }
         else if (level == light_level::medium)
         {
@@ -62,7 +66,8 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
             level = light_level::high;
             leds->m_Factor = 1.0;
             leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
-            leds->applyModeAndColor();
+            leds->m_Owner = LedStrip::LEDOwner::button;
+        leds->applyModeAndColor();
         }
         else
         {
@@ -71,7 +76,8 @@ void handleButton1(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
             level = light_level::off;
             leds->m_Factor = 1.0;
             leds->setColor(configman::getConfig().LightHigh.Red, configman::getConfig().LightHigh.Green, configman::getConfig().LightHigh.Blue);
-            leds->applyModeAndColor();
+            leds->m_Owner = LedStrip::LEDOwner::button;
+        leds->applyModeAndColor();
         }
     }
     mqtt_events::sendStateTopic(leds->getColor(), leds->m_LEDMode == LedStrip::LEDModes::on, leds->m_Factor);
