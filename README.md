@@ -84,7 +84,7 @@ Point PlatformIO at the device instead of a serial port:
 [env:my_device_ota]
 ; ... same platform/board/build_flags as your USB env ...
 upload_protocol = espota
-upload_port = 192.168.1.50        ; or <SensorID>.local
+upload_port = sensor-name.local   ; or the device's IP address
 upload_flags =
 	--auth=<your ApiToken>
 ```

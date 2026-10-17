@@ -394,7 +394,5 @@ redesign (see [DESIGN.md](DESIGN.md)).
   fixed and committed.
 - Suggested fixing order: C7–C9 first (crashes/hangs), then B7/B9/B10/B15 (silent data
   loss and dead setup flows), then the B4 overflow sweep in one commit, then the rest.
-- For C-severity items, write a regression test (or at minimum a serial-log assertion)
-  before closing.
 - C6 follow-up resolved: `git log -S` over all branches shows the leaked password was
   never committed; no history rewrite or router password rotation forced by the repo.

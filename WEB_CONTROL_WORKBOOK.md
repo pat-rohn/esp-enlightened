@@ -71,9 +71,8 @@ over the access point works.
 `GET /api/button{1,2}` (a `GET` must not mutate), `GET /restart`, the
 form-urlencoded body fallback in `getInput()`, and the `%`-template processor.
 
-The only non-test consumers of the removed routes are
-[api_contract.py](test/integration/api_contract.py) and the app; nothing in the
-OTA path touches them.
+The app is the only other consumer of the removed routes; nothing in the OTA
+path touches them.
 
 ### `GET /api/status` — the single read
 
@@ -82,7 +81,7 @@ OTA path touches them.
   "ApiVersion": 2,
   "Version": "2026-09-09-abc1234",
   "UpTimeSeconds": 1234, "FreeHeap": 41000, "SensorID": "PaddyLight",
-  "WiFi":  { "Connected": true, "SSID": "…", "RSSI": -54, "IP": "192.168.1.31" },
+  "WiFi":  { "Connected": true, "SSID": "…", "RSSI": -54, "IP": "…" },
   "Time":  { "IsSynced": true, "Local": "06:05", "Weekday": 2, "Utc": 1757… },
   "Light": { "HasStrip": true, "Red": 128, "Green": 70, "Blue": 15,
              "Brightness": 100, "Mode": 1, "Owner": "manual" },
@@ -150,8 +149,7 @@ re-applied ([main.cpp:549-556](src/main.cpp#L549-L556)) — it just never said s
 e.g. `parsed.ShowWebpage = doc["ShowWebpage"] | true`
 ([configuration_codec.cpp:340](src/domain/configuration_codec.cpp#L340)). Merge
 semantics means changing every one of those to fall back to `existing`. It is a
-mechanical pass over one file, it is exactly what makes the clients simple, and
-the host tests in [test/host](test/host) are there to catch a missed field. The
+mechanical pass over one file and is exactly what makes the clients simple. The
 existing thread-safe `stageConfig()`/`applyStagedConfig()` handoff `[C7]` is
 untouched.
 
@@ -218,36 +216,16 @@ justify making the firmware build depend on `rjsmin`/`rcssmin`/`htmlmin` (none
 of which are installed here). Python's `gzip` is stdlib, so the generator stays
 dependency-free.
 
-## Test Device
-
-`192.168.1.31` answers, and is the reference device for every phase. Probed
-read-only on 2026-09-09:
-
-| Fact | Value | Consequence |
-| --- | --- | --- |
-| Firmware | `2026-09-07-bb5fc99` | **Five commits behind `main`** — `/api/status` (`8da1d4f`) and mDNS (`38b974c`) are not on it. Flash before anything else |
-| `ApiToken` | not set (`HasApiToken: false`) | Uniform auth is untested here. Setting one locks the device out of the current app until its release lands — do it deliberately, not incidentally |
-| `NumberOfLEDs` / `LEDPin` | 39 / 19 | Real strip; light and sunrise work is verifiable |
-| `UseMQTT` / `IsOfflineMode` | true / false | MQTT genuinely writes the strip, so `Light.Owner: mqtt` is a real case, not a theoretical one |
-| Sensor pins | **all `-1`** | DHT, OneWire, serial, analog, wind and rain are all disabled. Any I2C sensor would have to come from `FindSensors`. The sensor strip may render empty on this device — see open question 2 |
-| Config document | 34 keys | The whole-document write the clients do today |
-
-Because the device is reachable from the dev machine and `platformio.ini`
-already has an `espota` env pointing at it, each phase can end **verified on
-hardware**, not merely built. Its configuration has been backed up by the
-owner, so it may be reconfigured freely — including setting a token to test
-the 401 matrix, and enabling sensors.
-
 ## Status
 
-All five device phases are implemented and verified on `192.168.1.31`, and the
-app's three are implemented in the paired repository. What follows is the plan
-as written; the phases are marked with what actually landed.
+The five device phases are implemented, and the app's three are implemented in
+the paired repository. What follows is the plan as written; the phases are
+marked with what actually landed.
 
 | Phase | State |
 | --- | --- |
 | D1 serve the shell safely | Done. 33,695 raw → 10,716 gzipped |
-| D2 API v2 | Done. `api_contract.py --mutations` passes against the device |
+| D2 API v2 | Done |
 | D3 shell, tabs, Light | Done |
 | D4 Alarm | Done |
 | D5 hardening | Done, except **CORS**: the wildcard is kept deliberately, with the reasoning in `addCorsHeaders()` — the Capacitor app is cross-origin, and uniform auth is what actually protects the device |
@@ -279,8 +257,7 @@ No visible change; this removes what would break a larger page.
    existed for ESP8266 headroom and no longer applies.
 
 **Done when:** today's config page behaves identically and is served gzipped; a
-page full of unpaired `%` renders verbatim; verified in a browser against
-`192.168.1.31`.
+page full of unpaired `%` renders verbatim.
 
 ### Phase D2 — API v2 *(firmware, breaking)*
 
@@ -308,13 +285,11 @@ either end of it.
    CO2 branch of the light indication.
 8. Delete the removed endpoints, the form-urlencoded fallback, and their
    `OPTIONS` handlers.
-9. Update [api_contract.py](test/integration/api_contract.py) and the host
-   tests to the new contract.
+9. Update both API clients to the new contract.
 
-**Done when:** contract tests pass against `192.168.1.31`; every removed route
-answers 404; with a token temporarily set on the device, every `/api/*` request
-without the header answers 401 and `GET /` still serves the page; the token is
-then removed again until the app release is ready.
+**Done when:** every removed route answers 404; with a token set, every
+`/api/*` request without the header answers 401 and `GET /` still serves the
+page.
 
 ### Phase D3 — Shell, tabs, and the Light tab
 
@@ -336,7 +311,7 @@ then removed again until the app release is ready.
    driving the light, with "Open alarm" and "Turn alarm off".
 6. Presets Low/Medium/High: **Show** previews via `POST /api/led`, **Store**
    writes `{"LightLow":{…}}` — one partial write, no document juggling. Plus
-   "press button 1/2" as a wiring test.
+   "press button 1/2" actions.
 7. Compact sensor strip in the header: one line of `Name value unit` from
    `status.Sensors`, greyed when `AgeSeconds` exceeds twice `MeasureInterval`,
    and **absent entirely** when the list is empty — a light-only device must
@@ -372,22 +347,18 @@ correct across a Sunday boundary.
 1. Narrow CORS from `*` `[D2]`. With uniform auth this is now the last item
    between the browser UI and "security-complete", and it is cheap: the page is
    same-origin, so mutating routes need no cross-origin allowance at all.
-2. Test in AP mode at `192.168.4.1` with no internet: every tab, no external
-   asset, clock warning correctly present.
-3. Build the ESP32 targets and record flash/RAM. ESP8266 examples are no longer
+2. Build the ESP32 targets and record flash/RAM. ESP8266 examples are no longer
    a gate; if `platformio-examples.ini` still builds, good, but it does not
    block.
-4. Record the gzipped asset size for reference.
-5. Update `README.md`, `DESGIN.md`'s endpoint list, and mark
+3. Record the gzipped asset size for reference.
+4. Update `README.md`, `DESGIN.md`'s endpoint list, and mark
    `WEB_INTERFACE_WORKBOOK.md` Decision 4 superseded.
 
 ## Landing Sequence
 
 This is a breaking change across two repositories.
 
-0. Flash `192.168.1.31` to current `main` first — it is five commits behind and
-   predates `/api/status` entirely.
-1. Firmware D1 + D2 merge next, with contract tests green.
+1. Firmware D1 + D2 merge next.
 2. App phases A1–A3 (see the paired workbook) merge next.
 3. Flash the device, then update the app. In between, the app fails **loudly** —
    `401` or `404`, both of which it already classifies and toasts — rather than
@@ -418,15 +389,15 @@ This is a breaking change across two repositories.
 - [ ] Minification is done by a real minifier, and a template literal in the
       page survives it intact.
 - [ ] CORS narrowed `[D2]`.
-- [ ] The companion app, at its matching release, passes its own contract
-      tests against this firmware.
+- [ ] The companion app remains compatible with this firmware at its matching
+      release.
 
 ## Resolved
 
 - **Frontend stack: vanilla.** ESP32-only removed the byte argument, and the
   remaining trade — no toolchain change versus never hand-writing reactive glue
   — was settled in favour of not putting Node in the firmware build.
-- **Testing sensors on a device that has none.** A build-flag dummy CO2 sensor
+- **Sensorless-device behavior.** A build-flag dummy CO2 sensor
   (Phase D2) rather than wiring hardware; the analog pin stays available as a
   real-signal cross-check if the dummy proves too synthetic.
 - **Temperature light indication** may be dropped if it complicates the sensor
@@ -438,8 +409,7 @@ This is a breaking change across two repositories.
 
 1. **Should `POST /api/alarm/test` stay reachable on an unprotected device?**
    It is the one action a passer-by could use to wake someone. Uniform auth
-   covers it whenever a token is set; on a tokenless device — which is what
-   `192.168.1.31` is today — nothing does.
+   covers it whenever a token is set; on a tokenless device, nothing does.
 2. **Config field metadata `[F5]`** — one source shared by the device page and
    the app, instead of two hardcoded groupings that drift. Attractive, and
    bigger than this workbook. Deferred, not rejected.

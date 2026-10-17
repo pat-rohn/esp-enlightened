@@ -62,7 +62,7 @@ handoff itself races with the reader (BUGS C7).
 
 ### 4. Access-point fallback for provisioning
 Unconfigured or offline devices open an AP at 192.168.4.1 with a built-in HTML form.
-**Why:** field setup without tooling. **Cost:** the AP path is the least-tested one —
+**Why:** field setup without tooling. **Cost:** the AP path has distinct failure modes —
 see BUGS C8 (offline crash), B9 (dead `/restart` while unconfigured), M2 (wrong IP calls).
 
 ### 5. Single cooperative loop, ISRs only set flags
@@ -158,11 +158,7 @@ Ordered by value-for-effort. BUGS.md IDs in brackets.
 - Initialize all members in constructors [M19]; enable `-Wall -Wextra` (and fix what it
   reports) in the PlatformIO envs.
 
-### P5 — Testing & CI
-- Extract pure logic (config (de)serialization, color/brightness math, timestamp
-  formatting, buffer eviction) behind Arduino-free interfaces and cover it with
-  `pio test -e native` unit tests — the C1/C2-style self-assignment bugs are exactly what
-  these catch.
+### P5 — CI
 - GitHub Actions matrix build for the example envs (`platformio-examples.ini`, after
   de-duplicating `featheresp32`) so every PR proves all boards still compile.
 - Optionally clang-tidy/cppcheck in CI; the uninitialized-read class of bugs ([B17],

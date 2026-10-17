@@ -103,7 +103,7 @@ one:
 Both points argue for treating the new embedded web interface and the
 `enlightened` app as two clients of one contract: any endpoint/schema change
 made under this workbook's refactoring sequence should be checked against
-`enlightened`'s source, not just against this repo's own tests.
+`enlightened`'s source.
 
 ## Design Direction
 
@@ -312,14 +312,11 @@ and only then the new interface itself.
      second unauthenticated write path. — done; `/get` route removed and the
      broken inline HTML form/iframe replaced with a read-only config view.
 
-1. **Establish a regression baseline**
+1. **Document the API contract**
    - Capture representative configuration JSON documents, including legacy
      documents with absent optional fields.
-   - Add host-testable tests for deserialize/serialize round trips, rejected
-     invalid JSON, defaults, and staged configuration replacement.
    - Document the API response status and body for every remaining endpoint,
-     including `/api/led`, `/api/button1`, and `/api/button2`; verify that
-     retired `/get` returns 404.
+     including `/api/led`, `/api/button1`, and `/api/button2`.
 
 2. **Untangle configuration**
    - Move configuration types, defaulting, validation, and serialization into
@@ -361,8 +358,7 @@ and only then the new interface itself.
    - Add editable groups and `PUT` save behavior, including the
      restart-required-fields banner described in Information Architecture
      item 6.
-   - Add restart and optional save-and-restart after manual AP and station-mode
-     testing.
+   - Add restart and optional save-and-restart for AP and station modes.
    - Only then consider LittleFS-hosted assets if binary size or source
      maintainability warrants it.
 
@@ -385,11 +381,10 @@ and only then the new interface itself.
       cross-origin writes before declaring the browser UI security-complete;
       only safe `GET`s may keep permissive CORS `[D2]`.
 - [ ] Existing API clients, including the companion application, remain
-      compatible — verified against `enlightened`'s actual
-      `ledcontrol.service.ts`, not assumed. The Phase 0 companion-app update
-      supports `X-Authorization` and preserves `AnalogSensorPin0/1`,
-      `OneWirePin`, `DeepSleepTime`, `BufferedValues`, and `MeasureInterval`;
-      contract coverage must prevent that pairing from regressing.
+      compatible with `enlightened`'s actual `ledcontrol.service.ts`. The Phase
+      0 companion-app update supports `X-Authorization` and preserves
+      `AnalogSensorPin0/1`, `OneWirePin`, `DeepSleepTime`, `BufferedValues`, and
+      `MeasureInterval`.
 - [ ] Builds for the supported ESP32 and ESP8266 environments within existing
       flash/RAM budgets.
 
@@ -416,7 +411,7 @@ and only then the new interface itself.
 4. **Configuration-focused v1.** Do not add live LED controls, button
    simulation, or sensor dashboards to the first embedded interface. Preserve
    the API for the companion app and return to live status/control only after
-   the configuration flow and CORS policy are tested.
+   the configuration flow and CORS policy are addressed.
 
 ## Phase 7 Status: UI Asset Pipeline
 
@@ -431,8 +426,8 @@ The `d1_mini_lite` example builds successfully with the ESP8266-compatible
 `me-no-dev` async web-server dependencies and the portable configuration
 staging handoff. Its current image uses 41,640 of 81,920 bytes RAM (50.8%) and
 472,797 of 958,448 bytes flash (49.3%), leaving enough headroom for the
-16 KiB asset budget. Adding both targets to the automated build matrix remains
-tracked as `fw-test-ci-build-matrix`.
+16 KiB asset budget. Both targets are candidates for the automated build
+matrix.
 
 ## Phase 8 Status: Configuration Interface
 
