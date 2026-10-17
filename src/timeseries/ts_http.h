@@ -20,10 +20,6 @@ namespace ts_http
 
         void newValue(const String &name, const double &value) override;
         bool sendData() override;
-        bool initDevice(const DeviceDesc &device) override;
-
-    private:
-        bool postData(const String &root, const String &url);
 
     };
 

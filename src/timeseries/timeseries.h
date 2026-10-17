@@ -76,10 +76,12 @@ namespace timeseries
     public:
         virtual void newValue(const String &name, const double &value) = 0;
         virtual bool sendData() { return true; };
-        virtual bool initDevice(const DeviceDesc &) { return true; };
+        // Registers the device over HTTP; MQTT devices use it too, as the server has no MQTT registration.
+        virtual bool initDevice(const DeviceDesc &device);
 
     protected:
         String convertValue(double value);
+        bool postData(const String &root, const String &url);
 
     protected:
         String m_ServerAddress;
@@ -87,6 +89,8 @@ namespace timeseries
         CTimeHelper *m_TimeHelper;
     };
 
+    // Host part of a server address, without scheme, port or path.
+    const String brokerHost(const String &serverAddress);
     const String splitAddress(const String & serverAddressWithPort, int index);
 }
 

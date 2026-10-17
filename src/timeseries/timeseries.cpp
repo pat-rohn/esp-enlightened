@@ -26,6 +26,48 @@ namespace timeseries
     };
     
 
+    bool CTimeseries::initDevice(const DeviceDesc &device)
+    {
+        JsonDocument doc;
+        JsonObject devObj = doc["Device"].to<JsonObject>();
+        devObj["Name"] = device.Name;
+        devObj["Description"] = device.Description;
+        JsonArray sensors = devObj["Sensors"].to<JsonArray>();
+        for (const auto &s : device.Sensors)
+        {
+            sensors.add(s);
+        }
+        Serial.print("initDevice: ");
+        Serial.println(doc.as<String>());
+        return postData(doc.as<String>(), "/init-device");
+    }
+
+    bool CTimeseries::postData(const String &root, const String &url)
+    {
+        WiFiClient client = WiFiClient();
+        HTTPClient http;
+        String serverPath = m_ServerAddress + url;
+        Serial.println(serverPath);
+
+        http.begin(client, serverPath.c_str());
+        Serial.println("Post data");
+        int httpResponseCode = http.POST(root.c_str());
+
+        if (httpResponseCode >= 200 && httpResponseCode < 300)
+        {
+            Serial.print("HTTP Response code: ");
+            Serial.println(httpResponseCode);
+            String payload = http.getString();
+            Serial.println(payload);
+            http.end();
+            return true;
+        }
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+        http.end();
+        return false;
+    }
+
     String CTimeseries::convertValue(double value)
     {
         String timeseriesValue = "";
@@ -42,6 +84,23 @@ namespace timeseries
             timeseriesValue += String(value, 4);
         }
         return timeseriesValue;
+    }
+
+    const String brokerHost(const String &serverAddress)
+    {
+        int start = serverAddress.indexOf("://");
+        start = start >= 0 ? start + 3 : 0;
+        int end = serverAddress.length();
+        for (int i = start; i < end; i++)
+        {
+            char c = serverAddress.charAt(i);
+            if (c == ':' || c == '/')
+            {
+                end = i;
+                break;
+            }
+        }
+        return serverAddress.substring(start, end);
     }
 
     const String splitAddress(const String & serverAddressWithPort, int index)

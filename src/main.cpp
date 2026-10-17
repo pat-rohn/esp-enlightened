@@ -246,7 +246,7 @@ void connectToMqtt()
     }
     if (!mqttClient->connected())
     {
-      String broker = timeseries::splitAddress(configman::getConfig().ServerAddress, 0);
+      String broker = timeseries::brokerHost(configman::getConfig().ServerAddress);
 
       Serial.printf("MQTT: Try connecting to %s:%d\n", broker.c_str(), configman::getConfig().MQTTPort);
       if (!mqttClient->connect(broker.c_str(), configman::getConfig().MQTTPort))
