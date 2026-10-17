@@ -92,6 +92,7 @@ void handleButton2()
 
 void handleButtons(sunrise::CSunriseAlarm *sunrise, LedStrip *leds)
 {
+    button_inputs::update();
     if (button_inputs::button1.pressed)
     {
         handleButton1(sunrise, leds);
