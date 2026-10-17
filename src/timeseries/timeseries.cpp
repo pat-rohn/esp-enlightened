@@ -20,8 +20,9 @@ namespace timeseries
         Serial.printf("Timeseries Server: %s\n", timeseriesAddress.c_str());
         m_TimeHelper = timehelper;
 
-        String serverPath = "http://" + timeseriesAddress;
-        m_ServerAddress = serverPath;
+        // ServerAddress may already carry its scheme; only a bare host:port gets http://.
+        m_ServerAddress = timeseriesAddress.indexOf("://") >= 0 ? timeseriesAddress
+                                                                : "http://" + timeseriesAddress;
     };
     
 
