@@ -3,45 +3,54 @@
 
 namespace button_inputs
 {
-    volatile unsigned long buttonTime1 = millis();
-    volatile unsigned long buttonTime2 = millis();
-    Button button1 = {-1, false};
-    Button button2 = {-1, false};
+    Button button1 = {-1, false, 0, false, true};
+    Button button2 = {-1, false, 0, false, true};
 
-    IRAM_ATTR void button1Pressed()
+    // Polled instead of edge-interrupt driven: a press is only accepted when the
+    // pin reads LOW on every sample for stableTime. Any HIGH sample restarts the
+    // timer, so short EMI spikes are ignored.
+    static void poll(Button &b, unsigned long now)
     {
-        if (button1.pressed || !timing::deadlineReached(millis(), buttonTime1 + debounceTime))
+        if (b.pin <= 0)
         {
             return;
         }
-        buttonTime1 = millis();
-        button1.pressed = true;
+        if (digitalRead(b.pin) != LOW)
+        {
+            b.lowActive = false;
+            b.armed = true;
+            return;
+        }
+        if (!b.lowActive)
+        {
+            b.lowActive = true;
+            b.lowSince = now;
+            return;
+        }
+        if (b.armed && !b.pressed && now - b.lowSince >= stableTime)
+        {
+            b.pressed = true;
+            b.armed = false; // must be released before the next press
+        }
     }
 
-    IRAM_ATTR void button2Pressed()
+    void update()
     {
-        if (button2.pressed || !timing::deadlineReached(millis(), buttonTime2 + debounceTime))
-        {
-            return;
-        }
-        buttonTime2 = millis();
-        button2.pressed = true;
+        unsigned long now = millis();
+        poll(button1, now);
+        poll(button2, now);
     }
 
     void start()
     {
         Serial.printf("Button 1: %d  -  Button 2: %d \n", button1.pin, button2.pin);
-        // Because of EMC pull down with low resistor might be more stable
-        // 10kOhm is often used. Had to go down to 220 Ohm without internal resistor :(
         if (button1.pin > 0)
         {
-            pinMode(button1.pin, INPUT); // INPUT_PULLDOWN
-            attachInterrupt(digitalPinToInterrupt(button1.pin), button1Pressed, FALLING);
+            pinMode(button1.pin, INPUT);
         }
         if (button2.pin > 0)
         {
-            pinMode(button2.pin, INPUT); // INPUT_PULLDOWN
-            attachInterrupt(digitalPinToInterrupt(button2.pin), button2Pressed, FALLING);
+            pinMode(button2.pin, INPUT);
         }
     }
 }
