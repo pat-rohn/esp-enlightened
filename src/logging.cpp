@@ -65,7 +65,9 @@ namespace logging
     {
         WiFiClient client = WiFiClient();
         HTTPClient http;
-        String serverPath = "http://" + m_ServerAddress + url;
+        // ServerAddress normally carries its scheme (http or https); only a bare host:port gets http://.
+        String serverPath = m_ServerAddress.indexOf("://") >= 0 ? m_ServerAddress + url
+                                                                 : "http://" + m_ServerAddress + url;
         Serial.printf("[LOG] Send message from %s to %s\n", m_DeviceID.c_str(), serverPath.c_str());
 
         http.begin(client, serverPath.c_str());
