@@ -25,9 +25,9 @@ namespace ts_mqtt
         CTimeHelper *timehelper,
         MqttClient *client,
         const String &deviceID) : CTimeseries(server, timehelper),
+                                  m_DeviceID(deviceID),
                                   m_Topic(topic),
-                                  m_Client(client),
-                                  m_DeviceID(deviceID)
+                                  m_Client(client)
     {
     }
 
