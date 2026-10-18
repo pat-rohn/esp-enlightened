@@ -17,6 +17,7 @@
 #include "timehelper.h"
 #include "ArduinoMqttClient.h"
 #include <map>
+#include <set>
 
 using namespace timeseries;
 
@@ -27,12 +28,19 @@ namespace ts_mqtt
 
     public:
         CTimeseriesMQTT(const String &topic, const String &server,
-                        CTimeHelper *timehelper, MqttClient *client);
+                        CTimeHelper *timehelper, MqttClient *client,
+                        const String &deviceID = "");
         virtual ~CTimeseriesMQTT(){};
 
         void newValue(const String &name, const double &value);
+        bool reportHealth(const DeviceHealth &health) override;
 
     private:
+        bool publishDiscovery(const DeviceHealth &health);
+        void publishMeasurementDiscovery(const String &metric);
+        String m_DeviceID;
+        bool m_DiagnosticsDiscovered = false;
+        std::set<String> m_DiscoveredMetrics;
         String m_Topic;
         MqttClient *m_Client;
     };

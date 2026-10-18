@@ -66,6 +66,18 @@ namespace timeseries
         }
     };
 
+    struct DeviceHealth
+    {
+        String Device;
+        String BootID;
+        String FirmwareVersion;
+        unsigned long UptimeSeconds;
+        unsigned long FreeHeapBytes;
+        int WiFiRSSI;
+        bool TimeSynced;
+        long SensorAgeSeconds;
+    };
+
     class CTimeseries
     {
 
@@ -76,6 +88,7 @@ namespace timeseries
     public:
         virtual void newValue(const String &name, const double &value) = 0;
         virtual bool sendData() { return true; };
+        virtual bool reportHealth(const DeviceHealth &health);
         // Registers the device over HTTP; MQTT devices use it too, as the server has no MQTT registration.
         virtual bool initDevice(const DeviceDesc &device);
 

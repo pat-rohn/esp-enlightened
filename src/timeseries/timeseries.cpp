@@ -42,6 +42,20 @@ namespace timeseries
         return postData(doc.as<String>(), "/init-device");
     }
 
+    bool CTimeseries::reportHealth(const DeviceHealth &health)
+    {
+        JsonDocument doc;
+        doc["device"] = health.Device;
+        doc["boot_id"] = health.BootID;
+        doc["firmware_version"] = health.FirmwareVersion;
+        doc["uptime_seconds"] = health.UptimeSeconds;
+        doc["free_heap_bytes"] = health.FreeHeapBytes;
+        doc["wifi_rssi"] = health.WiFiRSSI;
+        doc["time_synced"] = health.TimeSynced;
+        doc["sensor_age_seconds"] = health.SensorAgeSeconds;
+        return postData(doc.as<String>(), "/monitoring/health");
+    }
+
     bool CTimeseries::postData(const String &root, const String &url)
     {
         WiFiClient client = WiFiClient();

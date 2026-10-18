@@ -102,6 +102,30 @@ std::map<String, float> sensorOffsets;
 
 unsigned long lastUpdate = millis();
 int valueCounter = 0;
+String bootID;
+unsigned long lastHealthReport = 0;
+constexpr unsigned long healthReportIntervalMs = 60000;
+
+void reportDeviceHealth()
+{
+  if (timeSeries == nullptr || configman::getConfig().IsOfflineMode)
+  {
+    return;
+  }
+  timeseries::DeviceHealth health;
+  health.Device = configman::getConfig().SensorID;
+  health.BootID = bootID;
+  health.FirmwareVersion = getFirmwareVersion();
+  health.UptimeSeconds = millis() / 1000;
+  health.FreeHeapBytes = ESP.getFreeHeap();
+  health.WiFiRSSI = WiFi.RSSI();
+  health.TimeSynced = timeHelper->isTimeSet();
+  health.SensorAgeSeconds = sensor::getCachedValuesAgeSeconds();
+  if (!timeSeries->reportHealth(health))
+  {
+    Serial.println("Health report failed");
+  }
+}
 
 // Announce the device on the local network [F2].
 //
@@ -230,6 +254,17 @@ void startLedControl()
   }
 }
 
+void publishAvailability(const char *state)
+{
+  if (mqttClient == nullptr || !mqttClient->connected())
+  {
+    return;
+  }
+  mqttClient->beginMessage("iotedge/" + configman::getConfig().SensorID + "/availability", true);
+  mqttClient->print(state);
+  mqttClient->endMessage();
+}
+
 void connectToMqtt()
 {
   if (mqttClient == nullptr)
@@ -249,6 +284,11 @@ void connectToMqtt()
       String broker = timeseries::brokerHost(configman::getConfig().ServerAddress);
 
       Serial.printf("MQTT: Try connecting to %s:%d\n", broker.c_str(), configman::getConfig().MQTTPort);
+      // Last Will keeps Home Assistant's availability correct after power loss.
+      const String availabilityTopic = "iotedge/" + configman::getConfig().SensorID + "/availability";
+      mqttClient->beginWill(availabilityTopic, 7, true, 1);
+      mqttClient->print("offline");
+      mqttClient->endWill();
       if (!mqttClient->connect(broker.c_str(), configman::getConfig().MQTTPort))
       {
         Serial.print("MQTT connection failed! Error code = ");
@@ -257,6 +297,7 @@ void connectToMqtt()
       else
       {
         Serial.printf("MQTT: Connected to %s:%d\n", broker.c_str(), configman::getConfig().MQTTPort);
+        publishAvailability("online");
       }
     }
   }
@@ -281,7 +322,7 @@ void configureDevice()
     mqtt_events::setup(mqttClient.get(), configman::getConfig().MQTTTopic);
     if (configman::getConfig().UseMQTT)
     {
-      timeSeries = make_unique<ts_mqtt::CTimeseriesMQTT>(configman::getConfig().MQTTTopic, configman::getConfig().ServerAddress, timeHelper.get(), mqttClient.get());
+      timeSeries = make_unique<ts_mqtt::CTimeseriesMQTT>(configman::getConfig().MQTTTopic, configman::getConfig().ServerAddress, timeHelper.get(), mqttClient.get(), configman::getConfig().SensorID);
     }
     else
     {
@@ -390,6 +431,13 @@ void setup()
 {
   Serial.begin(115200);
   Serial.println("setup");
+  randomSeed(micros() ^ ESP.getFreeHeap());
+#ifdef ESP32
+  bootID = String(static_cast<uint32_t>(ESP.getEfuseMac()), HEX);
+#else
+  bootID = String(ESP.getChipId(), HEX);
+#endif
+  bootID += "-" + String(random(0x7fffffff), HEX);
   configman::begin();
 
   if (false)
@@ -487,6 +535,8 @@ void setup()
     if (timeSeries != nullptr)
     {
       timeSeries->initDevice(deviceDesc);
+      reportDeviceHealth();
+      lastHealthReport = millis();
     }
   }
 
@@ -567,6 +617,7 @@ void checkWebpageTriggers()
   if (runtimeCommands.restartTriggered.load())
   {
     Serial.println("----------------------------- RESTART -----------------------------\n\n");
+    publishAvailability("offline");
 
 #ifdef ESP32
     vTaskDelay(pdMS_TO_TICKS(50));
@@ -686,6 +737,12 @@ void loop()
     }
   }
 
+  if (millis() - lastHealthReport >= healthReportIntervalMs)
+  {
+    reportDeviceHealth();
+    lastHealthReport = millis();
+  }
+
   if (hasSensors)
   {
     if (measureAndSendSensorData())
@@ -703,6 +760,7 @@ void loop()
         }
         if (mqttClient != nullptr && mqttClient->connected())
         {
+          publishAvailability("offline");
           mqttClient->stop();
         }
         WiFi.disconnect(true, false);
